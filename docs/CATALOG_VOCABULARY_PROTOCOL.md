@@ -68,3 +68,26 @@ suites remain the precision and interaction gate.
 - Fresh source-matched HitRate@10 and TechnicalScore are non-negative.
 - No unexpected fallback and no material p95 or RSS regression.
 - `configs/selected.json` remains unchanged until the fresh result passes.
+
+## Frozen end-to-end result
+
+Confirmation opened once at source commit `afa2df7` against dataset SHA-256
+`74c17858370e6e7bb30d15d4d6cf28289d86d52d9a72a21466189f3112f972a3`.
+There were no startup or turn fallbacks.
+
+| Arm | HitRate@10 | MRR | MTTC | TechnicalScore | p95 |
+|---|---:|---:|---:|---:|---:|
+| Selected | 0.937500 | 0.591310 | 3.237500 | 0.801393 | 0.347s |
+| Catalog vocabulary | 0.950000 | 0.605045 | 3.050000 | 0.815514 | 0.381s |
+
+The candidate improved every aggregate quality metric and its 9.8% p95 increase
+was much smaller than the rejected all-pool scorer. Boundary and override
+HitRate were unchanged; browsing improved from `0.857143` to `0.928571`.
+However, buying HitRate fell from `0.967742` to `0.935484`—one lost session out
+of 31. The predeclared critical-slice rule does not permit that loss to be hidden
+by the aggregate gain.
+
+Phase 5 is therefore not promoted. The artifact and candidate config remain
+available for future evaluation on genuinely new evidence, but confirmation is
+consumed and cannot be used to tune aliases or thresholds. Final remains sealed
+and `configs/selected.json` is unchanged.

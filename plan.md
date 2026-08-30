@@ -371,6 +371,24 @@ Improve open-vocabulary private transfer without weakening deterministic state.
 - End-to-end fresh TechnicalScore and HitRate remain non-negative against the
   source-matched control.
 
+### Phase 5 execution status — 30 August 2026
+
+Phase 5 was implemented and measured, then left unselected. A catalog-hash-
+bound artifact provides 1,399 supported aliases plus a category-path-derived
+object/accessory/component taxonomy. Static explicit parsing owns overlaps;
+catalog proposals apply only to unresolved spans, stay soft/additive, retain
+version/method provenance, and cannot retire conflicting explicit facts. A
+48-family frozen word suite improved slot recall from `0.0` to `1.0` at `1.0`
+precision, with all deterministic safety tests clean.
+
+On fresh confirmation, aggregate HitRate improved from `0.937500` to `0.950000`
+and TechnicalScore from `0.801393` to `0.815514`, with no fallback. Browsing
+HitRate improved, and boundary/override were unchanged, but buying HitRate lost
+one of 31 sessions (`0.967742` to `0.935484`). The critical-slice gate rejects
+that trade despite the aggregate gain. Final remains sealed and
+`configs/selected.json` is unchanged. See
+[the vocabulary protocol](docs/CATALOG_VOCABULARY_PROTOCOL.md).
+
 ## Phase 6: Optional Compression After the Safe Wins
 
 Consider model compression only after caching, grouping, batching, admission, and
