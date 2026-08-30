@@ -539,7 +539,7 @@ class SessionState:
         removed = tuple(sorted(before - after))
         explicit_replacement = any(item.replacement or item.choice_replacement for item in assertions)
         if not informative:
-            return StateDelta("none")
+            return StateDelta("none", explicit_replacement=explicit_replacement)
 
         before_categories = {value for attribute, value, polarity in before
                              if attribute == "category" and polarity == 1}

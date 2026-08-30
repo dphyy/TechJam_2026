@@ -1168,6 +1168,33 @@ class AgentTest(unittest.TestCase):
         finally:
             agent.close()
 
+    def test_semantic_override_repeats_the_base_head_before_paging_again(self):
+        agent = Agent(self.paging_catalog(), Config(slate_paging_first_turn=2))
+        try:
+            ordered = [f"P{index:03d}" for index in range(30)]
+            self.assertEqual(agent._slate_page("override", ordered, 1, 10), 0)
+            self.assertEqual(agent._slate_page("override", ordered, 2, 10), 1)
+            self.assertEqual(agent._slate_page(
+                "override", ordered, 3, 10, update_kind="replacement",
+            ), 0)
+            self.assertEqual(agent._slate_page("override", ordered, 4, 10), 1)
+            self.assertEqual(agent._slate_page(
+                "override", ordered, 5, 10, update_kind="none", explicit_replacement=True,
+            ), 0)
+        finally:
+            agent.close()
+
+    def test_turn_two_paging_is_exercised_by_candidate_configuration(self):
+        config = Config.load(Path(__file__).resolve().parents[1] / "configs" / "campaign_s2c_early_paging.json")
+        agent = Agent(self.paging_catalog(), config)
+        try:
+            slates = self.slates(agent, 2)
+            self.assertEqual(len(set(slates[0]) & set(slates[1])), 0)
+            self.assertEqual(agent.last_diagnostics["slate_page"], 1)
+            self.assertFalse(agent.last_diagnostics["slate_selection"]["override_reset"])
+        finally:
+            agent.close()
+
     def test_advanced_page_selects_highest_ranked_unseen_after_tail_changes(self):
         agent = Agent(self.paging_catalog(), Config(slate_paging_first_turn=2))
         try:

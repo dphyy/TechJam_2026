@@ -285,7 +285,8 @@ class Agent:
             fallbacks.append("no_matches")
         return candidates, routes, weights
 
-    def _slate_page(self, session_id: str, ordered: list[str], turn: int, limit: int) -> int:
+    def _slate_page(self, session_id: str, ordered: list[str], turn: int, limit: int,
+                    update_kind: str = "refinement", explicit_replacement: bool = False) -> int:
         """Advance when base-slate membership is stable; otherwise return to top.
 
         Re-serving an identical slate cannot score, because the session would
@@ -298,7 +299,12 @@ class Agent:
         page = self._pages.get(session_id, 0)
         stable_head = bool(limit and previous is not None
                            and set(ordered[:limit]) == set(previous[:limit]))
-        if stable_head:
+        override = explicit_replacement or update_kind in {
+            "replacement", "polarity_change", "category_change",
+        }
+        if override:
+            page = 0
+        elif stable_head:
             if first_turn and turn >= first_turn:
                 page += 1
         else:
@@ -570,8 +576,16 @@ class Agent:
         state.record_question(decision.ask_attribute, decision.question_goal)
         limit = min(top_k, max(0, decision.slate_size))
         ordered = list(dict.fromkeys(item.product.parent_asin for item in candidates))
-        page = self._slate_page(session_id, ordered, turn, limit)
+        page = self._slate_page(
+            session_id, ordered, turn, limit, state.last_update_kind,
+            state.last_state_delta.explicit_replacement,
+        )
         ranked, slate_selection = self._select_slate(session_id, ordered, page, limit)
+        slate_selection["override_reset"] = bool(
+            state.last_state_delta.explicit_replacement or state.last_update_kind in {
+                "replacement", "polarity_change", "category_change",
+            }
+        )
         neural_scores = _neural_score_summary(candidates)
         if neural_scores["logit_margin"] is not None:
             self._last_neural_margin[session_id] = neural_scores["logit_margin"]
