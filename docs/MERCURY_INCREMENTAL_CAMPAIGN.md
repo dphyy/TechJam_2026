@@ -207,3 +207,30 @@ non-cached full-ranking change that reached paging also changed Top-10
 membership; cached rankings were fully equal. The stage is kept as the requested
 unit-tested paging correctness fix with no score, fallback, or resource
 regression. It is not credited with a measured campaign improvement.
+
+## Stage 2B: highest-ranked unseen paging — keep
+
+Branch `exp/02b-highest-ranked-unseen`, implementation commit `261c92b`, tracks
+products actually shown during the session. Page zero still serves the current
+Top 10, including legitimate overlap after a changed-head reset. An advanced
+page now serves the highest-ranked currently unseen products instead of a fixed
+offset; when none remain it holds the last non-empty page. The complete suite
+passed with 537 tests and Ruff passed.
+
+The screening candidate improved discovery while preserving resources:
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stage 2A control | 0.937500 | 0.575444 | 3.131250 | 0.798758 | 1,826,142 | 0.533357 s |
+| Stage 2B | 0.943750 | 0.574660 | 3.100000 | 0.802273 | 1,826,142 | 0.557221 s |
+
+All 94 advanced turns selected entirely unseen products and no exhaustion hold
+was needed. Fifty-five paired slates changed, producing five target gains and
+zero paired target losses; one prior miss became a turn-10 boundary hit. The
+buying and boundary scenario TechnicalScores improved, intent-override was
+unchanged, and browsing declined only `0.001753`, inside the predeclared
+`0.020` scenario guard. Overall TechnicalScore gained `0.003515`, HitRate gained
+`0.006250`, fallbacks remained zero, and runtime stayed comparable. Although the
+gain is below the score-feature promotion threshold, this stage is kept under
+the correctness rule because it guarantees novelty and improves aggregate
+discovery without a material regression.
