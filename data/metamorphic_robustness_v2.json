@@ -1,0 +1,115 @@
+{
+  "schema": "mercury-metamorphic-dialogues-v1",
+  "seed": "metamorphic-authored-20260830-v2",
+  "authoring": "Independent semantic intent cards authored without inspecting Mercury rankings.",
+  "cases": [
+    {
+      "id": "canonical_clause_order_and_punctuation",
+      "catalog": [
+        {"parent_asin": "A", "title": "Blue cotton travel shirt", "categories": ["Clothing", "Shirts"], "features": ["cotton", "travel"]},
+        {"parent_asin": "B", "title": "Black polyester formal shirt", "categories": ["Clothing", "Shirts"], "features": ["polyester"]},
+        {"parent_asin": "C", "title": "Blue cotton travel hat", "categories": ["Clothing", "Hats"], "features": ["cotton"]}
+      ],
+      "variants": [
+        ["I need a blue cotton shirt for travel."],
+        ["I need a cotton blue shirt for travel!"],
+        ["I need a shirt for travel — blue and cotton."]
+      ],
+      "properties": ["equivalent_active_state", "equivalent_retrieval_plan", "equivalent_candidate_membership", "legal_output"]
+    },
+    {
+      "id": "correction_preserves_unrelated_facts",
+      "catalog": [
+        {"parent_asin": "A", "title": "Blue canvas travel bag with adjustable strap", "categories": ["Bags"], "features": ["canvas", "adjustable", "travel"]},
+        {"parent_asin": "B", "title": "Black leather travel bag with adjustable strap", "categories": ["Bags"], "features": ["leather", "adjustable", "travel"]},
+        {"parent_asin": "C", "title": "Blue canvas formal bag", "categories": ["Bags"], "features": ["canvas"]}
+      ],
+      "variants": [
+        ["I want a black leather travel bag with an adjustable strap.", "Actually, blue canvas instead."],
+        ["I want a black leather travel bag with an adjustable strap.", "On second thought switch the color to blue and material to canvas."],
+        ["I want a black leather travel bag with an adjustable strap.", "Correction: make that blue, made of canvas."]
+      ],
+      "properties": ["equivalent_active_state", "equivalent_retrieval_plan", "equivalent_candidate_membership", "override_detected", "legal_output"]
+    },
+    {
+      "id": "scoped_no_preference_variants",
+      "catalog": [
+        {"parent_asin": "A", "title": "Blue cotton shirt", "categories": ["Shirts"], "features": ["cotton"]},
+        {"parent_asin": "B", "title": "Red cotton shirt", "categories": ["Shirts"], "features": ["cotton"]},
+        {"parent_asin": "C", "title": "Blue polyester shirt", "categories": ["Shirts"], "features": ["polyester"]}
+      ],
+      "variants": [
+        ["I need a blue cotton shirt.", "I no longer have a color preference."],
+        ["I need a blue cotton shirt.", "Any color is fine now."],
+        ["I need a blue cotton shirt.", "Color does not matter to me anymore."]
+      ],
+      "properties": ["equivalent_active_state", "equivalent_retrieval_plan", "equivalent_candidate_membership", "legal_output"]
+    },
+    {
+      "id": "stable_alternative_identity",
+      "catalog": [
+        {"parent_asin": "A", "title": "Cotton summer shirt", "categories": ["Shirts"], "features": ["cotton"]},
+        {"parent_asin": "B", "title": "Linen summer shirt", "categories": ["Shirts"], "features": ["linen"]},
+        {"parent_asin": "C", "title": "Polyester summer shirt", "categories": ["Shirts"], "features": ["polyester"]}
+      ],
+      "variants": [
+        ["A cotton or linen summer shirt."],
+        ["A linen or cotton summer shirt."],
+        ["For summer, either cotton or linen is suitable for the shirt."]
+      ],
+      "properties": ["equivalent_active_state", "equivalent_retrieval_plan", "equivalent_candidate_membership", "legal_output"]
+    },
+    {
+      "id": "negative_inflection_and_hyphenation",
+      "catalog": [
+        {"parent_asin": "A", "title": "Water resistant hiking boots", "categories": ["Boots"], "features": ["water-resistant", "hiking"]},
+        {"parent_asin": "B", "title": "Leather hiking boot", "categories": ["Boots"], "features": ["leather", "hiking"]}
+      ],
+      "variants": [
+        ["Water-resistant hiking boots, without leather."],
+        ["A water resistant hiking boot; please avoid leather."],
+        ["For hiking, water-resistant boots but no leather."]
+      ],
+      "properties": ["equivalent_active_state", "equivalent_retrieval_plan", "equivalent_candidate_membership", "legal_output"]
+    },
+    {
+      "id": "irrelevant_filler_is_semantically_neutral",
+      "catalog": [
+        {"parent_asin": "A", "title": "Waterproof hiking boot", "categories": ["Boots"], "features": ["waterproof", "hiking"]},
+        {"parent_asin": "B", "title": "Casual canvas shoe", "categories": ["Sneakers"], "features": ["canvas"]}
+      ],
+      "variants": [
+        ["I need waterproof hiking boots."],
+        ["I need waterproof hiking boots.", "Thanks, I am thinking aloud and have no additional preferences."],
+        ["I need waterproof hiking boots.", "Nothing further to add right now."]
+      ],
+      "properties": ["equivalent_active_state", "equivalent_retrieval_plan", "equivalent_candidate_membership", "no_override", "legal_output"]
+    },
+    {
+      "id": "no_change_language_does_not_override",
+      "catalog": [
+        {"parent_asin": "A", "title": "Black leather bag", "categories": ["Bags"], "features": ["leather"]},
+        {"parent_asin": "B", "title": "Blue canvas bag", "categories": ["Bags"], "features": ["canvas"]}
+      ],
+      "variants": [
+        ["I want a black leather bag.", "The same preferences are still fine."],
+        ["I want a black leather bag.", "No need to change anything."],
+        ["I want a black leather bag.", "Keep the same requirements, please."]
+      ],
+      "properties": ["equivalent_active_state", "equivalent_retrieval_plan", "equivalent_candidate_membership", "no_override", "legal_output"]
+    },
+    {
+      "id": "missing_metadata_remains_unknown",
+      "catalog": [
+        {"parent_asin": "A", "title": "Waterproof sun hat", "categories": ["Hats"], "features": ["waterproof"]},
+        {"parent_asin": "B", "title": "Simple sun hat", "categories": ["Hats"]}
+      ],
+      "variants": [
+        ["I need a waterproof hat."],
+        ["Could you find a hat that is waterproof?"]
+      ],
+      "unknown_checks": [{"product_id": "B", "attribute": "feature", "value": "waterproof"}],
+      "properties": ["unknown_not_contradicted", "legal_output"]
+    }
+  ]
+}

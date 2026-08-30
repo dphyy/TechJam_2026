@@ -24,6 +24,14 @@ def _unique(values) -> tuple[str, ...]:
 def build_retrieval_plan(state: SessionState, intent: IntentDecision) -> RetrievalPlan:
     """Distill the active ledger into route-specific, polarity-preserving contexts."""
     active = state.active_preferences()
+    if state.canonical_state_semantics:
+        active = sorted(
+            active,
+            key=lambda preference: (
+                preference.attribute, preference.value, preference.polarity,
+                preference.scope or "", preference.depends_on or ("", ""),
+            ),
+        )
     positive = [preference for preference in active if preference.polarity == 1]
     negative = [preference for preference in active if preference.polarity == -1]
     hard = tuple(_signal(preference) for preference in active

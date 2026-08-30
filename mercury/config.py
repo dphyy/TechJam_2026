@@ -36,6 +36,7 @@ class Config:
     page_local_rerank: bool = False
     neural_logit_cache: bool = False
     catalog_vocabulary: bool = False
+    canonical_state_semantics: bool = False
     state_mode: str = "ledger"
     alternatives_mode: str = "off"
     question_policy: str = "other"
@@ -131,7 +132,8 @@ class Config:
                     "semantic_question_goals", "require_positive_question_value", "role_evidence",
                     "composition_evidence", "source_alias_retrieval", "neural_margin_fusion",
                     "slate_reset_on_override", "seen_aware_slate", "progressive_frontier_rerank",
-                    "page_local_rerank", "neural_logit_cache", "catalog_vocabulary"):
+                    "page_local_rerank", "neural_logit_cache", "catalog_vocabulary",
+                    "canonical_state_semantics"):
             if type(getattr(self, key)) is not bool:
                 raise ValueError(f"{key} must be a boolean")
         if self.role_evidence and self.composition_evidence:

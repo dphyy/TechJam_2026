@@ -183,6 +183,7 @@ class Agent:
         self.sessions[session_id] = SessionState(
             user_profile, self.config.state_mode, self.config.alternatives_mode,
             self.config.scoped_preferences, self.catalog_vocabulary,
+            self.config.canonical_state_semantics,
         )
         self.sessions.move_to_end(session_id)
         self._cache.pop(session_id, None)

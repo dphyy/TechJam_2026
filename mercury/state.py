@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from collections import defaultdict
 from copy import deepcopy
@@ -143,6 +144,12 @@ _NO_PREFERENCE = re.compile(
     r"doesn't matter|does not matter|anything (?:is |would be )?(?:fine|okay|ok)|"
     r"(?:any|either)\b.*\b(?:fine|okay|ok|works|will do)|not (?:fussy|fussed|picky)|"
     r"no (?:budget|price) (?:limit|cap))\b"
+)
+_CANONICAL_NO_PREFERENCE = re.compile(
+    r"\b(?:no longer (?:have|want) (?:a |any )?(?:particular |strong |specific )?"
+    r"(?:(?:material|fabric|color|colour|size|style|brand|feature|category) )?preference|"
+    r"(?:(?:material|fabric|color|colour|size|style|brand|feature|category) )?"
+    r"(?:is|are) no longer (?:important|required|needed|a preference))\b"
 )
 _NO_NEW_INFORMATION = re.compile(
     r"\b(?:(?:no|not|don't have|do not have|haven't|have not)(?:\s+(?:a|an|any))?\s+"
@@ -429,7 +436,8 @@ class SessionState:
 
     def __init__(self, profile: dict, mode: str = "ledger", alternatives_mode: str = "off",
                  scoped_preferences: bool = False,
-                 catalog_vocabulary: CatalogVocabulary | None = None) -> None:
+                 catalog_vocabulary: CatalogVocabulary | None = None,
+                 canonical_state_semantics: bool = False) -> None:
         if mode not in {"ledger", "latest", "history"}:
             raise ValueError(f"Invalid state mode: {mode!r}")
         if alternatives_mode not in {"off", "parse", "grouped"}:
@@ -441,6 +449,7 @@ class SessionState:
         self.alternatives_mode = alternatives_mode
         self.scoped_preferences = scoped_preferences
         self.catalog_vocabulary = catalog_vocabulary
+        self.canonical_state_semantics = canonical_state_semantics
         self.unsupported_alternatives: list[dict[str, str]] = []
         self.history: list[SourceRecord] = []
         self.preferences: list[Preference] = []
@@ -657,6 +666,10 @@ class SessionState:
         text = re.sub(r"\b(?:anything|everything) but\b", "without", _normalize(message))
         if self.alternatives_mode != "off":
             text = re.sub(r"\bneither\b", "not", text)
+        turn_replacement = bool(
+            self.canonical_state_semantics
+            and (_REPLACEMENT.search(text) or _IMPLICIT_PREFERENCE_SHIFT.search(text))
+        )
         result: list[_Assertion] = []
         residual_assertions: list[_Assertion] = []
         qualified_component_contrast = bool(_NOT_JUST_COMPONENT.search(text))
@@ -687,7 +700,12 @@ class SessionState:
                     catalog_sources[key] = match
             alternatives = self._alternatives(clause, mentions) if self.alternatives_mode != "off" else {}
             choice_replacements = self._choice_replacements(clause, mentions) if self.alternatives_mode == "grouped" else set()
-            no_preference = _NO_PREFERENCE.search(clause) or re.search(r"\bdon't have (?:a |any )?preference\b", clause)
+            no_preference = (
+                _NO_PREFERENCE.search(clause)
+                or re.search(r"\bdon't have (?:a |any )?preference\b", clause)
+                or (_CANONICAL_NO_PREFERENCE.search(clause)
+                    if self.canonical_state_semantics else None)
+            )
             if self.alternatives_mode != "off" and no_preference and re.match(r"(?:any|either)\b", no_preference.group()):
                 # Stop at this acceptance segment, not a later independent list.
                 no_preference = re.search(r"\b(?:any|either)\b.*?\b(?:fine|okay|ok|works|will do)\b", clause)
@@ -725,7 +743,12 @@ class SessionState:
             quantities = _quantities(clause, mentions)
 
             additive = bool(_ADDITIVE.search(clause))
-            replacement = bool(_REPLACEMENT.search(clause) or _IMPLICIT_PREFERENCE_SHIFT.search(clause)) or pending_replacement
+            replacement = bool(
+                _REPLACEMENT.search(clause)
+                or _IMPLICIT_PREFERENCE_SHIFT.search(clause)
+                or pending_replacement
+                or (turn_replacement and not _ADDITIVE.search(clause))
+            )
             soft = bool(_SOFT.search(clause))
             discourse = [("discourse", "", match.start(), match.end()) for match in re.finditer(r"\bworks\b", clause)] if alternatives else []
             residuals = _residuals(clause, mentions + discourse + [("quantity", value, start, end) for value, start, end in quantities])
@@ -747,7 +770,13 @@ class SessionState:
                     confidence = min(confidence, catalog_match.confidence)
                 replace_material = attribute == "material" and not additive and bool(re.search(r"\bprefer\b", clause))
                 alternative_group = (
-                    f"{turn}:{clause_index}:{attribute}"
+                    (
+                        "choice:" + attribute + ":" + hashlib.sha256(
+                            "\0".join(sorted(alternatives[attribute])).encode("utf-8")
+                        ).hexdigest()[:16]
+                        if self.canonical_state_semantics
+                        else f"{turn}:{clause_index}:{attribute}"
+                    )
                     if self.alternatives_mode == "grouped" and polarity == 1 and value in alternatives.get(attribute, set())
                     else None
                 )
@@ -762,6 +791,8 @@ class SessionState:
                                          replacement or replace_material, clause=clause_index,
                                          choice_replacement=attribute in choice_replacements))
             for value, start, end in residuals:
+                if self.canonical_state_semantics and value in {"correction", "suitable"}:
+                    continue
                 not_just_match = _NOT_JUST_COMPONENT.search(clause)
                 if not_just_match and not_just_match.start() < start:
                     # The component is insufficient on its own, not forbidden.
@@ -985,6 +1016,14 @@ class SessionState:
         # Never search rejected values, neutral answers, or raw conversational
         # scaffolding. Rebuilding from active facts also retracts old source text.
         active = self.active_preferences()
+        if self.canonical_state_semantics:
+            active = sorted(
+                active,
+                key=lambda preference: (
+                    preference.attribute, preference.value, preference.polarity,
+                    preference.scope or "", preference.depends_on or ("", ""),
+                ),
+            )
         expanded = {p.depends_on for p in active if p.polarity == 1 and p.depends_on is not None}
         values = dict.fromkeys(p.value for p in active if p.polarity == 1 and p.attribute != "budget"
                                and (p.attribute, p.value) not in expanded)

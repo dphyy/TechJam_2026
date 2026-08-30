@@ -19,7 +19,8 @@ from mercury.types import Preference
 SCHEMA = "mercury-metamorphic-dialogues-v1"
 PROPERTIES = {
     "equivalent_active_state", "equivalent_candidate_membership", "legal_output",
-    "override_detected", "no_override", "unknown_not_contradicted",
+    "equivalent_retrieval_plan", "override_detected", "no_override",
+    "unknown_not_contradicted",
 }
 
 
@@ -65,6 +66,9 @@ def validate_pack(pack: object) -> dict:
 
 
 def _state_signature(diagnostics: dict) -> tuple[tuple, ...]:
+    semantic = diagnostics.get("semantic_state_signature")
+    if isinstance(semantic, list):
+        return tuple(sorted(json.dumps(item, sort_keys=True) for item in semantic))
     return tuple(sorted(
         (
             item.get("attribute"), item.get("value"), item.get("polarity"),
@@ -94,6 +98,8 @@ def _run_variant(catalog: Path, config: Config, messages: list[str]) -> dict:
         return {
             "state": _state_signature(diagnostics),
             "candidate_membership": tuple(sorted(diagnostics.get("ranked_ids", []))),
+            "ranked_ids": tuple(diagnostics.get("ranked_ids", [])),
+            "retrieval_plan_sha256": diagnostics.get("retrieval_plan_sha256"),
             "override": bool(diagnostics.get("override", {}).get("detected")),
             "response": response,
             "diagnostics": diagnostics,
@@ -118,6 +124,8 @@ def evaluate_pack(pack: dict, config: Config) -> dict:
                     passed = len({outcome["state"] for outcome in outcomes}) == 1
                 elif prop == "equivalent_candidate_membership":
                     passed = len({outcome["candidate_membership"] for outcome in outcomes}) == 1
+                elif prop == "equivalent_retrieval_plan":
+                    passed = len({outcome["retrieval_plan_sha256"] for outcome in outcomes}) == 1
                 elif prop == "legal_output":
                     passed = all(_legal(outcome["response"], ids) for outcome in outcomes)
                 elif prop == "override_detected":
@@ -135,7 +143,24 @@ def evaluate_pack(pack: dict, config: Config) -> dict:
                 else:  # pragma: no cover - validated above
                     raise AssertionError(prop)
                 checks.append({"property": prop, "passed": passed})
-            cases.append({"id": case["id"], "checks": checks, "passed": all(row["passed"] for row in checks)})
+            reference = outcomes[0]["ranked_ids"]
+            comparisons = [_ranking_comparison(reference, outcome["ranked_ids"])
+                           for outcome in outcomes[1:]]
+            cases.append({
+                "id": case["id"], "checks": checks,
+                "invariance": {
+                    "minimum_top120_jaccard": min(
+                        (row["top120_jaccard"] for row in comparisons), default=1.0,
+                    ),
+                    "minimum_top10_overlap": min(
+                        (row["top10_overlap"] for row in comparisons), default=1.0,
+                    ),
+                    "minimum_rank_correlation": min(
+                        (row["rank_correlation"] for row in comparisons), default=1.0,
+                    ),
+                },
+                "passed": all(row["passed"] for row in checks),
+            })
     passed = sum(case["passed"] for case in cases)
     return {
         "schema": "mercury-metamorphic-result-v1",
@@ -144,6 +169,34 @@ def evaluate_pack(pack: dict, config: Config) -> dict:
         "passed_cases": passed,
         "failed_cases": len(cases) - passed,
         "cases": cases,
+    }
+
+
+def _ranking_comparison(left: tuple[str, ...], right: tuple[str, ...]) -> dict[str, float]:
+    left120, right120 = set(left[:120]), set(right[:120])
+    union = left120 | right120
+    common = [identifier for identifier in left[:120] if identifier in right120]
+    right_rank = {identifier: index for index, identifier in enumerate(right[:120])}
+    if len(common) < 2:
+        correlation = 1.0 if left[:120] == right[:120] else 0.0
+    else:
+        left_positions = list(range(len(common)))
+        right_positions = [right_rank[identifier] for identifier in common]
+        left_mean = sum(left_positions) / len(common)
+        right_mean = sum(right_positions) / len(common)
+        numerator = sum(
+            (a - left_mean) * (b - right_mean)
+            for a, b in zip(left_positions, right_positions, strict=True)
+        )
+        denominator = (
+            sum((value - left_mean) ** 2 for value in left_positions)
+            * sum((value - right_mean) ** 2 for value in right_positions)
+        ) ** 0.5
+        correlation = numerator / denominator if denominator else 1.0
+    return {
+        "top120_jaccard": len(left120 & right120) / len(union) if union else 1.0,
+        "top10_overlap": len(set(left[:10]) & set(right[:10])) / max(1, min(10, len(left), len(right))),
+        "rank_correlation": correlation,
     }
 
 

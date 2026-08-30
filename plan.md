@@ -575,6 +575,24 @@ different hard constraint or retire a different fact.
   than claimed as a score improvement.
 - Public outcomes remain descriptive and cannot promote the candidate.
 
+### Phase 8 execution status — 30 August 2026
+
+Phase 8 passes its phase-specific gate as a correctness-only opt-in foundation.
+Three genuine failures were fixed behind `canonical_state_semantics`: correction
+scope across punctuation, named no-preference scope, and surface-order-dependent
+alternative identity/discourse leakage. One historical fixture was classified
+as invalid because it compared hard “need” wording with soft “would be great”
+wording; the replacement fixture holds modality constant.
+
+All eight frozen v2 families now have identical semantic state, retrieval plans,
+Top-120 membership, Top-10 overlap, and rank order where equivalence is required.
+On fresh screening, HitRate was unchanged at `0.981250` with zero paired gained
+or lost hits; TechnicalScore changed from `0.864686` to `0.862582` (`-0.002104`),
+inside the explicit `0.003` correctness allowance. The candidate is not claimed
+as a score improvement and `configs/selected.json` remains unchanged.
+Confirmation remains sealed. See
+[the canonical-state result](docs/CANONICAL_STATE_SEMANTICS_RESULTS.md).
+
 ## Phase 9: Conservative Catalog Vocabulary v2
 
 The v1 vocabulary demonstrated useful coverage, so preserve the artifact-building
