@@ -67,6 +67,7 @@ The codebase also contains independently gated pipeline-evolution experiments:
 None passed the repository's promotion rule, so they are not enabled by the public entrypoint. See [the measured evolution report](docs/PIPELINE_EVOLUTION_RESULTS.md).
 The newer robustness candidates were also rejected for promotion on frozen unseen-target development evidence; see [the roadmap results](docs/ROADMAP_IMPLEMENTATION_RESULTS.md).
 Margin-aware neural fusion was similarly rejected after a preregistered Cycle 5 screening loss and remains disabled; see [its result](docs/MARGIN_FUSION_RESULTS.md).
+Direct neural-weight tuning over `0.60`–`0.90` also found no candidate that cleared the registered practical-gain gate, so the selected `0.75` weight remains unchanged; see [the tuning result](docs/NEURAL_WEIGHT_TUNING_RESULTS.md).
 
 Release and experiment interpretation is fixed as follows:
 

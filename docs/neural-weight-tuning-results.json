@@ -1,0 +1,83 @@
+{
+  "measured_at": "2026-08-30",
+  "decision": "keep_0.75",
+  "screening": {
+    "sample_count": 160,
+    "sha256": "23af9ff1b23889c42c9c53c97e7eab087dededdf3c8b18d0aa36b7414d9265ad",
+    "used_for_tuning": true
+  },
+  "confirmation": {
+    "sample_count": 80,
+    "sha256": "d924814507c7d1c9421b2a26c65a72d264cb8b4096b5c1b48f40589652407ad2",
+    "evaluated": false
+  },
+  "validation": {
+    "sample_count": 80,
+    "sha256": "12712198983255c62b8bae040ab6ac1be049160b420676ddeaf26e6da2a42a2b",
+    "evaluated": false
+  },
+  "promotion_gate": {
+    "minimum_technical_score_delta": 0.005,
+    "allow_hit_rate_loss": false,
+    "allow_mrr_loss": false,
+    "require_zero_fallbacks_errors_and_source_drift": true
+  },
+  "runs": [
+    {
+      "neural_weight": 0.6,
+      "hit_rate_at_10": 0.94375,
+      "mrr": 0.606391,
+      "mttc": 3.44375,
+      "technical_score": 0.804917,
+      "technical_score_delta": -0.001348958333333334,
+      "technical_score_95pct_ci": [-0.010454613095238097, 0.007914434523809523]
+    },
+    {
+      "neural_weight": 0.7,
+      "hit_rate_at_10": 0.94375,
+      "mrr": 0.606017,
+      "mttc": 3.41875,
+      "technical_score": 0.805305,
+      "technical_score_delta": -0.0009613095238095219,
+      "technical_score_95pct_ci": [-0.008860119047619049, 0.006708333333333333]
+    },
+    {
+      "neural_weight": 0.75,
+      "control": true,
+      "hit_rate_at_10": 0.94375,
+      "mrr": 0.608805,
+      "mttc": 3.4125,
+      "technical_score": 0.806266,
+      "technical_score_delta": 0.0
+    },
+    {
+      "neural_weight": 0.8,
+      "hit_rate_at_10": 0.94375,
+      "mrr": 0.620404,
+      "mttc": 3.425,
+      "technical_score": 0.809496,
+      "technical_score_delta": 0.0032299107142857173,
+      "technical_score_95pct_ci": [-0.0017522321428571374, 0.008709077380952387]
+    },
+    {
+      "neural_weight": 0.9,
+      "hit_rate_at_10": 0.94375,
+      "mrr": 0.621401,
+      "mttc": 3.4,
+      "technical_score": 0.810295,
+      "technical_score_delta": 0.0040290178571428595,
+      "technical_score_95pct_ci": [-0.00448363095238095, 0.012710565476190483]
+    }
+  ],
+  "integrity": {
+    "same_nonweight_configuration": true,
+    "same_source_hashes": true,
+    "same_dataset": true,
+    "source_drift": false,
+    "fallback_turns": 0,
+    "agent_error_turns": 0,
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 20260826
+  },
+  "claim_boundary": "Synthetic Cycle 5 screening evidence; not organizer-private performance."
+}
