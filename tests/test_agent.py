@@ -976,18 +976,18 @@ class AgentTest(unittest.TestCase):
             "intent_sparse_request_weight", "router_buying_threshold",
             "router_browsing_threshold",
         }
-        self.assertEqual(selected.slate_paging_first_turn, 3)
+        self.assertEqual(selected.slate_paging_first_turn, 2)
         self.assertFalse(selected.routed_retrieval)
         for field in Config.__dataclass_fields__:
             if field not in tuned_fields | {"slate_paging_first_turn"}:
                 self.assertEqual(getattr(selected, field), getattr(historical, field), field)
 
-    def test_repeat_driven_candidate_only_advances_paging_one_turn_earlier(self):
+    def test_repeat_driven_candidate_matches_promoted_selected_config(self):
         root = Path(__file__).resolve().parents[1] / "configs"
         selected = Config.load(root / "selected.json")
         candidate = Config.load(root / "exp06_repeat_driven_paging.json")
-        self.assertEqual(selected.slate_paging_first_turn, 3)
-        self.assertEqual(candidate, replace(selected, slate_paging_first_turn=2))
+        self.assertEqual(selected.slate_paging_first_turn, 2)
+        self.assertEqual(candidate, selected)
 
     def test_intent_conditioned_candidate_only_enables_registered_policy(self):
         root = Path(__file__).resolve().parents[1] / "configs"

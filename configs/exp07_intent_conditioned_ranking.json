@@ -16,7 +16,7 @@
   "rerank_limit": 30,
   "router_browsing_threshold": 0.50,
   "router_buying_threshold": 0.50,
-  "slate_paging_first_turn": 3,
+  "slate_paging_first_turn": 2,
   "soft_price_weight": 0.02,
   "typed_plan_mode": "off"
 }

@@ -97,3 +97,12 @@ does not replace `configs/selected.json`. It remains available as the explicit
 it would be a conscious product-utility override—prioritizing no duplicate
 slates and earlier discovery over the competition metric—not an evidence-backed
 TechnicalScore improvement.
+
+## Subsequent product-policy decision
+
+On 31 August 2026, the team explicitly chose the product-utility override
+described above. `configs/selected.json` now sets
+`slate_paging_first_turn = 2`, eliminating an unchanged Top-10 repeat at the
+earliest possible opportunity. The historical screening result and failed
+competition-score promotion gate remain unchanged: this is a deliberate product
+policy choice, not a claim that the candidate improved TechnicalScore.
