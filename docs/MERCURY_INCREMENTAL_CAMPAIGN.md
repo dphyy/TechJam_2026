@@ -260,3 +260,30 @@ unchanged. Scenario TechnicalScore deltas were non-negative: boundary
 fell `0.027500`. Turn 3 is kept under the correctness rule: it implements stable
 slate novelty and explicit override reset with no measured quality regression,
 although its score gain is not large enough to claim a ranking improvement.
+
+## Stage 3A: typed-plan shadow scoring — keep as experimental infrastructure
+
+Branch `exp/03a-typed-plan-shadow`, implementation commit `5e856c0`, consumes
+the typed hard/soft plan as bounded catalog evidence while preserving candidate
+scores and order in `shadow` mode. Budget is excluded for the dedicated Stage 4
+test. Diagnostics expose base candidate scores, typed evidence, and applied
+adjustments; the latter are all zero in shadow mode. The complete suite passed
+with 543 tests and Ruff passed.
+
+The source-matched shadow run was output-identical:
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stage 2C control | 0.943750 | 0.574660 | 3.025000 | 0.803773 | 1,826,142 | 0.581242 s |
+| Stage 3A shadow | 0.943750 | 0.574660 | 3.025000 | 0.803773 | 1,826,142 | 0.714010 s |
+
+All 475 responses, ranked ID lists, and slate pages were identical. Typed
+evidence was nonzero on every turn. An evaluator-only sweep over 315 turns where
+the target was ranked was unfavorable: at the predeclared `0.10` weight, target
+rank improved 38 times, worsened 30 times, stayed equal 247 times, produced zero
+Top-10 gains and one Top-10 loss, and reduced mean target reciprocal rank by
+`0.002251`. Weights from `0.02` through `0.20` all had negative mean target-RR
+deltas. Shadow mode is kept as reusable experimental infrastructure, not enabled
+in the finalist. The predeclared active weight still receives one end-to-end run
+on a separate branch because static rank simulation cannot reproduce dialogue
+and paging feedback.
