@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 from mercury.catalog import negated_match
 from mercury.composition_evidence import composition_evidence
@@ -197,6 +198,27 @@ def rank_typed_plan(candidates: list[Candidate], plan: RetrievalPlan,
         result.append(Candidate(candidate.product, score + adjustment, parts))
     if not active:
         return result
+    return sorted(result, key=lambda item: (-item.score, item.product.parent_asin))
+
+
+def hard_plan_evidence(product: Product, plan: RetrievalPlan) -> float:
+    """Catalog evidence for hard non-price requirements only."""
+    return typed_plan_evidence(product, replace(plan, soft_preferences=()))
+
+
+def rank_hard_plan(candidates: list[Candidate], plan: RetrievalPlan,
+                   weight: float) -> list[Candidate]:
+    """Promote known hard-requirement support without turning unknown into failure."""
+    result = []
+    for candidate in candidates:
+        parts = dict(candidate.route_scores)
+        score = candidate.score - parts.pop("intent_hard_adjustment", 0.0)
+        evidence = hard_plan_evidence(candidate.product, plan)
+        parts["intent_hard_evidence"] = evidence
+        adjustment = weight * evidence
+        if adjustment:
+            parts["intent_hard_adjustment"] = adjustment
+        result.append(Candidate(candidate.product, score + adjustment, parts))
     return sorted(result, key=lambda item: (-item.score, item.product.parent_asin))
 
 

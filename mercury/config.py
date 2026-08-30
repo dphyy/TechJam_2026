@@ -30,6 +30,7 @@ class Config:
     composition_evidence: bool = False
     source_alias_retrieval: bool = False
     typed_plan_mode: str = "off"
+    intent_conditioned_ranking: bool = False
     state_mode: str = "ledger"
     alternatives_mode: str = "off"
     question_policy: str = "other"
@@ -50,6 +51,7 @@ class Config:
     sparse_limit: int = 180
     dense_limit: int = 100
     rerank_limit: int = 30
+    intent_browsing_pool_limit: int = 30
     max_deferred_turns: int = 1
     minimal_probe_limit: int = 30
     cascade_max_rerank_limit: int = 60
@@ -83,6 +85,8 @@ class Config:
     soft_price_weight: float = 0.02
     soft_negative_weight: float = 0.02
     typed_plan_weight: float = 0.10
+    intent_buying_hard_weight: float = 0.10
+    intent_browsing_diversity_strength: float = 0.20
     minimum_retrieval_specificity: float = 0.35
     cascade_threshold: float = 0.65
     cascade_low_overlap: float = 0.15
@@ -116,7 +120,7 @@ class Config:
                     "profile_prior", "soft_preference_decay", "scoped_preferences",
                     "retrieval_sufficiency_gate", "compute_cascade", "multi_hypothesis_retrieval",
                     "semantic_question_goals", "require_positive_question_value", "role_evidence",
-                    "composition_evidence", "source_alias_retrieval"):
+                    "composition_evidence", "source_alias_retrieval", "intent_conditioned_ranking"):
             if type(getattr(self, key)) is not bool:
                 raise ValueError(f"{key} must be a boolean")
         if self.role_evidence and self.composition_evidence:
@@ -127,7 +131,8 @@ class Config:
                     "max_sessions", "threads", "over_general_candidate_threshold", "over_general_rerank_limit",
                     "soft_decay_turns", "max_deferred_turns", "minimal_probe_limit",
                     "cascade_max_rerank_limit", "cascade_max_turns", "cascade_candidate_threshold",
-                    "max_intent_hypotheses", "hypothesis_candidate_budget"):
+                    "max_intent_hypotheses", "hypothesis_candidate_budget",
+                    "intent_browsing_pool_limit"):
             value = getattr(self, key)
             if type(value) is not int or not 1 <= value <= 10000:
                 raise ValueError(f"{key} must be an integer in [1, 10000]")
@@ -145,6 +150,7 @@ class Config:
                     "mixed_scoped_weight",
                     "buying_dense_weight", "browsing_dense_weight", "mixed_dense_weight", "question_turn_cost",
                     "profile_weight", "soft_price_weight", "soft_negative_weight", "typed_plan_weight",
+                    "intent_buying_hard_weight", "intent_browsing_diversity_strength",
                     "minimum_retrieval_specificity",
                     "cascade_threshold", "cascade_low_overlap", "cascade_low_confidence"):
             value = getattr(self, key)
@@ -159,6 +165,8 @@ class Config:
                 self.max_intent_hypotheses <= 2
                 and self.hypothesis_candidate_budget <= self.candidate_limit):
             raise ValueError("multi-hypothesis retrieval allows at most two hypotheses within candidate_limit")
+        if self.intent_conditioned_ranking and self.intent_browsing_pool_limit > self.candidate_limit:
+            raise ValueError("intent browsing pool must fit within candidate_limit")
         if type(self.cascade_previous_margin_threshold) not in (int, float) \
                 or not 0 <= self.cascade_previous_margin_threshold <= 100:
             raise ValueError("cascade_previous_margin_threshold must be in [0, 100]")

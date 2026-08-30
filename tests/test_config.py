@@ -96,6 +96,20 @@ class ConfigTest(unittest.TestCase):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 Config.from_dict(values)
 
+    def test_intent_conditioned_ranking_controls_are_gated_and_bounded(self):
+        config = Config(intent_conditioned_ranking=True, intent_buying_hard_weight=.1,
+                        intent_browsing_diversity_strength=.2,
+                        intent_browsing_pool_limit=30)
+        self.assertTrue(config.intent_conditioned_ranking)
+        for values in ({"intent_conditioned_ranking": 1},
+                       {"intent_buying_hard_weight": 1.1},
+                       {"intent_browsing_diversity_strength": -.1},
+                       {"intent_browsing_pool_limit": 0},
+                       {"intent_conditioned_ranking": True, "candidate_limit": 20,
+                        "intent_browsing_pool_limit": 30}):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                Config.from_dict(values)
+
     def test_retrieval_sufficiency_controls_are_gated_and_bounded(self):
         config = Config(retrieval_sufficiency_gate=True, insufficient_action="minimal_probe",
                         max_deferred_turns=1, minimal_probe_limit=30,

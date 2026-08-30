@@ -982,6 +982,32 @@ class AgentTest(unittest.TestCase):
             if field not in tuned_fields | {"slate_paging_first_turn"}:
                 self.assertEqual(getattr(selected, field), getattr(historical, field), field)
 
+    def test_intent_conditioned_candidate_only_enables_registered_policy(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "selected.json")
+        candidate = Config.load(root / "exp07_intent_conditioned_ranking.json")
+        self.assertEqual(candidate, replace(selected, intent_conditioned_ranking=True))
+
+    def test_intent_conditioned_ranking_routes_buying_browsing_and_mixed(self):
+        agent = Agent(self.path, Config(intent_conditioned_ranking=True))
+        try:
+            cases = (
+                ("buy", "I need black waterproof running shoes under $100.",
+                 "buying_hard_evidence"),
+                ("browse", "I am exploring gift ideas for a wedding.",
+                 "browsing_diversity"),
+                ("mixed", "I am exploring ideas for an everyday bag.", "base"),
+            )
+            for session, message, action in cases:
+                with self.subTest(action=action):
+                    agent.reset(session, {})
+                    self.assert_legal_response(agent.respond(session, message, 1, 10), agent)
+                    self.assertEqual(
+                        agent.last_diagnostics["intent_conditioned_ranking"]["action"], action,
+                    )
+        finally:
+            agent.close()
+
     def test_cycle3_admission_configs_only_change_admission_mode(self):
         root = Path(__file__).resolve().parents[1] / "configs"
         selected = Config.load(root / "cycle2_grouped.json")

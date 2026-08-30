@@ -11,13 +11,14 @@ from mercury.admission import select_rerank_prefix
 from mercury.cascade import decide_compute_cascade
 from mercury.catalog import Catalog
 from mercury.config import Config
+from mercury.diversity import diversify_candidates
 from mercury.intent import IntentWeights, decide_intent
 from mercury.hypotheses import build_intent_hypotheses
 from mercury.planning import build_retrieval_plan
 from mercury.policy import choose_policy
 from mercury.profile import distill_profile, rank_profile_prior
 from mercury.ranking import (rank_candidates, rank_composition_evidence, rank_constraints,
-                             rank_product_compatibility, rank_role_evidence, rank_soft_negatives,
+                             rank_hard_plan, rank_product_compatibility, rank_role_evidence, rank_soft_negatives,
                              rank_soft_prices, rank_typed_plan)
 from mercury.retrieval import SparseIndex, fuse_routes, terms
 from mercury.state import SessionState
@@ -575,6 +576,28 @@ class Agent:
             )
             component_latency["retrieval_and_ranking"] = time.perf_counter() - retrieval_started
             self._last_candidates[session_id] = list(candidates)
+        intent_rank_before = [item.product.parent_asin for item in candidates]
+        intent_rank_action = "base"
+        if self.config.intent_conditioned_ranking and intent.mode == "buying":
+            if plan.hard_constraints:
+                candidates = rank_hard_plan(
+                    candidates, plan, self.config.intent_buying_hard_weight,
+                )
+                candidates = _apply_constraints(
+                    candidates, state.effective_preferences(
+                        self.config.soft_decay_turns if self.config.soft_preference_decay else 0,
+                    ), fallbacks,
+                )
+                intent_rank_action = "buying_hard_evidence"
+            else:
+                intent_rank_action = "buying_no_hard_constraints"
+        elif self.config.intent_conditioned_ranking and intent.mode == "browsing":
+            candidates = diversify_candidates(
+                candidates, self.config.intent_browsing_diversity_strength,
+                self.config.intent_browsing_pool_limit,
+            )
+            intent_rank_action = "browsing_diversity"
+        intent_rank_after = [item.product.parent_asin for item in candidates]
         policy_started = time.perf_counter()
         decision = choose_policy(
             state, candidates, self.config, turn, top_k, self._abstentions[session_id], intent,
@@ -619,6 +642,15 @@ class Agent:
                        "confidence": intent.confidence,
                        "hard_constraint_count": intent.hard_constraint_count,
                        "over_general": intent.over_general, "reasons": list(intent.reasons)},
+            "intent_conditioned_ranking": {
+                "enabled": self.config.intent_conditioned_ranking,
+                "action": intent_rank_action,
+                "buying_hard_weight": self.config.intent_buying_hard_weight,
+                "browsing_diversity_strength": self.config.intent_browsing_diversity_strength,
+                "browsing_pool_limit": self.config.intent_browsing_pool_limit,
+                "changed_positions": sum(left != right for left, right in
+                                         zip(intent_rank_before, intent_rank_after)),
+            },
             "retrieval_plan": {
                 "mode": plan.mode, "object_types": list(plan.object_types),
                 "category_terms": list(plan.category_terms), "positive_terms": list(plan.positive_terms),
@@ -683,6 +715,14 @@ class Agent:
                              for item in candidates},
                 "adjustments": {item.product.parent_asin: item.route_scores.get("typed_plan_adjustment", 0.0)
                                 for item in candidates},
+            },
+            "intent_hard_evidence": {
+                item.product.parent_asin: item.route_scores.get("intent_hard_evidence", 0.0)
+                for item in candidates
+            },
+            "intent_hard_adjustments": {
+                item.product.parent_asin: item.route_scores.get("intent_hard_adjustment", 0.0)
+                for item in candidates
             },
             "candidate_scores": {item.product.parent_asin: item.score for item in candidates},
             "fallbacks": fallbacks, "policy": decision.diagnostics,
