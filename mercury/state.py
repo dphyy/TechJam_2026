@@ -522,14 +522,17 @@ class SessionState:
             reasons.append("attribute_change_requested")
 
         protected = bool(_NO_CHANGE_GUARD.search(normalized) or _EITHER_OR_GUARD.search(normalized))
-        marker = bool(_EXPLICIT_OVERRIDE.search(normalized) or _POSSIBLE_OVERRIDE.search(normalized))
+        explicit_directive = bool(_EXPLICIT_OVERRIDE.search(normalized) and not protected)
+        marker = bool(explicit_directive or _POSSIBLE_OVERRIDE.search(normalized))
         meaningful_assertion = any(item.preference.polarity != 0 for item in assertions)
         phrase_restatement = bool(before and marker and meaningful_assertion and not protected and not semantic)
+        if explicit_directive:
+            reasons.append("explicit_override_directive")
         if phrase_restatement:
             reasons.append("explicit_correction_restatement")
-        detected = semantic or phrase_restatement
+        detected = semantic or explicit_directive or phrase_restatement
         confidence = 0.98 if semantic and (retired_attributes & added_attributes) else (
-            0.92 if semantic else 0.75 if phrase_restatement else 0.0
+            0.92 if semantic else 0.85 if explicit_directive else 0.75 if phrase_restatement else 0.0
         )
         return OverrideDecision(
             detected=detected,

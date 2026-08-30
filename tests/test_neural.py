@@ -8,10 +8,30 @@ import numpy as np
 
 from mercury.catalog import product_from_dict
 from mercury.model_assets import MODELS, file_sha256, verify_model
-from mercury.neural import DOCUMENT_VERSION, document_text, structured_document_text, validate_dense_manifest
+from mercury.neural import (DOCUMENT_VERSION, document_text, fuse_neural_logits,
+                            structured_document_text, validate_dense_manifest)
 
 
 class NeuralAssetsTest(unittest.TestCase):
+    def test_progressive_logit_fusion_can_promote_a_scored_tail_candidate(self):
+        from mercury.types import Candidate
+
+        candidates = [Candidate(product_from_dict({"parent_asin": str(i), "title": "shirt"}), 5.0 - i)
+                      for i in range(5)]
+        first = fuse_neural_logits(candidates, {"0": 2.0, "1": 1.0}, .75)
+        self.assertEqual([item.product.parent_asin for item in first[:2]], ["0", "1"])
+        expanded = fuse_neural_logits(candidates, {"0": 2.0, "1": 1.0, "3": 4.0}, .75)
+        self.assertEqual(expanded[0].product.parent_asin, "3")
+        self.assertTrue(all(left.score >= right.score for left, right in zip(expanded, expanded[1:])))
+
+    def test_progressive_logit_fusion_rejects_unknown_or_nonfinite_scores(self):
+        from mercury.types import Candidate
+
+        candidates = [Candidate(product_from_dict({"parent_asin": "a", "title": "shirt"}), 1.0)]
+        for logits in ({"missing": 1.0}, {"a": float("nan")}):
+            with self.subTest(logits=logits), self.assertRaises(ValueError):
+                fuse_neural_logits(candidates, logits, .75)
+
     def test_reranked_prefix_and_tail_use_monotone_comparable_scores(self):
         from mercury.neural import NeuralRanker
         from mercury.types import Candidate

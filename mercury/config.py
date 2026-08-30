@@ -31,6 +31,9 @@ class Config:
     source_alias_retrieval: bool = False
     neural_margin_fusion: bool = False
     slate_reset_on_override: bool = False
+    seen_aware_slate: bool = False
+    progressive_frontier_rerank: bool = False
+    page_local_rerank: bool = False
     state_mode: str = "ledger"
     alternatives_mode: str = "off"
     question_policy: str = "other"
@@ -51,6 +54,9 @@ class Config:
     sparse_limit: int = 180
     dense_limit: int = 100
     rerank_limit: int = 30
+    page_local_rerank_limit: int = 10
+    page_local_max_batches: int = 2
+    page_local_max_pairs: int = 20
     max_deferred_turns: int = 1
     minimal_probe_limit: int = 30
     cascade_max_rerank_limit: int = 60
@@ -63,6 +69,7 @@ class Config:
     neural_weight: float = 0.25
     neural_low_margin_weight: float = 0.50
     neural_margin_threshold: float = 1.00
+    page_local_budget_seconds: float = 0.25
     contrast_weight: float = 0.12
     router_buying_threshold: float = 0.50
     router_browsing_threshold: float = 0.50
@@ -117,7 +124,8 @@ class Config:
                     "retrieval_sufficiency_gate", "compute_cascade", "multi_hypothesis_retrieval",
                     "semantic_question_goals", "require_positive_question_value", "role_evidence",
                     "composition_evidence", "source_alias_retrieval", "neural_margin_fusion",
-                    "slate_reset_on_override"):
+                    "slate_reset_on_override", "seen_aware_slate", "progressive_frontier_rerank",
+                    "page_local_rerank"):
             if type(getattr(self, key)) is not bool:
                 raise ValueError(f"{key} must be a boolean")
         if self.role_evidence and self.composition_evidence:
@@ -132,6 +140,10 @@ class Config:
             value = getattr(self, key)
             if type(value) is not int or not 1 <= value <= 10000:
                 raise ValueError(f"{key} must be an integer in [1, 10000]")
+        for key in ("page_local_rerank_limit", "page_local_max_batches", "page_local_max_pairs"):
+            value = getattr(self, key)
+            if type(value) is not int or not 1 <= value <= 100:
+                raise ValueError(f"{key} must be an integer in [1, 100]")
         if type(self.slate_size) is not int or not 0 <= self.slate_size <= 10:
             raise ValueError("slate_size must be an integer in [0, 10]")
         if type(self.other_question_limit) is not int or not 0 <= self.other_question_limit <= 9:
@@ -156,6 +168,19 @@ class Config:
             raise ValueError("neural_margin_threshold must be a finite number >= 0")
         if self.neural_margin_fusion and self.neural_low_margin_weight > self.neural_weight:
             raise ValueError("Low-margin neural weight cannot exceed the configured neural weight")
+        if self.progressive_frontier_rerank and not (self.neural_rerank and self.seen_aware_slate):
+            raise ValueError("Progressive frontier reranking requires neural reranking and seen-aware slates")
+        if self.page_local_rerank and (
+                not self.neural_rerank or self.seen_aware_slate or self.progressive_frontier_rerank):
+            raise ValueError(
+                "Page-local reranking requires neural reranking without global frontier or seen-aware slates"
+            )
+        if self.page_local_rerank and not (
+                self.page_local_rerank_limit <= 10
+                and self.page_local_rerank_limit <= self.page_local_max_pairs
+                and self.page_local_max_pairs
+                <= self.page_local_rerank_limit * self.page_local_max_batches):
+            raise ValueError("Page-local reranking limits must fit its page and session budgets")
         if self.compute_cascade and not (
                 self.rerank_limit <= self.cascade_max_rerank_limit <= 60
                 and self.cascade_max_rerank_limit <= self.candidate_limit
@@ -171,6 +196,9 @@ class Config:
         if type(self.turn_budget_seconds) not in (int, float) or \
                 not math.isfinite(self.turn_budget_seconds) or self.turn_budget_seconds < 0:
             raise ValueError("turn_budget_seconds must be a finite number of seconds >= 0")
+        if type(self.page_local_budget_seconds) not in (int, float) or \
+                not math.isfinite(self.page_local_budget_seconds) or self.page_local_budget_seconds <= 0:
+            raise ValueError("page_local_budget_seconds must be a finite number of seconds > 0")
         if not isinstance(self.artifact_dir, str) or not self.artifact_dir:
             raise ValueError("artifact_dir must be a nonempty path")
 

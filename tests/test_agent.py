@@ -14,7 +14,7 @@ from mercury.config import Config
 from mercury.contrast import CONTRAST_VERSION
 from mercury.intent import decide_intent
 from mercury.model_assets import MODELS, file_sha256
-from mercury.neural import DOCUMENT_VERSION
+from mercury.neural import DOCUMENT_VERSION, fuse_neural_logits
 from mercury.planning import build_retrieval_plan
 from mercury.retrieval import terms
 from mercury.types import Candidate
@@ -1028,6 +1028,30 @@ class AgentTest(unittest.TestCase):
             selected,
         )
 
+    def test_frontier_configs_only_change_registered_fields(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "selected.json")
+        self.assertEqual(
+            Config.load(root / "frontier_seen_aware.json"),
+            replace(selected, seen_aware_slate=True),
+        )
+        self.assertEqual(
+            Config.load(root / "frontier_progressive.json"),
+            replace(selected, seen_aware_slate=True, progressive_frontier_rerank=True),
+        )
+
+    def test_page_local_config_only_enables_the_registered_bounded_candidate(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "selected.json")
+        self.assertEqual(
+            Config.load(root / "page_local_rerank.json"),
+            replace(
+                selected, page_local_rerank=True, page_local_rerank_limit=10,
+                page_local_max_batches=2, page_local_max_pairs=20,
+                page_local_budget_seconds=.25,
+            ),
+        )
+
     def test_cycle3_document_configs_only_change_document_mode(self):
         root = Path(__file__).resolve().parents[1] / "configs"
         selected = Config.load(root / "cycle2_grouped.json")
@@ -1132,12 +1156,12 @@ class AgentTest(unittest.TestCase):
             agent.close()
 
 
-    def paging_catalog(self):
+    def paging_catalog(self, count=40):
         path = Path(self.temp.name) / "paging.jsonl"
         rows = [{"parent_asin": f"P{index:03d}",
                  "title": "Blue cotton shirt" if index % 2 == 0
                           else "Blue cotton shirt with red leather jacket trim",
-                 "categories": ["Shirts"]} for index in range(40)]
+                          "categories": ["Shirts"]} for index in range(count)]
         path.write_text("".join(json.dumps(row) + chr(10) for row in rows), encoding="utf-8")
         return path
 
@@ -1178,6 +1202,302 @@ class AgentTest(unittest.TestCase):
             self.assertEqual(seen[0], full[:10])
             self.assertEqual(seen[1], full[10:20])
             self.assertEqual(seen[2], full[20:30])
+        finally:
+            agent.close()
+
+    def test_seen_aware_slates_follow_the_new_ranking_without_repeating_products(self):
+        agent = Agent(self.paging_catalog(), Config(seen_aware_slate=True))
+        try:
+            agent.reset("seen-aware", {})
+            first = agent.respond("seen-aware", "blue cotton shirt", 1, 10)
+            first_ids = {item["parent_asin"] for item in first["recommendations"]}
+            second = agent.respond(
+                "seen-aware", "A blue cotton shirt with red leather trim", 2, 10,
+            )
+            second_ids = {item["parent_asin"] for item in second["recommendations"]}
+            self.assertFalse(first_ids & second_ids)
+            self.assertEqual(agent.last_diagnostics["slate_exposure"]["shown_total"], 20)
+            self.assertEqual(agent.last_diagnostics["slate_exposure"]["newly_shown"], 10)
+        finally:
+            agent.close()
+
+    def test_seen_aware_override_clears_exposure_history(self):
+        agent = Agent(self.paging_catalog(), Config(
+            seen_aware_slate=True, slate_reset_on_override=True,
+        ))
+        try:
+            agent.reset("seen-override", {})
+            first = agent.respond("seen-override", "blue cotton shirt", 1, 10)
+            agent.respond("seen-override", "blue cotton shirt", 2, 10)
+            corrected = agent.respond(
+                "seen-override", "Actually, make that a blue cotton shirt", 3, 10,
+            )
+            self.assertEqual(
+                [item["parent_asin"] for item in corrected["recommendations"]],
+                [item["parent_asin"] for item in first["recommendations"]],
+            )
+            self.assertEqual(agent.last_diagnostics["slate_exposure"]["shown_before"], 20)
+            self.assertEqual(agent.last_diagnostics["slate_exposure"]["shown_total"], 10)
+            self.assertEqual(agent.last_diagnostics["slate_page_reset"], "intent_override")
+        finally:
+            agent.close()
+
+    def test_progressive_frontier_scores_one_unseen_batch_per_stalled_turn(self):
+        class RecordingRanker:
+            prompt_tokens = 0
+
+            def __init__(self):
+                self.score_calls = []
+
+            def rank(self, query, candidates, limit, weight, *args, **kwargs):
+                logits = {
+                    item.product.parent_asin: float(limit - index)
+                    for index, item in enumerate(candidates[:limit])
+                }
+                return fuse_neural_logits(candidates, logits, weight)
+
+            def score(self, query, candidates, *args, **kwargs):
+                identifiers = [item.product.parent_asin for item in candidates]
+                self.score_calls.append(identifiers)
+                return {
+                    identifier: (100.0 if index == 0 else -float(index))
+                    for index, identifier in enumerate(identifiers)
+                }
+
+        config = Config(
+            neural_rerank=True, seen_aware_slate=True,
+            progressive_frontier_rerank=True, neural_weight=.75,
+            artifact_dir=self.temp.name,
+        )
+        agent = Agent(self.paging_catalog(), config)
+        ranker = RecordingRanker()
+        agent.reranker = ranker
+        agent.startup_fallbacks.pop("neural_rerank", None)
+        try:
+            agent.reset("frontier", {})
+            first = agent.respond("frontier", "blue cotton shirt", 1, 10)
+            first_ids = {item["parent_asin"] for item in first["recommendations"]}
+            self.assertFalse(agent.last_diagnostics["frontier_rerank"]["triggered"])
+
+            second = agent.respond("frontier", "blue cotton shirt", 2, 10)
+            second_ids = [item["parent_asin"] for item in second["recommendations"]]
+            self.assertTrue(agent.last_diagnostics["cache_hit"])
+            self.assertTrue(agent.last_diagnostics["frontier_rerank"]["triggered"])
+            self.assertEqual(len(ranker.score_calls), 1)
+            self.assertEqual(len(ranker.score_calls[0]), 10)
+            self.assertFalse(first_ids & set(ranker.score_calls[0]))
+            self.assertEqual(second_ids[0], ranker.score_calls[0][0])
+            self.assertEqual(agent.last_diagnostics["frontier_rerank"]["scored_total"], 40)
+            self.assertEqual(
+                agent.last_diagnostics["stage_ids"]["neural_scored"],
+                agent.last_diagnostics["rerank_prefix_ids"],
+            )
+
+            agent.respond("frontier", "blue cotton shirt", 3, 10)
+            self.assertEqual(len(ranker.score_calls), 1)
+            self.assertFalse(agent.last_diagnostics["frontier_rerank"]["triggered"])
+        finally:
+            agent.close()
+
+    def test_page_local_reranking_preserves_every_control_page_membership(self):
+        class ReversingPageRanker:
+            prompt_tokens = 0
+
+            def __init__(self):
+                self.score_calls = []
+
+            def rank(self, query, candidates, limit, weight, *args, **kwargs):
+                logits = {
+                    item.product.parent_asin: float(limit - index)
+                    for index, item in enumerate(candidates[:limit])
+                }
+                return fuse_neural_logits(candidates, logits, weight)
+
+            def score(self, query, candidates, *args, **kwargs):
+                identifiers = [item.product.parent_asin for item in candidates]
+                self.score_calls.append(identifiers)
+                return {identifier: float(index) for index, identifier in enumerate(identifiers)}
+
+        path = self.paging_catalog(70)
+        control = Agent(path, Config(
+            neural_rerank=True, neural_weight=.75, slate_paging_first_turn=1,
+            slate_reset_on_override=True, artifact_dir=self.temp.name,
+        ))
+        candidate = Agent(path, Config(
+            neural_rerank=True, neural_weight=.75, slate_paging_first_turn=1,
+            slate_reset_on_override=True, page_local_rerank=True,
+            artifact_dir=self.temp.name,
+        ))
+        control.reranker = ReversingPageRanker()
+        candidate.reranker = ReversingPageRanker()
+        control.startup_fallbacks.pop("neural_rerank", None)
+        candidate.startup_fallbacks.pop("neural_rerank", None)
+        try:
+            control.reset("page", {})
+            candidate.reset("page", {})
+            changed_order = False
+            for turn in range(1, 7):
+                control_response = control.respond("page", "blue cotton shirt", turn, 10)
+                candidate_response = candidate.respond("page", "blue cotton shirt", turn, 10)
+                control_ids = [item["parent_asin"] for item in control_response["recommendations"]]
+                candidate_ids = [item["parent_asin"] for item in candidate_response["recommendations"]]
+                self.assertEqual(set(candidate_ids), set(control_ids))
+                self.assertEqual(len(candidate_ids), len(set(candidate_ids)))
+                changed_order |= candidate_ids != control_ids
+                diagnostics = candidate.last_diagnostics["page_local_rerank"]
+                self.assertTrue(diagnostics["membership_preserved"])
+                self.assertEqual(diagnostics["control_page"], control_ids)
+                self.assertEqual(diagnostics["returned_page"], candidate_ids)
+            self.assertTrue(changed_order)
+            self.assertEqual(len(candidate.reranker.score_calls), 2)
+            self.assertFalse(
+                set(candidate.reranker.score_calls[0]) & set(candidate.reranker.score_calls[1])
+            )
+            self.assertEqual(candidate.last_diagnostics["page_local_rerank"]["batches_used"], 2)
+            self.assertEqual(
+                candidate.last_diagnostics["page_local_rerank"]["additional_pairs_used"], 20,
+            )
+        finally:
+            control.close()
+            candidate.close()
+
+    def test_page_local_neural_failure_returns_the_untouched_control_page(self):
+        class BrokenPageRanker:
+            prompt_tokens = 0
+
+            def rank(self, query, candidates, limit, weight, *args, **kwargs):
+                logits = {
+                    item.product.parent_asin: float(limit - index)
+                    for index, item in enumerate(candidates[:limit])
+                }
+                return fuse_neural_logits(candidates, logits, weight)
+
+            def score(self, query, candidates, *args, **kwargs):
+                raise RuntimeError("offline model failure")
+
+        agent = Agent(self.paging_catalog(70), Config(
+            neural_rerank=True, neural_weight=.75, slate_paging_first_turn=1,
+            page_local_rerank=True, artifact_dir=self.temp.name,
+        ))
+        agent.reranker = BrokenPageRanker()
+        agent.startup_fallbacks.pop("neural_rerank", None)
+        try:
+            agent.reset("page-failure", {})
+            response = None
+            for turn in range(1, 5):
+                response = agent.respond("page-failure", "blue cotton shirt", turn, 10)
+            returned = [item["parent_asin"] for item in response["recommendations"]]
+            diagnostics = agent.last_diagnostics["page_local_rerank"]
+            self.assertEqual(returned, diagnostics["control_page"])
+            self.assertFalse(diagnostics["triggered"])
+            self.assertTrue(diagnostics["membership_preserved"])
+            self.assertIn("frontier_page_rerank", agent.last_diagnostics["fallbacks"])
+        finally:
+            agent.close()
+
+    def test_page_local_over_budget_result_is_discarded(self):
+        class SlowPageRanker:
+            prompt_tokens = 0
+
+            def rank(self, query, candidates, limit, weight, *args, **kwargs):
+                logits = {
+                    item.product.parent_asin: float(limit - index)
+                    for index, item in enumerate(candidates[:limit])
+                }
+                return fuse_neural_logits(candidates, logits, weight)
+
+            def score(self, query, candidates, *args, **kwargs):
+                import time
+
+                time.sleep(.002)
+                return {
+                    item.product.parent_asin: float(index)
+                    for index, item in enumerate(candidates)
+                }
+
+        agent = Agent(self.paging_catalog(70), Config(
+            neural_rerank=True, neural_weight=.75, slate_paging_first_turn=1,
+            page_local_rerank=True, page_local_budget_seconds=.001,
+            artifact_dir=self.temp.name,
+        ))
+        agent.reranker = SlowPageRanker()
+        agent.startup_fallbacks.pop("neural_rerank", None)
+        try:
+            agent.reset("page-timeout", {})
+            response = None
+            for turn in range(1, 5):
+                response = agent.respond("page-timeout", "blue cotton shirt", turn, 10)
+            returned = [item["parent_asin"] for item in response["recommendations"]]
+            diagnostics = agent.last_diagnostics["page_local_rerank"]
+            self.assertEqual(returned, diagnostics["control_page"])
+            self.assertEqual(diagnostics["reason"], "TimeoutError")
+            self.assertIn("frontier_page_rerank", agent.last_diagnostics["fallbacks"])
+        finally:
+            agent.close()
+
+    def test_page_local_informative_update_invalidates_revision_logits(self):
+        class RecordingPageRanker:
+            prompt_tokens = 0
+
+            def __init__(self):
+                self.score_calls = []
+
+            def rank(self, query, candidates, limit, weight, *args, **kwargs):
+                logits = {
+                    item.product.parent_asin: float(limit - index)
+                    for index, item in enumerate(candidates[:limit])
+                }
+                return fuse_neural_logits(candidates, logits, weight)
+
+            def score(self, query, candidates, *args, **kwargs):
+                identifiers = [item.product.parent_asin for item in candidates]
+                self.score_calls.append(identifiers)
+                return {identifier: float(index) for index, identifier in enumerate(identifiers)}
+
+        agent = Agent(self.paging_catalog(70), Config(
+            neural_rerank=True, neural_weight=.75, slate_paging_first_turn=1,
+            slate_reset_on_override=True, page_local_rerank=True,
+            artifact_dir=self.temp.name,
+        ))
+        ranker = RecordingPageRanker()
+        agent.reranker = ranker
+        agent.startup_fallbacks.pop("neural_rerank", None)
+        try:
+            agent.reset("page-revision", {})
+            for turn in range(1, 5):
+                agent.respond("page-revision", "blue cotton shirt", turn, 10)
+            first_revision = agent._page_rerank_revision["page-revision"]
+            first_logits = agent._page_rerank_logits["page-revision"]
+            agent.respond(
+                "page-revision", "I need a red leather jacket instead", 5, 10,
+            )
+            self.assertGreater(agent._page_rerank_revision["page-revision"], first_revision)
+            self.assertIsNot(agent._page_rerank_logits["page-revision"], first_logits)
+            self.assertEqual(len(ranker.score_calls), 1)
+            self.assertEqual(agent.last_diagnostics["slate_page"], 0)
+            self.assertFalse(agent.last_diagnostics["page_local_rerank"]["attempted"])
+        finally:
+            agent.close()
+
+    def test_unparsed_explicit_override_resets_page_local_paging(self):
+        agent = Agent(self.paging_catalog(), Config(
+            slate_paging_first_turn=1, slate_reset_on_override=True,
+        ))
+        try:
+            agent.reset("directive-reset", {})
+            agent.respond("directive-reset", "blue cotton shirt", 1, 10)
+            agent.respond("directive-reset", "blue cotton shirt", 2, 10)
+            agent.respond(
+                "directive-reset",
+                "Actually, ignore my earlier preference. What I need is: fabric.",
+                3, 10,
+            )
+            self.assertEqual(agent.last_diagnostics["slate_page"], 0)
+            self.assertEqual(agent.last_diagnostics["slate_page_reset"], "intent_override")
+            self.assertTrue(agent.last_diagnostics["override"]["detected"])
+            self.assertIn(
+                "explicit_override_directive", agent.last_diagnostics["override"]["reasons"],
+            )
         finally:
             agent.close()
 

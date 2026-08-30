@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 from pathlib import Path
@@ -16,6 +17,9 @@ QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 MAX_LENGTH = 256
 DOCUMENT_MODES = frozenset({"head", "lexical", "protected"})
 PROTECTED_DOCUMENT_WORD_LIMIT = 160
+_NEURAL_SCORE_KEYS = frozenset({
+    "neural_logit", "neural_rank", "neural_margin", "neural_fusion_weight",
+})
 
 
 def _head_document_text(product: Product) -> str:
@@ -133,6 +137,66 @@ def validate_vectors(vectors, count: int) -> None:
         raise ValueError("Dense index contains non-finite values")
 
 
+def fuse_neural_logits(
+    candidates: list[Candidate], logits: dict[str, float], weight: float,
+    *, low_margin_weight: float | None = None, margin_threshold: float = 0.0,
+) -> list[Candidate]:
+    """Fuse any scored candidate subset while keeping every unscored item below it.
+
+    The ordinary first pass supplies a prefix. Progressive reranking can later
+    add another batch from the same fixed candidate pool; raw logits are
+    comparable because the query, model, and document contract are unchanged.
+    """
+    identifiers = [item.product.parent_asin for item in candidates]
+    if len(set(identifiers)) != len(identifiers):
+        raise ValueError("Neural fusion requires unique candidate identifiers")
+    if not set(logits).issubset(identifiers) or any(
+            type(value) not in (int, float) or not math.isfinite(value) for value in logits.values()):
+        raise ValueError("Neural fusion received invalid logits")
+    scored = [(index, item) for index, item in enumerate(candidates)
+              if item.product.parent_asin in logits]
+    if not scored:
+        return list(candidates)
+    neural_order = sorted(
+        scored, key=lambda pair: (-logits[pair[1].product.parent_asin], pair[0]),
+    )
+    neural_ranks = {
+        item.product.parent_asin: rank for rank, (_, item) in enumerate(neural_order, 1)
+    }
+    ordered_logits = sorted((float(logits[item.product.parent_asin]) for _, item in scored), reverse=True)
+    margin = ordered_logits[0] - ordered_logits[1] if len(ordered_logits) > 1 else float("inf")
+    applied_weight = (
+        low_margin_weight
+        if low_margin_weight is not None and margin < margin_threshold
+        else weight
+    )
+    result = []
+    for index, item in scored:
+        identifier = item.product.parent_asin
+        neural_rank = neural_ranks[identifier]
+        score = ((1.0 - applied_weight) * 61.0 / (61.0 + index)
+                 + applied_weight * 61.0 / (60.0 + neural_rank))
+        parts = {key: value for key, value in item.route_scores.items()
+                 if key != "constraint_penalty" and key not in _NEURAL_SCORE_KEYS}
+        result.append(Candidate(item.product, score, {
+            **parts,
+            "neural_logit": float(logits[identifier]),
+            "neural_rank": float(neural_rank),
+            "neural_margin": margin,
+            "neural_fusion_weight": float(applied_weight),
+        }))
+    result.sort(key=lambda item: (-item.score, item.product.parent_asin))
+    floor = result[-1].score
+    scored_count = len(result)
+    unscored = [item for item in candidates if item.product.parent_asin not in logits]
+    for rank, item in enumerate(unscored, scored_count + 1):
+        score = floor * (60.0 + scored_count) / (60.0 + rank)
+        parts = {key: value for key, value in item.route_scores.items()
+                 if key != "constraint_penalty" and key not in _NEURAL_SCORE_KEYS}
+        result.append(Candidate(item.product, score, parts))
+    return result
+
+
 def _model_options(device: str, threads: int) -> dict:
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
@@ -208,52 +272,39 @@ class NeuralRanker:
                                   activation_fn=torch.nn.Identity(), **options)
         self.prompt_tokens = 0
 
-    def rank(self, query: str, candidates: list[Candidate], limit: int, weight: float,
-             preferences: list[Preference] | None = None, document_mode: str = "head",
-             *, structured: bool = False, low_margin_weight: float | None = None,
-             margin_threshold: float = 0.0) -> list[Candidate]:
+    def score(self, query: str, candidates: list[Candidate],
+              preferences: list[Preference] | None = None, document_mode: str = "head",
+              *, structured: bool = False) -> dict[str, float]:
         import numpy as np
 
-        prefix, tail = candidates[:limit], candidates[limit:]
-        if not prefix:
-            return candidates
+        if not candidates:
+            return {}
         pairs = [
             (query[:2000], structured_document_text(item.product) if structured else
              document_text(item.product, query, preferences, document_mode))
-            for item in prefix
+            for item in candidates
         ]
         tokens = self.model.tokenizer([pair[0] for pair in pairs], [pair[1] for pair in pairs],
                                       truncation=True, max_length=MAX_LENGTH)
         self.prompt_tokens += sum(map(len, tokens["input_ids"]))
         logits = np.asarray(self.model.predict(pairs, batch_size=16, convert_to_numpy=True,
                                                show_progress_bar=False)).reshape(-1)
-        if len(logits) != len(prefix) or not np.isfinite(logits).all():
+        if len(logits) != len(candidates) or not np.isfinite(logits).all():
             raise ValueError("Reranker returned malformed or non-finite scores")
-        neural_order = np.argsort(-logits, kind="stable")
-        neural_ranks = {int(index): rank for rank, index in enumerate(neural_order, 1)}
-        ordered_logits = np.sort(logits)[::-1]
-        margin = float(ordered_logits[0] - ordered_logits[1]) if len(ordered_logits) > 1 else float("inf")
-        applied_weight = (
-            low_margin_weight
-            if low_margin_weight is not None and margin < margin_threshold
-            else weight
+        return {
+            item.product.parent_asin: float(logit)
+            for item, logit in zip(candidates, logits, strict=True)
+        }
+
+    def rank(self, query: str, candidates: list[Candidate], limit: int, weight: float,
+             preferences: list[Preference] | None = None, document_mode: str = "head",
+             *, structured: bool = False, low_margin_weight: float | None = None,
+             margin_threshold: float = 0.0) -> list[Candidate]:
+        prefix = candidates[:limit]
+        logits = self.score(
+            query, prefix, preferences, document_mode, structured=structured,
         )
-        result = []
-        for index, item in enumerate(prefix):
-            score = ((1.0 - applied_weight) * 61.0 / (61.0 + index)
-                     + applied_weight * 61.0 / (60.0 + neural_ranks[index]))
-            parts = {key: value for key, value in item.route_scores.items() if key != "constraint_penalty"}
-            result.append(Candidate(item.product, score,
-                                    {**parts, "neural_logit": float(logits[index]),
-                                     "neural_rank": float(neural_ranks[index]),
-                                     "neural_margin": margin,
-                                     "neural_fusion_weight": float(applied_weight)}))
-        result.sort(key=lambda item: (-item.score, item.product.parent_asin))
-        # The unreranked tail must remain below the bounded prefix on the same
-        # score scale; question lookahead consumes these scores downstream.
-        floor = result[-1].score
-        for index, item in enumerate(tail, len(prefix) + 1):
-            score = floor * (60.0 + len(prefix)) / (60.0 + index)
-            parts = {key: value for key, value in item.route_scores.items() if key != "constraint_penalty"}
-            result.append(Candidate(item.product, score, parts))
-        return result
+        return fuse_neural_logits(
+            candidates, logits, weight,
+            low_margin_weight=low_margin_weight, margin_threshold=margin_threshold,
+        )

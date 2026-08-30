@@ -12,6 +12,7 @@ from mercury.cascade import decide_compute_cascade
 from mercury.catalog import Catalog
 from mercury.config import Config
 from mercury.intent import IntentWeights, decide_intent
+from mercury.neural import fuse_neural_logits
 from mercury.hypotheses import build_intent_hypotheses
 from mercury.planning import build_retrieval_plan
 from mercury.policy import choose_policy
@@ -107,6 +108,14 @@ class Agent:
         self._last_neural_margin: dict[str, float | None] = {}
         self._pages: dict[str, int] = {}
         self._last_ranked: dict[str, list[str]] = {}
+        self._shown_ids: dict[str, set[str]] = {}
+        self._frontier_revision: dict[str, int] = {}
+        self._frontier_base: dict[str, list[Candidate]] = {}
+        self._frontier_logits: dict[str, dict[str, float]] = {}
+        self._page_rerank_revision: dict[str, int] = {}
+        self._page_rerank_logits: dict[str, dict[str, float]] = {}
+        self._page_rerank_batches: dict[str, int] = {}
+        self._page_rerank_pairs: dict[str, int] = {}
         self.dense = None
         self.reranker = None
         self.contrast = None
@@ -154,6 +163,14 @@ class Agent:
         self._last_neural_margin[session_id] = None
         self._pages.pop(session_id, None)
         self._last_ranked.pop(session_id, None)
+        self._shown_ids[session_id] = set()
+        self._frontier_revision.pop(session_id, None)
+        self._frontier_base.pop(session_id, None)
+        self._frontier_logits.pop(session_id, None)
+        self._page_rerank_revision.pop(session_id, None)
+        self._page_rerank_logits.pop(session_id, None)
+        self._page_rerank_batches[session_id] = 0
+        self._page_rerank_pairs[session_id] = 0
         while len(self.sessions) > self.config.max_sessions:
             old, _ = self.sessions.popitem(last=False)
             self._cache.pop(old, None)
@@ -164,6 +181,14 @@ class Agent:
             self._last_neural_margin.pop(old, None)
             self._pages.pop(old, None)
             self._last_ranked.pop(old, None)
+            self._shown_ids.pop(old, None)
+            self._frontier_revision.pop(old, None)
+            self._frontier_base.pop(old, None)
+            self._frontier_logits.pop(old, None)
+            self._page_rerank_revision.pop(old, None)
+            self._page_rerank_logits.pop(old, None)
+            self._page_rerank_batches.pop(old, None)
+            self._page_rerank_pairs.pop(old, None)
 
     def _retrieve(self, plan: RetrievalPlan, state: SessionState, fallbacks: list[str],
                   source_alias_query: str = ""
@@ -308,6 +333,29 @@ class Agent:
         self._last_ranked[session_id] = ordered
         return page
 
+    def _seen_aware_selection(self, session_id: str, ordered: list[str], limit: int,
+                              reset_seen: bool = False) -> tuple[int, list[str], int]:
+        """Select the strongest unseen products, clearing history only on override."""
+        seen = self._shown_ids.setdefault(session_id, set())
+        if reset_seen:
+            seen.clear()
+            self._pages[session_id] = 0
+        page = self._pages.get(session_id, 0)
+        if seen and not reset_seen:
+            page += 1
+        unseen = [identifier for identifier in ordered if identifier not in seen]
+        selected = unseen[:limit]
+        if len(selected) < limit:
+            selected_set = set(selected)
+            selected.extend([
+                identifier for identifier in ordered if identifier not in selected_set
+            ][:limit - len(selected)])
+        new_count = sum(identifier not in seen for identifier in selected)
+        seen.update(selected)
+        self._pages[session_id] = page
+        self._last_ranked[session_id] = ordered
+        return page, selected, new_count
+
     def _affordable_rerank_limit(self, elapsed: float) -> int:
         """Reranking prefix this turn's remaining budget can pay for.
 
@@ -400,17 +448,26 @@ class Agent:
         cached = self._cache.get(session_id)
         cache_hit = sufficiency.action != "clarify_first" and cached is not None and cached[0] == cache_key
         minimal_probe = sufficiency.action == "minimal_probe"
+        preferences = state.effective_preferences(
+            self.config.soft_decay_turns if self.config.soft_preference_decay else 0,
+        )
+        frontier_scored_this_turn: list[str] = []
+        frontier_triggered = False
         if sufficiency.action == "clarify_first":
             candidates = list(self._last_candidates.get(session_id, ()))
             routes, route_weights, retrieved_ids, comparison_tail_ids, rerank_prefix_ids = {}, {}, [], [], []
             role_witnesses, composition_witnesses = {}, {}
             stage_counts = {"retrieved": 0, "clarify_first": 1}
+            stage_ids = {"retrieved": [], "guarded_before_truncation": [],
+                         "candidate_limited": [], "neural_scored": [], "final_ranked": []}
             cascade = ComputeCascadeDecision(False, self.config.rerank_limit, 0.0, ("retrieval_deferred",))
             component_latency["retrieval_and_ranking"] = 0.0
         elif cache_hit:
             (candidates, routes, route_weights, retrieved_ids, comparison_tail_ids,
              rerank_prefix_ids, role_witnesses, composition_witnesses,
-             stage_counts, cascade, cached_fallbacks) = cached[1:]
+             stage_counts, stage_ids, cascade, cached_fallbacks) = cached[1:]
+            stage_counts = dict(stage_counts)
+            stage_ids = {name: list(values) for name, values in stage_ids.items()}
             fallbacks = list(cached_fallbacks)
             component_latency["retrieval_and_ranking"] = 0.0
         else:
@@ -426,9 +483,7 @@ class Agent:
             comparison_tail_ids = [item.product.parent_asin for item in candidates
                                    if "tiny_catalog_tail" in item.route_scores]
             stage_counts = {"retrieved": len(candidates)}
-            preferences = state.effective_preferences(
-                self.config.soft_decay_turns if self.config.soft_preference_decay else 0,
-            )
+            stage_ids = {"retrieved": list(retrieved_ids)}
             if self.config.evidence_ranking:
                 try:
                     candidates = _valid_ranking(candidates, rank_candidates(candidates, preferences))
@@ -439,6 +494,9 @@ class Agent:
             if self.config.product_guard:
                 candidates = _apply_product_guard(candidates, preferences, fallbacks)
             stage_counts["guarded_before_truncation"] = len(candidates)
+            stage_ids["guarded_before_truncation"] = [
+                item.product.parent_asin for item in candidates
+            ]
             candidate_limit = self.config.candidate_limit
             if minimal_probe:
                 candidate_limit = min(candidate_limit, self.config.minimal_probe_limit)
@@ -446,6 +504,7 @@ class Agent:
                 candidate_limit = max(self.config.rerank_limit, min(candidate_limit, 80))
             candidates = candidates[:candidate_limit]
             stage_counts["candidate_limited"] = len(candidates)
+            stage_ids["candidate_limited"] = [item.product.parent_asin for item in candidates]
             cascade = decide_compute_cascade(
                 intent, plan, _route_overlap(routes), len(candidates), self.config,
                 self._cascade_counts[session_id], self.reranker is not None and not minimal_probe,
@@ -464,6 +523,7 @@ class Agent:
                     fallbacks.append("contrast")
                     LOGGER.warning("Contrast ranking failed: %s", type(error).__name__)
             rerank_prefix_ids = []
+            neural_base: list[Candidate] | None = None
             affordable = (
                 cascade.rerank_limit
                 if self.config.turn_budget_seconds <= 0
@@ -488,6 +548,7 @@ class Agent:
                     ordered = admitted + [
                         item for item in candidates if item.product.parent_asin not in admitted_ids
                     ]
+                    neural_base = list(ordered)
                     reranked_at = time.perf_counter()
                     if self.config.structured_rerank:
                         ranked = self.reranker.rank(
@@ -513,13 +574,25 @@ class Agent:
                         )
                     candidates = _valid_ranking(candidates, ranked)
                     self._record_rerank_cost(time.perf_counter() - reranked_at, len(admitted))
+                    if self.config.progressive_frontier_rerank:
+                        self._frontier_revision[session_id] = state.revision
+                        self._frontier_base[session_id] = list(neural_base)
+                        self._frontier_logits[session_id] = {
+                            item.product.parent_asin: float(item.route_scores["neural_logit"])
+                            for item in candidates if "neural_logit" in item.route_scores
+                        }
                 except (RuntimeError, ValueError, TypeError, TimeoutError) as error:
                     fallbacks.append("neural_rerank")
                     LOGGER.warning("Neural ranking failed: %s", type(error).__name__)
                     rerank_prefix_ids = []
             else:
                 rerank_prefix_ids = []
+            if self.config.progressive_frontier_rerank and not rerank_prefix_ids:
+                self._frontier_revision.pop(session_id, None)
+                self._frontier_base.pop(session_id, None)
+                self._frontier_logits.pop(session_id, None)
             stage_counts["reranked"] = len(candidates)
+            stage_ids["neural_scored"] = list(rerank_prefix_ids)
             composition_witnesses: dict[str, list[dict]] = {}
             if self.config.composition_evidence:
                 candidates, composition_witnesses = rank_composition_evidence(candidates, preferences)
@@ -535,13 +608,106 @@ class Agent:
             stage_counts["guarded_after_rerank"] = len(candidates)
             if minimal_probe:
                 stage_counts["minimal_probe"] = len(candidates)
+            stage_ids["final_ranked"] = [item.product.parent_asin for item in candidates]
+            if self.config.page_local_rerank:
+                if rerank_prefix_ids:
+                    self._page_rerank_revision[session_id] = state.revision
+                    self._page_rerank_logits[session_id] = {
+                        item.product.parent_asin: float(item.route_scores["neural_logit"])
+                        for item in candidates if "neural_logit" in item.route_scores
+                    }
+                else:
+                    self._page_rerank_revision.pop(session_id, None)
+                    self._page_rerank_logits.pop(session_id, None)
             self._cache[session_id] = (
                 cache_key, candidates, routes, route_weights, retrieved_ids, comparison_tail_ids,
                 rerank_prefix_ids, role_witnesses, composition_witnesses,
-                stage_counts, cascade, tuple(fallbacks),
+                stage_counts, stage_ids, cascade, tuple(fallbacks),
             )
             component_latency["retrieval_and_ranking"] = time.perf_counter() - retrieval_started
             self._last_candidates[session_id] = list(candidates)
+
+        frontier_eligible = (
+            cache_hit
+            and self.config.progressive_frontier_rerank
+            and self.reranker is not None
+            and not minimal_probe
+            and not state.last_override.detected
+            and (not state.last_update_informative
+                 or state.last_feedback.scope in {"item", "product_type"})
+            and self._frontier_revision.get(session_id) == state.revision
+        )
+        if frontier_eligible:
+            base = self._frontier_base.get(session_id, [])
+            logits = dict(self._frontier_logits.get(session_id, {}))
+            shown = self._shown_ids.get(session_id, set())
+            frontier = [
+                item for item in base
+                if item.product.parent_asin not in logits
+                and item.product.parent_asin not in shown
+            ][:self.config.rerank_limit]
+            if frontier:
+                frontier_started = time.perf_counter()
+                try:
+                    rerank_query = plan.rerank_context if self.config.structured_rerank else query
+                    if self.config.structured_rerank:
+                        new_logits = self.reranker.score(
+                            rerank_query, frontier, structured=True,
+                        )
+                    elif self.config.rerank_document_mode != "head":
+                        new_logits = self.reranker.score(
+                            rerank_query, frontier, preferences, self.config.rerank_document_mode,
+                        )
+                    else:
+                        new_logits = self.reranker.score(rerank_query, frontier)
+                    logits.update(new_logits)
+                    candidates = fuse_neural_logits(
+                        base, logits, self.config.neural_weight,
+                        low_margin_weight=(self.config.neural_low_margin_weight
+                                           if self.config.neural_margin_fusion else None),
+                        margin_threshold=self.config.neural_margin_threshold,
+                    )
+                    composition_witnesses = {}
+                    if self.config.composition_evidence:
+                        candidates, composition_witnesses = rank_composition_evidence(
+                            candidates, preferences,
+                        )
+                    candidates = _apply_constraints(candidates, preferences, fallbacks)
+                    candidates = rank_soft_prices(
+                        candidates, preferences, self.config.soft_price_weight,
+                    )
+                    if self.config.profile_prior:
+                        candidates = rank_profile_prior(
+                            candidates, distill_profile(state.profile), self.config.profile_weight,
+                        )
+                        candidates = _apply_constraints(candidates, preferences, fallbacks)
+                    if self.config.product_guard:
+                        candidates = _apply_product_guard(candidates, preferences, fallbacks)
+                    frontier_scored_this_turn = [item.product.parent_asin for item in frontier]
+                    frontier_triggered = True
+                    self._frontier_logits[session_id] = logits
+                    rerank_prefix_ids = [
+                        item.product.parent_asin for item in base
+                        if item.product.parent_asin in logits
+                    ]
+                    stage_counts["frontier_scored_this_turn"] = len(frontier_scored_this_turn)
+                    stage_counts["frontier_scored_total"] = len(logits)
+                    stage_ids["neural_scored"] = list(rerank_prefix_ids)
+                    stage_ids["final_ranked"] = [item.product.parent_asin for item in candidates]
+                    self._record_rerank_cost(
+                        time.perf_counter() - frontier_started, len(frontier),
+                    )
+                    self._cache[session_id] = (
+                        cache_key, candidates, routes, route_weights, retrieved_ids,
+                        comparison_tail_ids, rerank_prefix_ids, role_witnesses,
+                        composition_witnesses, stage_counts, stage_ids, cascade,
+                        tuple(fallbacks),
+                    )
+                    self._last_candidates[session_id] = list(candidates)
+                except (RuntimeError, ValueError, TypeError, TimeoutError, AttributeError) as error:
+                    fallbacks.append("frontier_rerank")
+                    LOGGER.warning("Frontier neural ranking failed: %s", type(error).__name__)
+                component_latency["retrieval_and_ranking"] = time.perf_counter() - frontier_started
         policy_started = time.perf_counter()
         decision = choose_policy(
             state, candidates, self.config, turn, top_k, self._abstentions[session_id], intent,
@@ -553,8 +719,122 @@ class Agent:
         override_page_reset = (
             self.config.slate_reset_on_override and "intent_override" in intent.reasons
         )
-        page = self._slate_page(session_id, ordered, turn, limit, override_page_reset)
-        ranked = ordered[page * limit:page * limit + limit] if limit else []
+        shown_before = len(self._shown_ids.get(session_id, set()))
+        if self.config.seen_aware_slate:
+            page, ranked, newly_shown = self._seen_aware_selection(
+                session_id, ordered, limit, override_page_reset,
+            ) if limit else (0, [], 0)
+        else:
+            page = self._slate_page(session_id, ordered, turn, limit, override_page_reset)
+            ranked = ordered[page * limit:page * limit + limit] if limit else []
+            newly_shown = 0
+        control_page = list(ranked)
+        page_local_attempted = False
+        page_local_triggered = False
+        page_local_scored: list[str] = []
+        page_local_reason = "disabled"
+        page_local_revision_match = (
+            self._page_rerank_revision.get(session_id) == state.revision
+        )
+        page_logits = (
+            dict(self._page_rerank_logits.get(session_id, {}))
+            if page_local_revision_match else {}
+        )
+        by_identifier = {item.product.parent_asin: item for item in candidates}
+        page_candidates = [by_identifier[identifier] for identifier in control_page]
+        missing_page_scores = [
+            item for item in page_candidates
+            if item.product.parent_asin not in page_logits
+        ]
+        page_batches = self._page_rerank_batches.get(session_id, 0)
+        page_pairs = self._page_rerank_pairs.get(session_id, 0)
+        remaining_pairs = self.config.page_local_max_pairs - page_pairs
+        page_local_base_eligible = (
+            self.config.page_local_rerank
+            and self.reranker is not None
+            and bool(control_page)
+            and page > 0
+            and not state.last_override.detected
+            and not state.last_update_informative
+            and (cache_hit or state.last_feedback.scope == "item")
+            and page_local_revision_match
+            and bool(missing_page_scores)
+        )
+        page_local_eligible = (
+            page_local_base_eligible
+            and len(missing_page_scores) <= self.config.page_local_rerank_limit
+            and len(missing_page_scores) <= remaining_pairs
+            and page_batches < self.config.page_local_max_batches
+        )
+        if page_local_eligible:
+            page_local_attempted = True
+            page_local_scored = [item.product.parent_asin for item in missing_page_scores]
+            self._page_rerank_batches[session_id] = page_batches + 1
+            self._page_rerank_pairs[session_id] = page_pairs + len(missing_page_scores)
+            page_started = time.perf_counter()
+            try:
+                rerank_query = plan.rerank_context if self.config.structured_rerank else query
+                if self.config.structured_rerank:
+                    new_logits = self.reranker.score(
+                        rerank_query, missing_page_scores, structured=True,
+                    )
+                elif self.config.rerank_document_mode != "head":
+                    new_logits = self.reranker.score(
+                        rerank_query, missing_page_scores, preferences,
+                        self.config.rerank_document_mode,
+                    )
+                else:
+                    new_logits = self.reranker.score(rerank_query, missing_page_scores)
+                elapsed = time.perf_counter() - page_started
+                if set(new_logits) != set(page_local_scored):
+                    raise ValueError("Page-local reranker returned the wrong candidate set")
+                page_logits.update(new_logits)
+                local_logits = {
+                    identifier: page_logits[identifier] for identifier in control_page
+                }
+                local_ranking = fuse_neural_logits(
+                    page_candidates, local_logits, self.config.neural_weight,
+                    low_margin_weight=(self.config.neural_low_margin_weight
+                                       if self.config.neural_margin_fusion else None),
+                    margin_threshold=self.config.neural_margin_threshold,
+                )
+                reordered = [item.product.parent_asin for item in local_ranking]
+                if len(reordered) != len(control_page) or set(reordered) != set(control_page):
+                    raise ValueError("Page-local reranking changed page membership")
+                if elapsed > self.config.page_local_budget_seconds:
+                    raise TimeoutError("Page-local reranking exceeded its latency budget")
+                ranked = reordered
+                page_local_triggered = True
+                page_local_reason = "page_reordered"
+                self._page_rerank_logits[session_id] = page_logits
+                self._record_rerank_cost(elapsed, len(missing_page_scores))
+            except (RuntimeError, ValueError, TypeError, TimeoutError, AttributeError) as error:
+                ranked = control_page
+                page_local_reason = type(error).__name__
+                fallbacks.append("frontier_page_rerank")
+                LOGGER.warning("Page-local neural ranking failed: %s", type(error).__name__)
+            component_latency["page_local_rerank"] = time.perf_counter() - page_started
+        elif self.config.page_local_rerank:
+            if state.last_override.detected:
+                page_local_reason = "override"
+            elif state.last_update_informative:
+                page_local_reason = "informative_update"
+            elif page == 0:
+                page_local_reason = "first_page"
+            elif not missing_page_scores:
+                page_local_reason = "already_scored"
+            elif page_batches >= self.config.page_local_max_batches:
+                page_local_reason = "batch_budget"
+            elif len(missing_page_scores) > remaining_pairs:
+                page_local_reason = "pair_budget"
+            elif not cache_hit and state.last_feedback.scope != "item":
+                page_local_reason = "not_continuation"
+            elif not page_local_revision_match:
+                page_local_reason = "revision_mismatch"
+            else:
+                page_local_reason = "ineligible"
+        stage_ids["control_page"] = list(control_page)
+        stage_ids["returned_page"] = list(ranked)
         neural_scores = _neural_score_summary(candidates)
         if neural_scores["logit_margin"] is not None:
             self._last_neural_margin[session_id] = neural_scores["logit_margin"]
@@ -563,6 +843,36 @@ class Agent:
             "query": query, "source_alias_query": source_alias_query,
             "revision": state.revision, "cache_hit": cache_hit, "slate_page": page,
             "slate_page_reset": "intent_override" if override_page_reset else None,
+            "slate_exposure": {
+                "seen_aware": self.config.seen_aware_slate,
+                "shown_before": shown_before,
+                "newly_shown": newly_shown,
+                "shown_total": len(self._shown_ids.get(session_id, set())),
+            },
+            "frontier_rerank": {
+                "enabled": self.config.progressive_frontier_rerank,
+                "eligible": frontier_eligible,
+                "triggered": frontier_triggered,
+                "scored_this_turn": list(frontier_scored_this_turn),
+                "scored_total": len(self._frontier_logits.get(session_id, {})),
+                "state_revision": self._frontier_revision.get(session_id),
+            },
+            "page_local_rerank": {
+                "enabled": self.config.page_local_rerank,
+                "eligible": page_local_eligible,
+                "attempted": page_local_attempted,
+                "triggered": page_local_triggered,
+                "reason": page_local_reason,
+                "control_page": list(control_page),
+                "returned_page": list(ranked),
+                "membership_preserved": (
+                    len(control_page) == len(ranked) and set(control_page) == set(ranked)
+                ),
+                "scored_this_turn": list(page_local_scored),
+                "batches_used": self._page_rerank_batches.get(session_id, 0),
+                "additional_pairs_used": self._page_rerank_pairs.get(session_id, 0),
+                "state_revision": self._page_rerank_revision.get(session_id),
+            },
             "override": {
                 "detected": state.last_override.detected,
                 "confidence": state.last_override.confidence,
@@ -635,6 +945,7 @@ class Agent:
             },
             "routes": routes, "route_weights": route_weights, "route_overlap": _route_overlap(routes),
             "stage_counts": stage_counts,
+            "stage_ids": stage_ids,
             "retrieved_ids": retrieved_ids, "comparison_tail_ids": comparison_tail_ids,
             "rerank_admission": self.config.rerank_admission,
             "rerank_document_mode": self.config.rerank_document_mode, "rerank_prefix_ids": rerank_prefix_ids,
@@ -668,3 +979,11 @@ class Agent:
         self._last_neural_margin.clear()
         self._pages.clear()
         self._last_ranked.clear()
+        self._shown_ids.clear()
+        self._frontier_revision.clear()
+        self._frontier_base.clear()
+        self._frontier_logits.clear()
+        self._page_rerank_revision.clear()
+        self._page_rerank_logits.clear()
+        self._page_rerank_batches.clear()
+        self._page_rerank_pairs.clear()

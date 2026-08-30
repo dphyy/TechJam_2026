@@ -82,6 +82,18 @@ class OverrideLanguageCapabilityTest(unittest.TestCase):
         self.assertIn("explicit_correction_restatement", state.last_override.reasons)
         self.assertIn("intent_override", decide_intent(state, state.history[-1].text).reasons)
 
+    def test_explicit_directive_without_a_parseable_replacement_is_an_override(self):
+        state = self.transition(
+            "A blue cotton shirt.",
+            "Actually, ignore my earlier preference. What I need is: fabric.",
+        )
+        self.assertTrue(state.last_override.detected)
+        self.assertFalse(state.last_update_informative)
+        self.assertEqual(state.last_override.retired, ())
+        self.assertEqual(state.last_override.added, ())
+        self.assertIn("explicit_override_directive", state.last_override.reasons)
+        self.assertIn("intent_override", decide_intent(state, state.history[-1].text).reasons)
+
 
 if __name__ == "__main__":
     unittest.main()

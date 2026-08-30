@@ -154,6 +154,41 @@ class ConfigTest(unittest.TestCase):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 Config.from_dict(values)
 
+    def test_progressive_frontier_requires_neural_seen_aware_slates(self):
+        config = Config(neural_rerank=True, seen_aware_slate=True,
+                        progressive_frontier_rerank=True)
+        self.assertTrue(config.progressive_frontier_rerank)
+        for values in (
+            {"seen_aware_slate": 1},
+            {"progressive_frontier_rerank": 1},
+            {"progressive_frontier_rerank": True, "seen_aware_slate": True},
+            {"progressive_frontier_rerank": True, "neural_rerank": True},
+        ):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                Config.from_dict(values)
+
+    def test_page_local_reranking_has_separate_bounded_budgets(self):
+        config = Config(
+            neural_rerank=True, page_local_rerank=True,
+            page_local_rerank_limit=10, page_local_max_batches=2,
+            page_local_max_pairs=20, page_local_budget_seconds=.25,
+        )
+        self.assertTrue(config.page_local_rerank)
+        for values in (
+            {"page_local_rerank": 1},
+            {"page_local_rerank": True},
+            {"neural_rerank": True, "page_local_rerank": True,
+             "seen_aware_slate": True},
+            {"neural_rerank": True, "page_local_rerank": True,
+             "page_local_rerank_limit": 11},
+            {"neural_rerank": True, "page_local_rerank": True,
+             "page_local_rerank_limit": 10, "page_local_max_pairs": 9},
+            {"page_local_budget_seconds": 0},
+            {"page_local_budget_seconds": float("inf")},
+        ):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                Config.from_dict(values)
+
     def test_alternatives_are_explicitly_opt_in(self):
         self.assertEqual(Config().alternatives_mode, "off")
         for mode in ("off", "parse", "grouped"):
