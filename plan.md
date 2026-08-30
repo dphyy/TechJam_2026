@@ -709,6 +709,11 @@ from `0.864686` to `0.865071`. Warm p95 is `0.424832 s`, D30 and prompt-token
 limits are preserved, RSS is within 1% of control, and no fallback occurs.
 Phase 4 may therefore be re-registered once with the frozen v2 admission scorer.
 
+Release confirmation did not preserve the screening gain. Against the selected
+control, HitRate remained `0.9875`, but candidate MRR fell by `0.019678`,
+TechnicalScore fell by `0.003653`, and p95 increased 47%. Phase 10 is therefore
+not promoted and `configs/selected.json` remains unchanged.
+
 ## Phase 11: Product-Domain Adaptation at the Existing D30 Budget
 
 If admission v2 does not close the remaining Top-10 ordering gap, adapt the
@@ -915,3 +920,12 @@ The continuation roadmap is complete when Mercury:
 - opens final evidence once only after a complete source/config/model freeze; and
 - reports public and synthetic performance honestly without treating either as a
   private-score forecast.
+
+### Roadmap completion status — 30 August 2026
+
+Every registered phase and conditional dependency has been executed. Phase 10
+was the only screening survivor and was rejected on its one-shot confirmation;
+all other behavior-changing arms failed before confirmation. No combination was
+eligible, the original final evidence remains sealed, and the selected release
+configuration is unchanged. Any further optimization must begin with newly
+frozen source-disjoint evidence rather than reuse the consumed v2 splits.
