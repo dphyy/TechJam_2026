@@ -72,3 +72,19 @@ and ignored by Git.
 No runtime feature may read sample IDs, scenario labels, ground truth, future
 turns, or evaluator-owned diagnostics. Oracle intent analysis is evaluator-only
 and can never become a submission configuration.
+
+## C0 screening baseline
+
+Run `c0-screening` used the exact `campaign_control.json` bytes on the locked
+160-session screening split. Source did not change during the run and there were
+zero startup or turn fallbacks.
+
+| HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---:|---:|---:|---:|---:|---:|
+| 0.937500 | 0.575444 | 3.131250 | 0.798758 | 1,826,142 | 0.712695 s |
+
+Ever-observed ranked recall was `0.86875` at 10, `0.88750` at 30,
+`0.93750` at 60, and `0.96250` at 120. The ten official misses comprise two
+targets never retrieved and eight ranking-or-policy misses; seven missed targets
+never entered the reranker prefix. These diagnostics are evaluator-owned and
+are not available to runtime behavior.
