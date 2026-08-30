@@ -311,3 +311,23 @@ focused, unit-tested correctness improvement with no screening regression, not
 as evidence of score benefit. A future budget-specific pack must measure target
 proximity, hard-limit safety, uncertain-price neutrality, and sensitivity to the
 `0.02` weight before it is tuned further.
+
+## Stage 5A: evaluator-only intent-diversity oracle — keep as infrastructure
+
+Branch `exp/05a-intent-diversity-oracle`, implementation commit `1aa047e`, adds
+a deterministic facet-diversity reranker and an evaluator-only script. The
+reranker anchors the leader and greedily balances rank prior with supported
+category, material, color, and style novelty inside a 30-item prefix. Missing
+facets earn no novelty. The oracle alone reads `scenario_type`; runtime code
+cannot access labels, targets, or future turns. The complete suite passed with
+549 tests and Ruff passed.
+
+On 112 target-ranked browsing observations, the oracle ceiling was positive but
+small. Strength `0.20` improved target rank 15 times, worsened it 14 times, was
+unchanged 83 times, created two Top-10 gains and one Top-10 loss, and improved
+mean target reciprocal rank by `0.001472`. Strength `0.40` had a larger mean-RR
+gain but worsened more observations than it improved; `0.50` had equal Top-10
+gains and losses. Strength `0.20` is therefore the only runtime candidate. The
+oracle is kept as experimental infrastructure and can never be a submission
+configuration. A separate active branch must use only the live classifier and a
+predeclared confidence gate.
