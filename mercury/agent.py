@@ -105,6 +105,7 @@ class Agent:
         self._last_neural_margin: dict[str, float | None] = {}
         self._pages: dict[str, int] = {}
         self._last_ranked: dict[str, list[str]] = {}
+        self._seen_recommendations: dict[str, set[str]] = {}
         self.dense = None
         self.reranker = None
         self.contrast = None
@@ -152,6 +153,7 @@ class Agent:
         self._last_neural_margin[session_id] = None
         self._pages.pop(session_id, None)
         self._last_ranked.pop(session_id, None)
+        self._seen_recommendations[session_id] = set()
         while len(self.sessions) > self.config.max_sessions:
             old, _ = self.sessions.popitem(last=False)
             self._cache.pop(old, None)
@@ -162,6 +164,7 @@ class Agent:
             self._last_neural_margin.pop(old, None)
             self._pages.pop(old, None)
             self._last_ranked.pop(old, None)
+            self._seen_recommendations.pop(old, None)
 
     def _retrieve(self, plan: RetrievalPlan, state: SessionState, fallbacks: list[str],
                   source_alias_query: str = ""
@@ -304,6 +307,30 @@ class Agent:
         self._pages[session_id] = page
         self._last_ranked[session_id] = ordered
         return page
+
+    def _select_slate(self, session_id: str, ordered: list[str], page: int,
+                      limit: int) -> tuple[list[str], dict[str, int | str]]:
+        """Select current leaders on page zero and highest-ranked unseen later."""
+        seen = self._seen_recommendations.setdefault(session_id, set())
+        prior_seen = len(seen)
+        unseen = [identifier for identifier in ordered if identifier not in seen]
+        if not limit:
+            ranked, reason = [], "empty_limit"
+        elif page == 0:
+            ranked, reason = ordered[:limit], "base_head"
+        elif unseen:
+            ranked, reason = unseen[:limit], "highest_ranked_unseen"
+        else:
+            ranked = ordered[page * limit:page * limit + limit]
+            reason = "unseen_exhausted_hold_page"
+        selected_unseen = sum(identifier not in seen for identifier in ranked)
+        seen.update(ranked)
+        return ranked, {
+            "reason": reason,
+            "prior_seen": prior_seen,
+            "unseen_available": len(unseen),
+            "selected_unseen": selected_unseen,
+        }
 
     def _affordable_rerank_limit(self, elapsed: float) -> int:
         """Reranking prefix this turn's remaining budget can pay for.
@@ -544,7 +571,7 @@ class Agent:
         limit = min(top_k, max(0, decision.slate_size))
         ordered = list(dict.fromkeys(item.product.parent_asin for item in candidates))
         page = self._slate_page(session_id, ordered, turn, limit)
-        ranked = ordered[page * limit:page * limit + limit] if limit else []
+        ranked, slate_selection = self._select_slate(session_id, ordered, page, limit)
         neural_scores = _neural_score_summary(candidates)
         if neural_scores["logit_margin"] is not None:
             self._last_neural_margin[session_id] = neural_scores["logit_margin"]
@@ -552,6 +579,7 @@ class Agent:
         self.last_diagnostics = {
             "query": query, "source_alias_query": source_alias_query,
             "revision": state.revision, "cache_hit": cache_hit, "slate_page": page,
+            "slate_selection": slate_selection,
             "retrieval_sufficiency": {
                 "action": sufficiency.action, "sufficient": sufficiency.sufficient,
                 "reasons": list(sufficiency.reasons),
@@ -648,3 +676,4 @@ class Agent:
         self._last_neural_margin.clear()
         self._pages.clear()
         self._last_ranked.clear()
+        self._seen_recommendations.clear()

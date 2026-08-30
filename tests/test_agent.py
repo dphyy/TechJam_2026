@@ -1168,6 +1168,41 @@ class AgentTest(unittest.TestCase):
         finally:
             agent.close()
 
+    def test_advanced_page_selects_highest_ranked_unseen_after_tail_changes(self):
+        agent = Agent(self.paging_catalog(), Config(slate_paging_first_turn=2))
+        try:
+            original = [f"P{index:03d}" for index in range(30)]
+            first, _ = agent._select_slate("unseen", original, 0, 10)
+            second, _ = agent._select_slate("unseen", original, 1, 10)
+            self.assertEqual(first, original[:10])
+            self.assertEqual(second, original[10:20])
+
+            shifted = original[:10] + original[15:25] + original[10:15] + original[25:]
+            third, diagnostics = agent._select_slate("unseen", shifted, 2, 10)
+            self.assertEqual(third, original[20:30])
+            self.assertEqual(diagnostics["reason"], "highest_ranked_unseen")
+            self.assertEqual(diagnostics["selected_unseen"], 10)
+            self.assertEqual(len(set(first + second + third)), 30)
+        finally:
+            agent.close()
+
+    def test_reset_head_can_repeat_seen_items_and_exhaustion_holds_last_page(self):
+        agent = Agent(self.paging_catalog(), Config(slate_paging_first_turn=2))
+        try:
+            original = [f"P{index:03d}" for index in range(14)]
+            first, _ = agent._select_slate("hold", original, 0, 10)
+            second, _ = agent._select_slate("hold", original, 1, 10)
+            held, diagnostics = agent._select_slate("hold", original, 1, 10)
+            reset, reset_diagnostics = agent._select_slate("hold", original, 0, 10)
+            self.assertEqual(first, original[:10])
+            self.assertEqual(second, original[10:])
+            self.assertEqual(held, second)
+            self.assertEqual(diagnostics["reason"], "unseen_exhausted_hold_page")
+            self.assertEqual(reset, first)
+            self.assertEqual(reset_diagnostics["reason"], "base_head")
+        finally:
+            agent.close()
+
     def test_paging_holds_at_the_last_page_rather_than_showing_nothing(self):
         path = Path(self.temp.name) / "small.jsonl"
         rows = [{"parent_asin": f"S{index:03d}", "title": "Blue cotton shirt",
