@@ -107,7 +107,8 @@ def product_from_dict(row: dict) -> Product:
     price, lower_bound = _price(row.get("price"))
     return Product(identifier, fields["title"], fields,
                    {key: tuple(sorted(values)) for key, values in found.items()},
-                   tuple(evidence), price, lower_bound)
+                   tuple(evidence), price, lower_bound,
+                   int(row.get("rating_number") or 0))
 
 
 class Catalog:

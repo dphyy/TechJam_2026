@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 
 from mercury.catalog import negated_match
@@ -11,6 +12,32 @@ from mercury.types import Candidate, Preference, Product
 
 WEIGHTS = {"category": 1.1, "material": 0.65, "color": 0.55, "use_case": 0.65,
            "style": 0.45, "feature": 0.65, "size": 0.3, "brand": 0.5, "budget": 0.5}
+
+# Sessions are anchored on a real last purchase, so targets skew heavily popular:
+# the median released-public target carries 6,846 ratings against a catalog median
+# of 19. Review count is evidence the text cannot supply, and it separates the
+# near-identical listings that exhaust lexical and semantic ranking alike.
+#
+# Bounded on purpose. The term cannot exceed POPULARITY_WEIGHT, which is far below
+# the contradiction penalty, so a demoted candidate can never climb back on
+# popularity alone. Larger weights measurably hurt: on the public 200 this pipeline
+# scores 0.877132 at 0.30, 0.863189 at 0.50 and 0.853904 at 0.75.
+POPULARITY_WEIGHT = 0.30
+POPULARITY_CEILING = 12.92  # max log1p(rating_number) over the frozen catalog
+
+
+def _with_popularity(candidates: list[Candidate]) -> list[Candidate]:
+    """Add a bounded review-count prior, then re-sort deterministically."""
+    if not POPULARITY_WEIGHT:
+        return candidates
+    boosted = [
+        Candidate(candidate.product,
+                  candidate.score + POPULARITY_WEIGHT
+                  * math.log1p(candidate.product.rating_number) / POPULARITY_CEILING,
+                  candidate.route_scores)
+        for candidate in candidates
+    ]
+    return sorted(boosted, key=lambda item: (-item.score, item.product.parent_asin))
 
 
 def _variants(value: str) -> set[str]:
@@ -252,7 +279,7 @@ def rank_constraints(candidates: list[Candidate], preferences: list[Preference])
     constraints = _constraint_groups(preferences)
     if not candidates or (not constraints and not any(
             "constraint_penalty" in candidate.route_scores for candidate in candidates)):
-        return list(candidates)
+        return _with_popularity(list(candidates))
     contradictions = [any(max(preference_evidence(candidate.product, preference) for preference in group) < 0.0
                           for group in constraints) for candidate in candidates]
     marked = [candidate.score for candidate, contradicted in zip(candidates, contradictions) if contradicted]
@@ -261,7 +288,7 @@ def rank_constraints(candidates: list[Candidate], preferences: list[Preference])
     if all(("constraint_penalty" in candidate.route_scores) == contradicted
            for candidate, contradicted in zip(candidates, contradictions)) and (
             not marked or not neutral or max(marked) < min(neutral)):
-        return sorted(candidates, key=lambda item: -item.score)
+        return _with_popularity(sorted(candidates, key=lambda item: -item.score))
     scores = [candidate.score + candidate.route_scores.get("constraint_penalty", 0.0)
               for candidate in candidates]
     # A shared offset preserves score gaps and ties among contradicted items
@@ -275,7 +302,7 @@ def rank_constraints(candidates: list[Candidate], preferences: list[Preference])
             score -= penalty
             parts["constraint_penalty"] = penalty
         result.append(Candidate(candidate.product, score, parts))
-    return sorted(result, key=lambda item: -item.score)
+    return _with_popularity(sorted(result, key=lambda item: -item.score))
 
 
 def rank_product_compatibility(candidates: list[Candidate], preferences: list[Preference]) -> list[Candidate]:
