@@ -1195,6 +1195,17 @@ class AgentTest(unittest.TestCase):
         finally:
             agent.close()
 
+    def test_turn_three_candidate_holds_once_then_pages(self):
+        config = Config.load(Path(__file__).resolve().parents[1] / "configs" / "campaign_s2c2_turn3.json")
+        agent = Agent(self.paging_catalog(), config)
+        try:
+            slates = self.slates(agent, 3)
+            self.assertEqual(slates[1], slates[0])
+            self.assertEqual(len(set(slates[0]) & set(slates[2])), 0)
+            self.assertEqual(agent.last_diagnostics["slate_page"], 1)
+        finally:
+            agent.close()
+
     def test_advanced_page_selects_highest_ranked_unseen_after_tail_changes(self):
         agent = Agent(self.paging_catalog(), Config(slate_paging_first_turn=2))
         try:
