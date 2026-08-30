@@ -54,3 +54,46 @@ Because this is a user-facing correctness policy, a neutral or small score loss
 inside those guards can be accepted with explicit justification. It must not be
 described as a ranking improvement unless the score evidence supports that
 claim. Confirmation must be non-negative to replace the locked finalist.
+
+## Screening result — behavior succeeds, promotion gate fails
+
+The fresh screening lock contains 160 sessions and has SHA-256
+`2dfae2b1cd153cdf97d219a2b0c47cb88a827b9d430c11b45b6024692cc697b6`.
+After all prior target-family exclusions, the two highest popularity bands had
+no eligible families; 238 of 320 total locked targets were therefore drawn from
+the `1000-5000` band. This known population limitation applies equally to both
+arms.
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Turn-3 control | 0.937500 | 0.594750 | 2.937500 | 0.808425 | 1,891,213 | 0.703819 s |
+| Turn-2 repeat-driven | 0.937500 | 0.588500 | 2.925000 | 0.806800 | 1,877,488 | 0.746326 s |
+
+The candidate eliminated all eight exact adjacent duplicate slates observed on
+eligible stable-head turns (`8 → 0`) and converted them to highest-ranked-unseen
+selections (`85 → 93`). Mean unique products exposed through turn 2 increased
+from `16.231250` to `16.731250`; through turn 3 it increased from `18.537500`
+to `18.956250`. Override resets remained exactly 52, HitRate was unchanged,
+tokens fell by 13,725, and both arms had zero fallbacks.
+
+Only two of 160 session outcomes changed. Both were boundary sessions in which
+the target was found at rank 2 on turn 2 instead of rank 1 on turn 3. Thus the
+candidate genuinely found both targets one turn earlier, but MRR fell by
+`0.006250`. Official TechnicalScore fell `0.001625`; its paired bootstrap 95%
+interval was `[-0.004063, 0.000000]`. Buying, browsing, and intent-override
+scenario scores were identical. Boundary TechnicalScore fell `0.032500` over
+only eight cases, exceeding the registered `0.020` scenario guard.
+
+The product-logic hypothesis is supported: repeating an unchanged slate was
+wasteful, and immediate unseen paging removed that waste without losing a hit.
+The evaluator nevertheless prefers the later rank-1 placement because the MRR
+gain is weighted more heavily than finding the item one turn earlier. This same
+boundary-score tension appeared in the earlier consumed turn-2 trial, so it is
+not dismissed as a single-run anomaly.
+
+Under the predeclared protocol the candidate does not open confirmation and
+does not replace `configs/selected.json`. It remains available as the explicit
+`configs/exp06_repeat_driven_paging.json` product-policy alternative. Promoting
+it would be a conscious product-utility override—prioritizing no duplicate
+slates and earlier discovery over the competition metric—not an evidence-backed
+TechnicalScore improvement.
