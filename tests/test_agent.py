@@ -976,7 +976,7 @@ class AgentTest(unittest.TestCase):
             "intent_sparse_request_weight", "router_buying_threshold",
             "router_browsing_threshold",
         }
-        self.assertEqual(selected.slate_paging_first_turn, 5)
+        self.assertEqual(selected.slate_paging_first_turn, 3)
         self.assertFalse(selected.routed_retrieval)
         for field in Config.__dataclass_fields__:
             if field not in tuned_fields | {"slate_paging_first_turn"}:

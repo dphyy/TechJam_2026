@@ -235,6 +235,27 @@ gain is below the score-feature promotion threshold, this stage is kept under
 the correctness rule because it guarantees novelty and improves aggregate
 discovery without a material regression.
 
+## Stage 2C trial: override-aware paging from turn 2 — reject
+
+Branch `exp/02c-override-aware-early-paging`, commits `7442bbf` and `9921748`,
+tested the most aggressive proposal: advance on stable Top-10 membership from
+turn 2, but force page zero for replacements, polarity changes, category
+changes, and explicit replacement language. Explicit replacement is preserved
+even when the parser cannot form an assertion or the ledger does not change.
+The complete suite passed with 539 tests and Ruff passed.
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stage 2B control | 0.943750 | 0.574660 | 3.100000 | 0.802273 | 1,826,142 | 0.557221 s |
+| Stage 2C turn 2 | 0.943750 | 0.569660 | 3.018750 | 0.802398 | 1,821,316 | 0.704068 s |
+
+All 24 explicit simulator override messages reset to page zero. Early novelty
+improved MTTC by `0.081250` turns, but did not add a hit, reduced MRR by
+`0.005000`, and improved overall TechnicalScore by only `0.000125`. Boundary
+TechnicalScore declined `0.027500`, exceeding the predeclared `0.020` scenario
+guard. Turn-2 paging was therefore rejected as too aggressive, motivating the
+turn-3 trial below.
+
 ## Stage 2C: override-aware paging from turn 3 — keep
 
 Branch `exp/02c2-override-aware-turn3`, implementation commits `fdddd2b`,
@@ -288,6 +309,26 @@ in the finalist. The predeclared active weight still receives one end-to-end run
 on a separate branch because static rank simulation cannot reproduce dialogue
 and paging feedback.
 
+## Stage 3B: active typed-plan scoring — reject
+
+Branch `exp/03b-typed-plan-active`, candidate commit `1e75314`, activated the
+predeclared `0.10` typed-plan adjustment after neural ranking and reapplied the
+hard-constraint guard. The complete suite passed with 544 tests and Ruff passed.
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stage 3A shadow/control | 0.943750 | 0.574660 | 3.025000 | 0.803773 | 1,826,142 | 0.714010 s |
+| Stage 3B active | 0.943750 | 0.578065 | 3.031250 | 0.804670 | 1,832,671 | 0.673366 s |
+
+No hit was gained or lost. MRR improved `0.003405`, but MTTC worsened
+`0.006250`, token use rose by 6,529 because one session took an extra turn, and
+overall TechnicalScore gained only `0.000897`. Boundary TechnicalScore declined
+`0.003125`; other scenario deltas were positive but all below `0.0021`. The
+candidate was rejected because it fell far short of the predeclared `+0.010`
+score-feature gate and the shadow sweep showed no robust weight region. The
+typed scorer remains available behind `typed_plan_mode`; the finalist keeps it
+explicitly `off`.
+
 ## Stage 4: structured budget proximity — keep
 
 Branch `exp/04-structured-budget-proximity`, implementation commit `b2f138a`,
@@ -331,3 +372,32 @@ gains and losses. Strength `0.20` is therefore the only runtime candidate. The
 oracle is kept as experimental infrastructure and can never be a submission
 configuration. A separate active branch must use only the live classifier and a
 predeclared confidence gate.
+
+## Stage 5B: confidence-gated intent diversity — reject from finalist
+
+Branch `exp/05b-confidence-gated-intent-diversity`, implementation commit
+`02c43cb`, enabled the Stage 5A reranker only when the live classifier reported
+`browsing` with confidence at least `0.65`. It used the predeclared `0.20`
+strength and 30-item pool, anchored the leader, and stopped before the first
+constraint- or object-penalized candidate. The complete suite passed with 552
+tests and Ruff passed.
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stage 4 control | 0.943750 | 0.574660 | 3.025000 | 0.803773 | 1,826,142 | 0.665875 s |
+| Stage 5B | 0.943750 | 0.577282 | 3.031250 | 0.804435 | 1,831,950 | 0.759490 s |
+
+TechnicalScore improved only `0.000662`, far below the score-feature gate;
+HitRate was unchanged and MTTC worsened `0.006250`. Seven sessions changed:
+four reciprocal ranks improved, three worsened, no hit was gained or lost, and
+one target arrived a turn later. Browsing was essentially neutral
+(`+0.000008` scenario TechnicalScore); most aggregate gain came from buying
+(`+0.001563`), where diversity should not have been active.
+
+The gate applied in 27 sessions, but only 14 were labelled browsing; it also
+fired in six buying, five intent-override, and two boundary sessions. It reached
+only 14 of 64 browsing sessions. Labels here are synthetic evaluator metadata,
+so this is diagnostic rather than a production accuracy estimate, but the gain
+clearly depends on off-intent activation. Runtime diversity is rejected. A
+future retry should first calibrate intent routing on a dedicated,
+human-reviewed set.
