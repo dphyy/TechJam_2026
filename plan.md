@@ -746,6 +746,16 @@ comparison. Measure ranking inside the admitted 30 separately from admission.
 - Ranking is deterministic, local, pinned, corruption-tested, and sparse-fallback
   safe.
 
+### Phase 11 execution status — 30 August 2026
+
+One fixed one-epoch MiniLM adaptation was trained from 249 open target-independent
+queries and four catalog hard negatives per positive. It improved conditional
+MRR and Top-10 recall on both category-held-out and template-held-out validation.
+It is nevertheless rejected at screening: TechnicalScore improved only
+`0.003932` rather than `0.005`, warm p95 increased about 50%, boundary MRR fell
+from `0.483503` to `0.419501`, and buying MRR declined slightly. Confirmation
+was not opened; the pinned base MiniLM remains selected.
+
 ## Phase 12: Bounded Continuation and Question Policy
 
 Keep selected early paging as the control. Do not restore global seen-aware

@@ -21,6 +21,13 @@ MODELS = {
         "license": "Apache-2.0",
         "required": ["model.safetensors", "config.json", "tokenizer_config.json"],
     },
+    "reranker_domain_v1": {
+        "repo_id": "local/product-domain-ms-marco-MiniLM-L6-v2",
+        "revision": "mercury-product-domain-minilm-v1-seed-20260830",
+        "weights_sha256": "8a0fe765eb7925ea38c820a140f8eb518c3659b3596f0df1a309e70feffb4f05",
+        "license": "Apache-2.0",
+        "required": ["model.safetensors", "config.json", "tokenizer_config.json"],
+    },
     "bge_reranker_base": {
         "repo_id": "BAAI/bge-reranker-base",
         "revision": "2cfc18c9415c912f9d8155881c133215df768a70",
@@ -31,7 +38,7 @@ MODELS = {
 }
 
 # Cross-encoder kinds selectable by configuration; the default stays first.
-RERANKERS = ("reranker", "bge_reranker_base")
+RERANKERS = ("reranker", "reranker_domain_v1", "bge_reranker_base")
 
 
 def file_sha256(path: Path) -> str:

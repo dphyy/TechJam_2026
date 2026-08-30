@@ -427,6 +427,12 @@ class NeuralAssetsTest(unittest.TestCase):
                 self.assertIn("model.safetensors", spec["required"])
                 self.assertIn("config.json", spec["required"])
 
+    def test_local_domain_reranker_has_a_frozen_revision_and_hash(self):
+        spec = MODELS["reranker_domain_v1"]
+        self.assertEqual(spec["revision"], "mercury-product-domain-minilm-v1-seed-20260830")
+        self.assertRegex(spec["weights_sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(spec["license"], "Apache-2.0")
+
     def test_reranker_kind_selects_its_own_pinned_asset_directory(self):
         import sentence_transformers
 
