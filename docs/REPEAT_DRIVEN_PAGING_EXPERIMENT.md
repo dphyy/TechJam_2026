@@ -25,6 +25,14 @@ consumed targets, and all three prior incremental-campaign splits, including
 loose-title relatives. Raw targets, traces, and run artifacts remain ignored.
 Only the 160-session screening split is opened initially.
 
+Historical Cycle 5 and incremental-campaign packs reuse names such as
+`cycle5_screening_0001` for different targets. Before passing consumed rows to
+the unchanged target generator, `experiments/normalize_consumed_ids.py` prefixes
+only `sample_id` with the source filename and records source and normalized
+hashes. Ground truth and every target-selection field remain byte-equivalent at
+the JSON-value level; this resolves provenance-name collisions without dropping
+any exclusion.
+
 ## Decision rule
 
 The primary correctness outcome is elimination of exact adjacent duplicate
