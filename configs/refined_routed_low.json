@@ -1,0 +1,23 @@
+{
+  "alternatives_mode": "grouped",
+  "evidence_ranking": false,
+  "intent_browsing_language_weight": 0.5,
+  "intent_buying_language_weight": 0.2,
+  "intent_hard_weight": 0,
+  "intent_object_weight": 0.2,
+  "intent_slot_weight": 0.25,
+  "intent_sparse_request_weight": 0.5,
+  "intent_unresolved_weight": 0.25,
+  "intent_use_case_weight": 0.25,
+  "neural_rerank": true,
+  "neural_weight": 0.75,
+  "other_question_limit": 4,
+  "rerank_limit": 30,
+  "router_browsing_threshold": 0.5,
+  "router_buying_threshold": 0.5,
+  "slate_paging_first_turn": 5,
+  "buying_scoped_weight": 0.3,
+  "browsing_scenario_weight": 0.15,
+  "mixed_scoped_weight": 0.3,
+  "routed_retrieval": true
+}

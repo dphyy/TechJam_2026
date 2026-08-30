@@ -9,11 +9,11 @@ The tested environment is CPython 3.12.12 on macOS arm64. Python must include SQ
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt -r requirements-dev.txt
+python -m pip install -r requirements.txt
 python -m pip check
 ```
 
-The dependency manifest includes the full neural lock. Installation uses the network but does not acquire model weights. A completely air-gapped installation needs preinstalled dependencies or a matching-platform wheelhouse; a fresh wheelhouse installation has not been verified.
+The single dependency manifest includes runtime, local neural reranking, experiment tooling and developer checks. Installation uses the network but does not acquire model weights. A completely air-gapped installation needs preinstalled dependencies or a matching-platform wheelhouse; a fresh wheelhouse installation has not been verified.
 
 ## Organizer catalog
 
@@ -37,7 +37,14 @@ python -m experiments.prepare_models --model reranker
 
 Required assets live in `artifacts/models/reranker/`. The selected model is `cross-encoder/ms-marco-MiniLM-L6-v2`, revision `233902d25c440f23af6f7d6e94d2946bac0bee0a`, Apache-2.0. Preserve its notices and file-hash manifest. Model loading is local-only, safetensors-only, disables remote code and requires no provider credentials. See [model details](MODELS.md).
 
-The selected configuration uses grouped explicit alternatives, four CPU threads, 120 retained candidates and a 30-candidate reranking prefix. Its bytes match the measured `configs/cycle2_grouped.json`; [the selection receipt](cycle2-selection.json) records the promotion. No dense index or contrast sidecar is required. Missing or invalid optional assets trigger a recorded sparse fallback; that is a degraded mode, not reproduction of the neural result. Do not silently report fallback measurements as neural measurements.
+The selected configuration uses grouped explicit alternatives, four CPU threads,
+120 retained candidates, a 30-candidate reranking prefix, and unchanged-rank
+slate paging from turn 5. The original grouped-alternatives selection receipt is
+historical; the paging promotion and current settings are recorded in
+[the merged refinement results](PIPELINE_REFINEMENT_RESULTS.md). No dense index
+or contrast sidecar is required. Missing or invalid optional assets trigger a
+recorded sparse fallback; that is a degraded mode, not reproduction of the neural
+result. Do not silently report fallback measurements as neural measurements.
 
 ## Interface and official harness
 
@@ -83,7 +90,7 @@ The alternatives replay executes all three fixed controls; `--selected-mode` cho
 
 ## Completed comparison and validation boundary
 
-The alternatives comparison is complete under [its registered protocol](CYCLE2_ALTERNATIVES_PROTOCOL.md). [The final report](CYCLE2_RESULTS.md) and [aggregate evidence](cycle2-summary.json) distinguish developer correctness, target recovery, capability failures and resources. Grouped passed the release gates but did not improve target scores or locked capability passes. The selected public score is 0.786724; the different 32-session validation set scores 0.838032 under every control. Do not interpret those two numbers as a gain.
+The alternatives comparison is complete under [its registered protocol](CYCLE2_ALTERNATIVES_PROTOCOL.md). [The final report](CYCLE2_RESULTS.md) and [aggregate evidence](cycle2-summary.json) distinguish developer correctness, target recovery, capability failures and resources. Grouped passed the release gates but did not improve target scores or locked capability passes. Its historical fixed-slate public score is 0.786724; the current paging implementation scores 0.839176 on that consumed set. The latter is an implementation check, not a fresh private-performance estimate.
 
 Reproduce a control on released development data with a fresh name:
 

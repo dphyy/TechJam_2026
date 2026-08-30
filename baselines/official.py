@@ -100,3 +100,15 @@ class Agent:
             "recommendations": recommendations,
             "usage": {"prompt_tokens": 0, "completion_tokens": 0},
         }
+
+    def close(self) -> None:
+        connection = getattr(self, "connection", None)
+        if connection is not None:
+            self.connection = None
+            connection.close()
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass

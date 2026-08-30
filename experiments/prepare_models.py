@@ -11,7 +11,7 @@ from mercury.model_assets import MODELS, file_sha256, verify_model
 def main() -> None:
     parser = argparse.ArgumentParser(description="Acquire explicitly pinned public model assets")
     parser.add_argument("--output", default="artifacts/models")
-    parser.add_argument("--model", choices=("all", "embedding", "reranker"), default="all")
+    parser.add_argument("--model", choices=("all", *MODELS), default="all")
     parser.add_argument("--download", action="store_true", help="Allow public model downloads")
     args = parser.parse_args()
     os.environ["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = "1"
@@ -30,7 +30,7 @@ def main() -> None:
                 repo_id=spec["repo_id"], revision=spec["revision"],
                 local_dir=destination, token=False,
                 allow_patterns=["model.safetensors", "*.json", "vocab.txt", "README.md",
-                                "1_Pooling/config.json"],
+                                "sentencepiece.bpe.model", "1_Pooling/config.json"],
                 ignore_patterns=["onnx/*", "openvino/*"],
             )
             checksums = {

@@ -50,8 +50,41 @@ class SparseIndex:
         ).fetchall()
         return [row[0] for row in rows]
 
+    def search_factored(self, categories: list[str], requirements: list[str], limit: int) -> list[str]:
+        """Search ordinary category/object and requirement fields as separate clauses."""
+        category_tokens = terms(" ".join(categories))
+        requirement_tokens = terms(" ".join(requirements))
+        if limit <= 0 or (not category_tokens and not requirement_tokens):
+            return []
+
+        def expression(tokens: list[str], fields: str) -> str:
+            return "{" + fields + "} : (" + " OR ".join(f'"{token}"' for token in tokens) + ")"
+
+        clauses = []
+        if category_tokens:
+            clauses.append(expression(category_tokens, "title categories"))
+        if requirement_tokens:
+            clauses.append(expression(requirement_tokens, "title features details description"))
+        rows = self.connection.execute(
+            "SELECT parent_asin FROM products WHERE products MATCH ? "
+            "ORDER BY bm25(products, 0.0, 6.0, 4.0, 2.5, 2.5, 1.5, 1.0), rowid LIMIT ?",
+            (" AND ".join(clauses), limit),
+        ).fetchall()
+        return [row[0] for row in rows]
+
     def close(self) -> None:
-        self.connection.close()
+        connection = getattr(self, "connection", None)
+        if connection is not None:
+            self.connection = None
+            connection.close()
+
+    def __del__(self) -> None:
+        # The public agent contract has no lifecycle callback, so retain explicit
+        # close() while also preventing an abandoned session from leaking SQLite.
+        try:
+            self.close()
+        except Exception:
+            pass
 
 
 def fuse_routes(routes: dict[str, list[str]], weights: dict[str, float]) -> list[tuple[str, float, dict[str, float]]]:

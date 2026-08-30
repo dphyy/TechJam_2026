@@ -8,7 +8,6 @@ import datetime
 import json
 import math
 import platform
-import resource
 import statistics
 import tempfile
 import time
@@ -16,6 +15,7 @@ from collections import Counter
 from pathlib import Path
 
 from experiments.run import source_hashes
+from experiments.run import peak_rss_bytes
 from mercury.agent import Agent
 from mercury.catalog import product_from_dict
 from mercury.config import Config
@@ -273,7 +273,7 @@ def evaluate_fixture(pack: dict, config: Config, *, agent_factory=Agent) -> dict
             "usage": usage, "p50_seconds": statistics.median(ordered),
             "p95_seconds": ordered[min(len(ordered) - 1, int(.95 * len(ordered)))],
             "max_seconds": max(ordered), "cold_start_seconds_by_case": cold_starts,
-            "max_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if platform.system() == "Darwin" else 1024),
+            "max_rss_bytes": peak_rss_bytes(),
             "resource_note": "Tiny authored catalogs; cold starts reload the declared model per case. Not 50000-product latency evidence.",
             "paid_cost_usd": 0.0}
 

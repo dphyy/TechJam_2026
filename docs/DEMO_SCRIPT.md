@@ -16,6 +16,28 @@ Generate a new demonstration, not another validation run, with an unused output 
 
 The older `artifacts/demo-final/` and `demo.replay` preserve the previous baseline demonstration. They are historical evidence, not the cycle-2 comparison.
 
+## Component-qualified evidence proof
+
+This small, authored capability replay is separate from the consumed Cycle 2 fixtures
+and any technical-score run. It uses the exact config-gated role-evidence candidate,
+a control that differs only by `role_evidence=false`, and a four-row invented jacket
+catalog. It records the ordinary API's diagnostics, including the local catalog span
+that earns support. Generate it only in a new output directory:
+
+```bash
+.venv-repro/bin/python -m demo.role_evidence --output artifacts/local-role-evidence-replay
+```
+
+The replay demands one direct `description` witness for `leather outer shell`; leather
+elbow patches and cross-field co-occurrence must not receive one. It then changes the
+material to canvas and clears material preference, requiring role evidence to remain
+empty on both turns. The enabled configuration is independently replayed twice, and
+the runner rejects nondeterministic state/evidence/ranking diagnostics, fallbacks,
+bad API responses, source/config/catalog/model drift, or output-directory overwrite.
+Its `manifest.json`, `responses.json`, `transcript.txt`, and invented catalog are a
+bounded source-span and correction-safety proof only, never score, hidden-set,
+shopper, or organizer-private performance evidence.
+
 ## Narration and shots
 
 Use the saved responses for API shots and [the final report](CYCLE2_RESULTS.md) for result shots. Do not fabricate a frontend, successful purchase or extra catalog evidence.

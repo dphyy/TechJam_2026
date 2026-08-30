@@ -3,12 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import platform
-import resource
 import time
 from pathlib import Path
 
 import numpy as np
 
+from experiments.run import peak_rss_bytes
 from mercury.catalog import Catalog
 from mercury.model_assets import MODELS, file_sha256
 from mercury.neural import DOCUMENT_VERSION, DenseIndex, document_text, load_encoder, validate_vectors
@@ -43,7 +43,7 @@ def main() -> None:
         "document_version": DOCUMENT_VERSION, "count": len(catalog.products), "dimensions": 384,
         "device": args.device, "threads": args.threads, "batch_size": args.batch_size,
         "python": platform.python_version(), "build_seconds": time.perf_counter() - started,
-        "max_rss_native": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+        "max_rss_native": peak_rss_bytes(),
         "sha256": {name: file_sha256(destination / name) for name in ("vectors.npy", "ids.json")},
     }
     (destination / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

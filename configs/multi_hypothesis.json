@@ -1,0 +1,12 @@
+{
+  "alternatives_mode": "grouped",
+  "evidence_ranking": false,
+  "hypothesis_candidate_budget": 120,
+  "max_intent_hypotheses": 2,
+  "multi_hypothesis_retrieval": true,
+  "neural_rerank": true,
+  "neural_weight": 0.75,
+  "other_question_limit": 4,
+  "rerank_limit": 30,
+  "soft_price_weight": 0.02
+}

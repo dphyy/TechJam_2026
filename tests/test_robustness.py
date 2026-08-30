@@ -72,7 +72,9 @@ class ShoppingRobustnessTest(unittest.TestCase):
         self.ids("A leather bag.")
         identifiers = self.ids("My budget is under $40.", 2)
         self.assertFalse(self.agent.last_diagnostics["cache_hit"])
-        self.assertLess(identifiers.index("B"), identifiers.index("A"))
+        self.assertIn("A", identifiers)
+        self.assertGreater(self.agent.last_diagnostics["price_adjustments"]["B"], 0.0)
+        self.assertLess(self.agent.last_diagnostics["price_adjustments"]["A"], 0.0)
 
     def test_correction_paraphrases_have_the_same_active_material(self):
         for phrase in ("Actually canvas instead.", "Switch to canvas.", "On second thought, canvas."):

@@ -23,7 +23,7 @@ def freeze_configs(config_paths: list[Path], reserved: Path, output: Path, reaso
     manifest = {
         "frozen_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "reason": reason, "configs": configs,
-        "config_paths": [str(path) for path in config_paths],
+        "config_paths": [Path(path).as_posix() for path in config_paths],
         "reserved_sha256": file_sha256(reserved), "source_hashes": source_hashes(),
         "protocol": "docs/EXPERIMENT_PROTOCOL.md", "maximum_finalists": 2,
     }

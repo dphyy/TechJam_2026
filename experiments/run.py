@@ -5,7 +5,10 @@ import datetime
 import importlib.metadata
 import json
 import platform
-import resource
+try:
+    import resource
+except ModuleNotFoundError:  # Windows exposes peak memory through psapi instead.
+    resource = None
 import shutil
 import statistics
 import subprocess
@@ -45,6 +48,36 @@ class ObservedAgent:
         return response
 
 
+def peak_rss_bytes() -> int:
+    """Peak resident set size in bytes, or 0 where the platform cannot report it."""
+    if resource is not None:
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return int(peak) * (1 if platform.system() == "Darwin" else 1024)
+    import ctypes
+    from ctypes import wintypes
+
+    class _ProcessMemoryCounters(ctypes.Structure):
+        _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+                    ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
+
+    counters = _ProcessMemoryCounters()
+    counters.cb = ctypes.sizeof(counters)
+    try:
+        current_process = ctypes.windll.kernel32.GetCurrentProcess
+        current_process.restype = wintypes.HANDLE
+        current_process.argtypes = []
+        query = ctypes.windll.psapi.GetProcessMemoryInfo
+        query.restype = wintypes.BOOL
+        query.argtypes = [wintypes.HANDLE, ctypes.POINTER(_ProcessMemoryCounters), wintypes.DWORD]
+        measured = query(current_process(), ctypes.byref(counters), counters.cb)
+    except (AttributeError, OSError):
+        return 0
+    return int(counters.PeakWorkingSetSize) if measured else 0
+
+
 def source_hashes() -> dict[str, str]:
     paths = []
     for directory in ("mercury", "experiments", "baselines", "starter", "evaluator", "tests", "demo"):
@@ -52,7 +85,7 @@ def source_hashes() -> dict[str, str]:
     paths.extend([Path("agent.py"), Path("docs/evaluation_config.json"), Path("docs/agent_api_contract.json"),
                   Path("requirements.txt"), Path("requirements-dev.txt"),
                   Path("requirements-neural.txt"), Path("requirements-neural.lock.txt")])
-    return {str(path): file_sha256(path) for path in paths if path.is_file()}
+    return {path.as_posix(): file_sha256(path) for path in paths if path.is_file()}
 
 
 def summarize_traces(traces: list[list[dict]], samples: list[dict], result_sessions: list[dict]) -> dict:
@@ -72,8 +105,13 @@ def summarize_traces(traces: list[list[dict]], samples: list[dict], result_sessi
     results_by_id = {session["sample_id"]: session for session in result_sessions}
     latencies = sorted(item["latency_seconds"] for session in traces for item in session)
     route_recalls: dict[str, int] = {}
+    route_depth_recalls: dict[str, dict[int, int]] = {}
     recalls = {depth: 0 for depth in (10, 30, 60, 120, 300)}
+    rerank_prefix_recall = 0
     failures = {"not_retrieved": 0, "ranking_or_policy": 0, "agent_error_turns": 0}
+    taxonomy = {"state_or_intent_signal": 0, "retrieval_miss": 0, "rerank_admission_miss": 0,
+                "ranking_or_policy_miss": 0, "dialogue_signal": 0, "constraint_signal": 0,
+                "runtime_error_or_fallback": 0}
     fallback_turns = 0
     cached_turns = 0
     instrumented = any("ranked_ids" in item.get("diagnostics", {}) for session in traces for item in session)
@@ -81,33 +119,70 @@ def summarize_traces(traces: list[list[dict]], samples: list[dict], result_sessi
         target = sample["ground_truth"]["parent_asin"]
         seen_routes: set[str] = set()
         seen_depths: set[int] = set()
+        seen_rerank_prefix = False
         retrieved = False
+        session_fallback = False
+        question_goals = []
         for item in session:
             diagnostic = item.get("diagnostics", {})
             fallback_turns += bool(diagnostic.get("fallbacks"))
+            session_fallback |= bool(diagnostic.get("fallbacks")) or "error" in item
             cached_turns += bool(diagnostic.get("cache_hit"))
             failures["agent_error_turns"] += "error" in item
             retrieved |= target in diagnostic.get("retrieved_ids", [])
             for route, identifiers in diagnostic.get("routes", {}).items():
                 if target in identifiers:
                     seen_routes.add(route)
+                route_depth_recalls.setdefault(route, {depth: 0 for depth in (30, 60, 120)})
             identifiers = diagnostic.get("ranked_ids", [])
             for depth in recalls:
                 if target in identifiers[:depth]:
                     seen_depths.add(depth)
+            seen_rerank_prefix |= target in diagnostic.get("rerank_prefix_ids", [])
+            goal = diagnostic.get("question", {}).get("goal")
+            if isinstance(goal, str):
+                question_goals.append(goal)
         for route in seen_routes:
             route_recalls[route] = route_recalls.get(route, 0) + 1
+        for route in route_depth_recalls:
+            route_hits = {depth for item in session for depth in (30, 60, 120)
+                          if target in item.get("diagnostics", {}).get("routes", {}).get(route, [])[:depth]}
+            for depth in route_hits:
+                route_depth_recalls[route][depth] += 1
         for depth in seen_depths:
             recalls[depth] += 1
+        rerank_prefix_recall += seen_rerank_prefix
         if instrumented and not results_by_id[sample["sample_id"]]["hit"]:
             failures["ranking_or_policy" if retrieved else "not_retrieved"] += 1
+            taxonomy["retrieval_miss" if not retrieved else "ranking_or_policy_miss"] += 1
+            if retrieved and not seen_rerank_prefix:
+                taxonomy["rerank_admission_miss"] += 1
+            if session_fallback:
+                taxonomy["runtime_error_or_fallback"] += 1
+            if any(goal in question_goals[:index] for index, goal in enumerate(question_goals)) \
+                    or any(item.get("diagnostics", {}).get("policy", {}).get("previous_answer_productivity")
+                           in {"neutral", "unresolved"} for item in session):
+                taxonomy["dialogue_signal"] += 1
+            if any(item.get("diagnostics", {}).get("constraint_penalties", {}).get(target, 0) > 0
+                   for item in session):
+                taxonomy["constraint_signal"] += 1
+            intents = [item.get("diagnostics", {}).get("intent", {}) for item in session]
+            if ((intents and all(intent.get("confidence", 1.0) < .5 for intent in intents))
+                    or all(not item.get("diagnostics", {}).get("query") for item in session)):
+                taxonomy["state_or_intent_signal"] += 1
     count = len(samples)
     return {"turn_count": len(latencies), "p50_seconds": statistics.median(latencies),
             "p95_seconds": latencies[min(len(latencies) - 1, int(0.95 * len(latencies)))],
             "max_seconds": max(latencies), "fallback_turns": fallback_turns, "cached_turns": cached_turns,
             "ever_ranked_recall": {str(key): value / count for key, value in recalls.items()} if instrumented else None,
+            "ever_rerank_prefix_recall": rerank_prefix_recall / count if instrumented else None,
             "ever_route_recall": {key: value / count for key, value in route_recalls.items()} if instrumented else None,
+            "ever_route_depth_recall": {
+                route: {str(depth): hits / count for depth, hits in depths.items()}
+                for route, depths in route_depth_recalls.items()
+            } if instrumented else None,
             "failure_diagnostics": failures if instrumented else {"agent_error_turns": failures["agent_error_turns"]},
+            "failure_taxonomy": taxonomy if instrumented else None,
             "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."}
 
 
@@ -176,7 +251,7 @@ def main() -> None:
         "machine": platform.machine(), "platform": platform.platform(),
         "git_head": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "cold_start_seconds": cold_start, "evaluation_seconds": elapsed,
-        "max_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if platform.system() == "Darwin" else 1024),
+        "max_rss_bytes": peak_rss_bytes(),
         "paid_cost_usd": 0.0, "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
         "startup_fallbacks": getattr(inner, "startup_fallbacks", {}),
     }

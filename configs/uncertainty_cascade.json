@@ -1,0 +1,16 @@
+{
+  "alternatives_mode": "grouped",
+  "cascade_candidate_threshold": 100,
+  "cascade_low_confidence": 0.65,
+  "cascade_low_overlap": 0.15,
+  "cascade_max_rerank_limit": 60,
+  "cascade_max_turns": 2,
+  "cascade_threshold": 0.65,
+  "compute_cascade": true,
+  "evidence_ranking": false,
+  "neural_rerank": true,
+  "neural_weight": 0.75,
+  "other_question_limit": 4,
+  "rerank_limit": 30,
+  "soft_price_weight": 0.02
+}

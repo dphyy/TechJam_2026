@@ -12,8 +12,10 @@ import starter.agent as starter_entrypoint
 from mercury.agent import Agent
 from mercury.config import Config
 from mercury.contrast import CONTRAST_VERSION
+from mercury.intent import decide_intent
 from mercury.model_assets import MODELS, file_sha256
 from mercury.neural import DOCUMENT_VERSION
+from mercury.planning import build_retrieval_plan
 from mercury.retrieval import terms
 from mercury.types import Candidate
 
@@ -116,6 +118,10 @@ class AgentTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.agent.respond("missing", "shirt", 1, 10)
 
+    def test_reset_rejects_an_empty_session_id(self):
+        with self.assertRaisesRegex(ValueError, "nonempty"):
+            self.agent.reset("", {})
+
     def test_empty_query_fallback_uses_the_same_bounded_message(self):
         self.agent.reset("a", {})
         message = " " * 8000 + "recognizablesuffix shirt"
@@ -125,6 +131,41 @@ class AgentTest(unittest.TestCase):
         self.assertEqual(self.agent.sessions["a"].history[-1].text, message[:8000])
         self.assertEqual(self.agent.last_diagnostics["query"], "")
         self.assertNotIn("recognizablesuffix", self.agent.last_diagnostics["query"])
+
+    def test_factored_retrieval_falls_back_to_the_broad_query_without_active_facts(self):
+        agent = Agent(self.path, Config(retrieval_mode="factored"))
+        try:
+            agent.reset("a", {})
+            state = agent.sessions["a"]
+            state.update("blue cotton shirt", 1)
+            intent = decide_intent(state, "blue cotton shirt")
+            plan = build_retrieval_plan(state, intent)
+            _, routes, _ = agent._retrieve(plan, state, [])
+            self.assertEqual(routes, {"fielded": agent.sparse.search("blue cotton shirt", 180)})
+        finally:
+            agent.close()
+
+    def test_source_alias_route_recovers_current_shopper_wording_and_invalidates_cache(self):
+        path = Path(self.temp.name) / "alias-catalog.jsonl"
+        rows = [{"parent_asin": f"filler-{index}", "title": f"Plain item {index}", "categories": ["Misc"]}
+                for index in range(20)]
+        rows.append({"parent_asin": "trainer", "title": "Court trainers", "categories": ["Athletic"]})
+        path.write_text("\n".join(json.dumps(row) for row in rows))
+        agent = Agent(path, Config(evidence_ranking=False, question_policy="none", slate_size=1,
+                                   candidate_limit=10, sparse_limit=10, source_alias_retrieval=True))
+        try:
+            agent.reset("alias", {})
+            response = agent.respond("alias", "I need trainers.", 1, 1)
+            self.assertEqual(self.assert_legal_response(response, agent, count=1), ["trainer"])
+            self.assertEqual(agent.last_diagnostics["source_alias_query"], "trainers")
+            self.assertEqual(agent.last_diagnostics["routes"]["source_alias"], ["trainer"])
+
+            agent.respond("alias", "Sneakers.", 2, 1)
+            self.assertEqual(agent.last_diagnostics["source_alias_query"], "")
+            self.assertFalse(agent.last_diagnostics["cache_hit"])
+            self.assertNotIn("source_alias", agent.last_diagnostics["routes"])
+        finally:
+            agent.close()
 
     def test_bounded_session_eviction(self):
         agent = Agent(self.path, Config(max_sessions=2))
@@ -265,6 +306,81 @@ class AgentTest(unittest.TestCase):
         path.write_text("\n".join(map(json.dumps, rows)))
         return Agent(path, Config(evidence_ranking=False, candidate_limit=candidate_limit))
 
+    def test_role_evidence_promotes_only_a_source_supported_whole_product_role(self):
+        path = Path(self.temp.name) / "role-evidence.jsonl"
+        rows = [
+            {"parent_asin": "component", "title": "Jacket", "features": ["Leather elbow patches."]},
+            {"parent_asin": "whole", "title": "Jacket", "features": ["Leather outer shell."]},
+            {"parent_asin": "unknown", "title": "Jacket", "features": ["Canvas outer shell."]},
+        ]
+        path.write_text("\n".join(map(json.dumps, rows)))
+        agent = Agent(path, Config(evidence_ranking=False, role_evidence=True,
+                                   question_policy="none", candidate_limit=3))
+        try:
+            agent.reset("role", {})
+            with patch.object(agent.sparse, "search", return_value=["component", "whole", "unknown"]):
+                response = agent.respond(
+                    "role", "I need a leather outer shell, not merely leather elbow patches.", 1, 10,
+                )
+            self.assertEqual(self.assert_legal_response(response, agent, count=3)[0], "whole")
+            self.assertIn("whole", agent.last_diagnostics["role_evidence"])
+            self.assertNotIn("component", agent.last_diagnostics["role_evidence"])
+            self.assertEqual(agent.last_diagnostics["role_evidence"]["whole"][0]["source"], "features")
+        finally:
+            agent.close()
+
+    def test_role_evidence_retracts_after_a_matching_material_correction(self):
+        path = Path(self.temp.name) / "role-evidence-correction.jsonl"
+        rows = [
+            {"parent_asin": "component", "title": "Jacket", "features": ["Leather elbow patches."]},
+            {"parent_asin": "whole", "title": "Jacket", "features": ["Leather outer shell."]},
+            {"parent_asin": "canvas", "title": "Jacket", "features": ["Canvas outer shell."]},
+        ]
+        path.write_text("\n".join(map(json.dumps, rows)))
+        agent = Agent(path, Config(evidence_ranking=False, role_evidence=True,
+                                   question_policy="none", candidate_limit=3))
+        try:
+            agent.reset("role-correction", {})
+            with patch.object(agent.sparse, "search", return_value=["component", "whole", "canvas"]):
+                first = agent.respond(
+                    "role-correction", "I need a leather outer shell, not merely leather elbow patches.", 1, 10,
+                )
+                self.assertEqual(self.assert_legal_response(first, agent, count=3)[0], "whole")
+                self.assertIn("whole", agent.last_diagnostics["role_evidence"])
+                second = agent.respond("role-correction", "Actually, canvas outer shell.", 2, 10)
+            self.assert_legal_response(second, agent, count=3)
+            self.assertEqual(agent.last_diagnostics["role_evidence"], {})
+            active_materials = [item["value"] for item in agent.last_diagnostics["preferences"]
+                                if item["attribute"] == "material" and item["polarity"] == 1]
+            self.assertEqual(active_materials, ["canvas"])
+        finally:
+            agent.close()
+
+    def test_composition_evidence_runs_after_the_reranker_and_retracts_after_correction(self):
+        path = Path(self.temp.name) / "composition-evidence.jsonl"
+        rows = [
+            {"parent_asin": "supported", "title": "Jacket", "description": "80% cotton jacket."},
+            {"parent_asin": "unknown", "title": "Jacket", "description": "Cotton jacket."},
+        ]
+        path.write_text("\n".join(map(json.dumps, rows)))
+        agent = Agent(path, Config(evidence_ranking=False, composition_evidence=True,
+                                   question_policy="none", candidate_limit=2))
+        try:
+            agent.reranker = SimpleNamespace(rank=Mock(side_effect=lambda query, candidates, *args: [
+                Candidate(candidates[1].product, 0.905), Candidate(candidates[0].product, 0.900),
+            ]))
+            agent.reset("composition", {})
+            with patch.object(agent.sparse, "search", return_value=["supported", "unknown"]):
+                first = agent.respond("composition", "I need a jacket with 80% cotton.", 1, 10)
+                self.assertEqual(self.assert_legal_response(first, agent, count=2)[0], "supported")
+                self.assertIn("supported", agent.last_diagnostics["composition_evidence"])
+                self.assertEqual(agent.reranker.rank.call_count, 1)
+                second = agent.respond("composition", "Actually, canvas instead of cotton.", 2, 10)
+            self.assert_legal_response(second, agent, count=2)
+            self.assertEqual(agent.last_diagnostics["composition_evidence"], {})
+        finally:
+            agent.close()
+
     def test_exclusion_guard_precedes_candidate_limit_when_evidence_ranking_is_off(self):
         agent = self.material_agent(candidate_limit=2)
         try:
@@ -337,6 +453,150 @@ class AgentTest(unittest.TestCase):
         self.assert_legal_response(result)
         self.assertIn("neural_rerank", self.agent.last_diagnostics["fallbacks"])
 
+    def test_over_general_cutoff_bounds_rerank_work_and_keeps_slate(self):
+        agent = Agent(self.path, Config(
+            evidence_ranking=False,
+            over_general_cutoff=True,
+            over_general_candidate_threshold=5,
+            over_general_rerank_limit=4,
+            rerank_limit=10,
+            question_policy="intent",
+        ))
+
+        class RecordingRanker:
+            prompt_tokens = 0
+
+            def __init__(self):
+                self.limit = None
+
+            def rank(self, query, candidates, limit, weight):
+                self.limit = limit
+                return candidates
+
+        ranker = RecordingRanker()
+        agent.reranker = ranker
+        try:
+            agent.reset("broad", {})
+            response = agent.respond("broad", "I am exploring gift ideas for a wedding.", 1, 10)
+            self.assert_legal_response(response, agent)
+            self.assertEqual(ranker.limit, 4)
+            self.assertEqual(agent.last_diagnostics["stage_counts"]["over_general_cutoff"], 4)
+            self.assertEqual(response["ask_attribute"], "category")
+        finally:
+            agent.close()
+
+    def test_sufficiency_probe_skips_neural_then_retrieves_after_productive_answer(self):
+        agent = Agent(self.path, Config(
+            evidence_ranking=False,
+            neural_rerank=True,
+            retrieval_sufficiency_gate=True,
+            insufficient_action="minimal_probe",
+            question_policy="intent",
+        ))
+
+        class RecordingRanker:
+            prompt_tokens = 0
+
+            def __init__(self):
+                self.calls = 0
+
+            def rank(self, query, candidates, limit, weight):
+                self.calls += 1
+                return candidates
+
+        ranker = RecordingRanker()
+        agent.reranker = ranker
+        try:
+            agent.reset("probe", {})
+            first = agent.respond("probe", "I am exploring gift ideas.", 1, 10)
+            self.assert_legal_response(first, agent)
+            self.assertEqual(ranker.calls, 0)
+            self.assertEqual(agent.last_diagnostics["retrieval_sufficiency"]["action"], "minimal_probe")
+            self.assertIn("minimal_probe", agent.last_diagnostics["stage_counts"])
+            agent.respond("probe", "A blue cotton shirt.", 2, 10)
+            self.assertEqual(ranker.calls, 1)
+            self.assertEqual(agent.last_diagnostics["retrieval_sufficiency"]["action"], "retrieve")
+        finally:
+            agent.close()
+
+    def test_clarify_first_defers_once_without_retrieval_and_final_turn_always_retrieves(self):
+        agent = Agent(self.path, Config(
+            evidence_ranking=False,
+            retrieval_sufficiency_gate=True,
+            insufficient_action="clarify_first",
+            question_policy="intent",
+        ))
+        try:
+            agent.reset("clarify", {})
+            with patch.object(agent.sparse, "search", wraps=agent.sparse.search) as search:
+                first = agent.respond("clarify", "I am exploring gift ideas.", 1, 10)
+                self.assertEqual(search.call_count, 0)
+                self.assertEqual(first["recommendations"], [])
+                self.assertIsNotNone(first["ask_attribute"])
+                self.assertEqual(agent.last_diagnostics["retrieval_sufficiency"]["action"], "clarify_first")
+                agent.respond("clarify", "Still not sure.", 2, 10)
+                self.assertGreater(search.call_count, 0)
+            agent.reset("final", {})
+            final = agent.respond("final", "I am exploring gift ideas.", 10, 10)
+            self.assert_legal_response(final, agent)
+            self.assertIsNone(final["ask_attribute"])
+            self.assertEqual(agent.last_diagnostics["retrieval_sufficiency"]["action"], "retrieve")
+        finally:
+            agent.close()
+
+    def test_compute_cascade_runs_one_d60_pass_and_respects_session_budget(self):
+        agent = Agent(self.path, Config(
+            evidence_ranking=False,
+            neural_rerank=True,
+            compute_cascade=True,
+            cascade_threshold=.1,
+            cascade_candidate_threshold=1,
+            cascade_max_turns=1,
+        ))
+
+        class RecordingRanker:
+            prompt_tokens = 0
+
+            def __init__(self):
+                self.limits = []
+
+            def rank(self, query, candidates, limit, weight):
+                self.limits.append(limit)
+                return candidates
+
+        ranker = RecordingRanker()
+        agent.reranker = ranker
+        try:
+            agent.reset("cascade", {})
+            agent.respond("cascade", "I need some gift ideas.", 1, 10)
+            self.assertEqual(ranker.limits, [60])
+            self.assertTrue(agent.last_diagnostics["compute_cascade"]["escalated"])
+            agent.respond("cascade", "Maybe something blue.", 2, 10)
+            self.assertEqual(ranker.limits, [60, 30])
+            self.assertFalse(agent.last_diagnostics["compute_cascade"]["escalated"])
+        finally:
+            agent.close()
+
+    def test_multi_hypothesis_routes_share_one_fixed_budget(self):
+        agent = Agent(self.path, Config(
+            evidence_ranking=False,
+            multi_hypothesis_retrieval=True,
+            max_intent_hypotheses=2,
+            hypothesis_candidate_budget=6,
+            candidate_limit=6,
+        ))
+        try:
+            agent.reset("hypotheses", {})
+            with patch.object(agent.sparse, "search", wraps=agent.sparse.search) as search:
+                response = agent.respond("hypotheses", "I need something for a wedding.", 1, 10)
+            self.assert_legal_response(response, agent, count=6)
+            self.assertLessEqual(search.call_count, 2)
+            self.assertEqual(sum(call.args[1] for call in search.call_args_list), 6)
+            self.assertLessEqual(len(agent.last_diagnostics["retrieval_plan"]["hypotheses"]), 2)
+            self.assertEqual(set(agent.last_diagnostics["routes"]), {"hypothesis_0", "hypothesis_1"})
+        finally:
+            agent.close()
+
     def test_malformed_ranker_return_cannot_break_legal_fallback(self):
         class BrokenRanker:
             prompt_tokens = 0
@@ -367,6 +627,40 @@ class AgentTest(unittest.TestCase):
         second = self.agent.respond("a", "Keep looking.", 2, 10)
         self.assertEqual(first["recommendations"], second["recommendations"])
         self.assertTrue(self.agent.last_diagnostics["cache_hit"])
+
+    def test_tiny_catalog_keeps_comparison_candidates_for_validation(self):
+        path = Path(self.temp.name) / "tiny.jsonl"
+        rows = [
+            {"parent_asin": "A", "title": "Everyday canvas tote bag", "categories": ["Bags"]},
+            {"parent_asin": "B", "title": "Formal leather belt", "categories": ["Belts"]},
+        ]
+        path.write_text("\n".join(map(json.dumps, rows)))
+        agent = Agent(path, Config(evidence_ranking=False))
+        try:
+            agent.reset("tiny", {})
+            response = agent.respond("tiny", "I need an everyday bag.", 1, 10)
+            self.assertEqual(self.assert_legal_response(response, agent, count=2), ["A", "B"])
+            self.assertEqual(agent.last_diagnostics["retrieved_ids"], ["A"])
+            self.assertEqual(agent.last_diagnostics["comparison_tail_ids"], ["B"])
+            self.assertEqual(set(agent.last_diagnostics["ranked_ids"]), {"A", "B"})
+        finally:
+            agent.close()
+
+    def test_body_qualification_does_not_exclude_shared_components(self):
+        path = Path(self.temp.name) / "components.jsonl"
+        rows = [
+            {"parent_asin": "A", "title": "Leather body bag with leather handles", "categories": ["Bags"]},
+            {"parent_asin": "B", "title": "Cotton body bag with leather handles", "categories": ["Bags"]},
+        ]
+        path.write_text("\n".join(map(json.dumps, rows)))
+        agent = Agent(path, Config(evidence_ranking=True))
+        try:
+            agent.reset("components", {})
+            response = agent.respond("components", "I need a bag with a leather body, not just leather handles.", 1, 10)
+            self.assertEqual(self.assert_legal_response(response, agent, count=2), ["A", "B"])
+            self.assertEqual(agent.last_diagnostics["constraint_penalties"]["A"], 0.0)
+        finally:
+            agent.close()
 
     def choice_agent(self, mode, candidate_limit=120, extra_rows=()):
         path = Path(self.temp.name) / f"choices-{mode}.jsonl"
@@ -662,11 +956,235 @@ class AgentTest(unittest.TestCase):
 
     def test_cycle2_configs_only_change_alternatives_mode(self):
         root = Path(__file__).resolve().parents[1] / "configs"
-        selected = Config.load(root / "selected.json")
+        selected = Config.load(root / "cycle2_grouped.json")
         for name, mode in (("frozen", "off"), ("parse", "parse"), ("grouped", "grouped")):
             with self.subTest(name=name):
                 config = Config.load(root / f"cycle2_{name}.json")
                 self.assertEqual(config, replace(selected, alternatives_mode=mode))
+
+    def test_selected_config_promotes_only_paging_over_the_historical_d30_release(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        historical = Config.load(root / "cycle2_grouped.json")
+        selected = Config.load(root / "selected.json")
+        tuned_fields = {
+            "intent_object_weight", "intent_slot_weight", "intent_hard_weight",
+            "intent_buying_language_weight", "intent_browsing_language_weight",
+            "intent_use_case_weight", "intent_unresolved_weight",
+            "intent_sparse_request_weight", "router_buying_threshold",
+            "router_browsing_threshold",
+        }
+        self.assertEqual(selected.slate_paging_first_turn, 5)
+        self.assertFalse(selected.routed_retrieval)
+        for field in Config.__dataclass_fields__:
+            if field not in tuned_fields | {"slate_paging_first_turn"}:
+                self.assertEqual(getattr(selected, field), getattr(historical, field), field)
+
+    def test_cycle3_admission_configs_only_change_admission_mode(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "cycle2_grouped.json")
+        for name in ("stratified", "cover"):
+            with self.subTest(name=name):
+                config = Config.load(root / f"cycle3_{name}.json")
+                self.assertEqual(config, replace(selected, rerank_admission=name))
+
+    def test_cycle3_retrieval_configs_only_change_retrieval_mode(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "cycle2_grouped.json")
+        for name in ("field_union", "factored"):
+            with self.subTest(name=name):
+                config = Config.load(root / f"cycle3_{name}.json")
+                self.assertEqual(config, replace(selected, retrieval_mode=name))
+
+    def test_cycle4_source_alias_config_only_enables_alias_route(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "cycle2_grouped.json")
+        self.assertEqual(Config.load(root / "cycle4_source_alias.json"),
+                         replace(selected, source_alias_retrieval=True))
+
+    def test_cycle3_document_configs_only_change_document_mode(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "cycle2_grouped.json")
+        for name in ("lexical", "protected"):
+            with self.subTest(name=name):
+                config = Config.load(root / f"cycle3_{name}.json")
+                self.assertEqual(config, replace(selected, rerank_document_mode=name))
+
+    def test_cycle3_rerank60_config_only_changes_the_registered_depth(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "cycle2_grouped.json")
+        self.assertEqual(Config.load(root / "cycle3_rerank60.json"), replace(selected, rerank_limit=60))
+
+    def test_cycle3_rerank120_config_only_changes_the_registered_depth(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "cycle2_grouped.json")
+        self.assertEqual(Config.load(root / "cycle3_rerank120.json"), replace(selected, rerank_limit=120))
+
+
+    def test_cycle4_bge_base_config_only_changes_the_registered_reranker(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "cycle2_grouped.json")
+        self.assertEqual(Config.load(root / "cycle4_bge_base.json"),
+                         replace(selected, reranker_model="bge_reranker_base"))
+
+    def test_agent_loads_the_reranker_kind_named_by_its_configuration(self):
+        seen = {}
+
+        class FakeRanker:
+            def __init__(self, artifact_dir, device="cpu", threads=4, kind="reranker"):
+                seen["kind"] = kind
+
+        with patch("mercury.neural.NeuralRanker", FakeRanker):
+            agent = Agent(self.path, Config(neural_rerank=True, reranker_model="bge_reranker_base",
+                                            artifact_dir=self.temp.name))
+        try:
+            self.assertEqual(seen["kind"], "bge_reranker_base")
+            self.assertEqual(agent.startup_fallbacks, {})
+        finally:
+            agent.close()
+
+
+    def test_unbudgeted_agent_reranks_the_whole_configured_prefix(self):
+        agent = Agent(self.path, Config(rerank_limit=30))
+        try:
+            agent._rerank_cost = 1.0
+            self.assertEqual(agent._affordable_rerank_limit(99.0), 30)
+        finally:
+            agent.close()
+
+    def test_turn_budget_shrinks_the_rerank_prefix_to_what_time_allows(self):
+        agent = Agent(self.path, Config(rerank_limit=30, turn_budget_seconds=2.0))
+        try:
+            self.assertEqual(agent._affordable_rerank_limit(0.0), 30)
+            agent._rerank_cost = 0.1
+            self.assertEqual(agent._affordable_rerank_limit(0.0), 20)
+            self.assertEqual(agent._affordable_rerank_limit(1.5), 5)
+            self.assertEqual(agent._affordable_rerank_limit(2.0), 0)
+            self.assertEqual(agent._affordable_rerank_limit(9.0), 0)
+        finally:
+            agent.close()
+
+    def test_exhausted_turn_budget_skips_reranking_and_records_the_fallback(self):
+        class SlowRanker:
+            def __init__(self, *args, **kwargs):
+                self.prompt_tokens = 0
+
+            def rank(self, *args, **kwargs):
+                raise AssertionError("Reranking must not run without budget")
+
+        with patch("mercury.neural.NeuralRanker", SlowRanker):
+            agent = Agent(self.path, Config(neural_rerank=True, turn_budget_seconds=0.001,
+                                            artifact_dir=self.temp.name))
+        try:
+            agent._rerank_cost = 10.0
+            agent.reset("budget", {})
+            response = agent.respond("budget", "blue cotton shirt", 1, 10)
+            self.assertEqual(len(response["recommendations"]), 10)
+            self.assertIn("latency_budget", agent.last_diagnostics["fallbacks"])
+            self.assertEqual(agent.last_diagnostics["rerank_prefix_ids"], [])
+        finally:
+            agent.close()
+
+    def test_reranking_records_its_measured_cost_per_candidate(self):
+        class FastRanker:
+            def __init__(self, *args, **kwargs):
+                self.prompt_tokens = 0
+
+            def rank(self, query, candidates, limit, weight, preferences=None, document_mode="head"):
+                return list(candidates)
+
+        with patch("mercury.neural.NeuralRanker", FastRanker):
+            agent = Agent(self.path, Config(neural_rerank=True, turn_budget_seconds=5.0,
+                                            artifact_dir=self.temp.name))
+        try:
+            self.assertIsNone(agent._rerank_cost)
+            agent.reset("cost", {})
+            agent.respond("cost", "blue cotton shirt", 1, 10)
+            self.assertIsInstance(agent._rerank_cost, float)
+            self.assertGreaterEqual(agent._rerank_cost, 0.0)
+        finally:
+            agent.close()
+
+
+    def paging_catalog(self):
+        path = Path(self.temp.name) / "paging.jsonl"
+        rows = [{"parent_asin": f"P{index:03d}",
+                 "title": "Blue cotton shirt" if index % 2 == 0
+                          else "Blue cotton shirt with red leather jacket trim",
+                 "categories": ["Shirts"]} for index in range(40)]
+        path.write_text("".join(json.dumps(row) + chr(10) for row in rows), encoding="utf-8")
+        return path
+
+    def slates(self, agent, turns):
+        seen = []
+        agent.reset("paging", {})
+        for turn in range(1, turns + 1):
+            response = agent.respond("paging", "blue cotton shirt", turn, 10)
+            seen.append([item["parent_asin"] for item in response["recommendations"]])
+        return seen
+
+    def test_without_paging_an_unchanged_ranking_repeats_the_same_slate(self):
+        agent = Agent(self.paging_catalog(), Config())
+        try:
+            seen = self.slates(agent, 6)
+            self.assertTrue(all(slate == seen[0] for slate in seen))
+        finally:
+            agent.close()
+
+    def test_paging_advances_only_from_the_configured_turn(self):
+        agent = Agent(self.paging_catalog(), Config(slate_paging_first_turn=5))
+        try:
+            seen = self.slates(agent, 6)
+            full = agent.last_diagnostics["ranked_ids"]
+            self.assertEqual(seen[0], full[:10])
+            for slate in seen[1:4]:
+                self.assertEqual(slate, seen[0], "paging must not start before its turn")
+            self.assertEqual(seen[4], full[10:20])
+            self.assertEqual(seen[5], full[20:30])
+        finally:
+            agent.close()
+
+    def test_paged_slates_show_products_the_customer_has_not_seen(self):
+        agent = Agent(self.paging_catalog(), Config(slate_paging_first_turn=5))
+        try:
+            seen = self.slates(agent, 6)
+            self.assertEqual(len(set(seen[0]) & set(seen[4])), 0)
+            self.assertEqual(len({item for slate in seen for item in slate}), 30)
+        finally:
+            agent.close()
+
+    def test_paging_holds_at_the_last_page_rather_than_showing_nothing(self):
+        path = Path(self.temp.name) / "small.jsonl"
+        rows = [{"parent_asin": f"S{index:03d}", "title": "Blue cotton shirt",
+                 "categories": ["Shirts"]} for index in range(14)]
+        path.write_text("".join(json.dumps(row) + chr(10) for row in rows), encoding="utf-8")
+        agent = Agent(path, Config(slate_paging_first_turn=5))
+        try:
+            agent.reset("small", {})
+            slates = [[item["parent_asin"] for item in
+                       agent.respond("small", "blue cotton shirt", turn, 10)["recommendations"]]
+                      for turn in range(1, 9)]
+            full = agent.last_diagnostics["ranked_ids"]
+            self.assertEqual(len(full), 14)
+            self.assertEqual(slates[4], full[10:20])
+            for slate in slates[5:]:
+                self.assertEqual(slate, full[10:20], "must hold the last page, never abstain")
+                self.assertTrue(slate)
+        finally:
+            agent.close()
+
+    def test_a_changed_ranking_resets_paging_to_the_top_slate(self):
+        agent = Agent(self.paging_catalog(), Config(slate_paging_first_turn=5))
+        try:
+            agent.reset("paging", {})
+            for turn in range(1, 6):
+                agent.respond("paging", "blue cotton shirt", turn, 10)
+            paged = agent.last_diagnostics["ranked_ids"][10:20]
+            response = agent.respond("paging", "I need a red leather jacket instead", 6, 10)
+            slate = [item["parent_asin"] for item in response["recommendations"]]
+            self.assertEqual(slate, agent.last_diagnostics["ranked_ids"][:10])
+            self.assertNotEqual(slate, paged)
+        finally:
+            agent.close()
 
 
 if __name__ == "__main__":

@@ -1,7 +1,8 @@
 import unittest
 
 from mercury.catalog import product_from_dict
-from mercury.ranking import evidence_score, preference_evidence, rank_candidates, rank_constraints, value_matches
+from mercury.ranking import (evidence_score, preference_evidence, rank_candidates, rank_constraints,
+                             rank_product_compatibility, rank_soft_prices, value_matches)
 from mercury.types import Candidate, Preference
 
 
@@ -22,6 +23,21 @@ class RankingTest(unittest.TestCase):
         limit = preference("budget", "<= 50", hard=True)
         self.assertEqual(preference_evidence(low, limit), 0.0)
         self.assertLess(preference_evidence(high, limit), 0.0)
+
+    def test_soft_price_ranking_boosts_fit_without_excluding_uncertain_prices(self):
+        candidates = [
+            Candidate(product_from_dict({"parent_asin": "expensive", "price": 80}), 1.0),
+            Candidate(product_from_dict({"parent_asin": "unknown"}), 1.0),
+            Candidate(product_from_dict({"parent_asin": "from-low", "price": "from $20"}), 1.0),
+            Candidate(product_from_dict({"parent_asin": "fit", "price": 40}), 1.0),
+        ]
+        ranked = rank_soft_prices(candidates, [preference("budget", "<= 50")], .02)
+        self.assertEqual([item.product.parent_asin for item in ranked],
+                         ["fit", "from-low", "unknown", "expensive"])
+        self.assertEqual({item.product.parent_asin for item in ranked},
+                         {item.product.parent_asin for item in candidates})
+        self.assertNotIn("price_preference", ranked[1].route_scores)
+        self.assertNotIn("price_preference", ranked[2].route_scores)
 
     def test_negated_material_is_not_positive_support(self):
         product = product_from_dict({"parent_asin": "a", "title": "Faux leather bag"})
@@ -77,6 +93,16 @@ class RankingTest(unittest.TestCase):
                 self.assertLess(preference_evidence(product, preference("other", "soaking")), 0.0)
                 self.assertGreater(preference_evidence(product, preference("other", "soaking", -1)), 0.0)
 
+    def test_open_vocabulary_exclusion_matches_compact_token_phrase(self):
+        product = product_from_dict({"parent_asin": "a", "title": "Replacement shoe laces for running shoes"})
+        self.assertGreater(preference_evidence(product, preference("other", "replacement laces")), 0.0)
+        self.assertLess(preference_evidence(product, preference("other", "replacement laces", -1)), 0.0)
+
+    def test_open_vocabulary_phrase_matching_handles_repeated_terms(self):
+        phrase = "replacement laces running shoes"
+        product = product_from_dict({"parent_asin": "a", "title": " ".join([phrase] * 20)})
+        self.assertGreater(preference_evidence(product, preference("other", phrase)), 0.0)
+
     def test_mixed_avoidance_and_affirmative_source_is_unknown(self):
         product = product_from_dict({"parent_asin": "a", "features": ["Avoid soaking."],
                                      "description": "Suitable for soaking."})
@@ -129,6 +155,27 @@ class ConstraintRankingTest(unittest.TestCase):
     def candidates(rows):
         return [Candidate(product_from_dict({"parent_asin": identifier, **row}), score,
                           {"sparse": score}) for identifier, score, row in rows]
+
+    def test_product_guard_demotes_compatible_accessory_but_preserves_unknown(self):
+        candidates = self.candidates([
+            ("laces", 5.0, {"title": "Replacement shoe laces", "categories": ["Shoe Accessories"]}),
+            ("unknown", 2.0, {"title": "Handmade athletic essential"}),
+            ("shoes", 1.0, {"title": "Running shoes", "categories": ["Shoes"]}),
+        ])
+        ranked = rank_product_compatibility(candidates, [preference("category", "sneakers", hard=True)])
+        self.assertEqual([item.product.parent_asin for item in ranked], ["unknown", "shoes", "laces"])
+        self.assertNotIn("object_penalty", ranked[0].route_scores)
+        self.assertEqual(rank_product_compatibility(ranked, [preference("category", "sneakers", hard=True)]),
+                         ranked)
+
+    def test_scoped_material_is_a_hard_constraint_only_when_proven(self):
+        body = product_from_dict({"parent_asin": "body", "title": "Leather body bag"})
+        handles = product_from_dict({"parent_asin": "handles", "title": "Cotton body bag with leather handles"})
+        unknown = product_from_dict({"parent_asin": "unknown", "title": "Daily bag"})
+        scoped = Preference("material", "leather", 1, "leather body", hard=True, scope="body")
+        self.assertGreater(preference_evidence(body, scoped), 0)
+        self.assertLess(preference_evidence(handles, scoped), 0)
+        self.assertEqual(preference_evidence(unknown, scoped), 0)
 
     def test_budget_violations_demoted_but_unknown_prices_retained(self):
         candidates = self.candidates([

@@ -1,0 +1,10 @@
+{
+  "alternatives_mode": "grouped",
+  "evidence_ranking": false,
+  "neural_rerank": true,
+  "neural_weight": 0.75,
+  "other_question_limit": 2,
+  "over_general_cutoff": true,
+  "question_policy": "intent",
+  "rerank_limit": 30
+}

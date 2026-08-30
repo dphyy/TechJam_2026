@@ -1,0 +1,20 @@
+{
+  "protocol": "phase15-intent-diagnostics-v1",
+  "date": "2026-08-29",
+  "dataset": {
+    "groups": 60,
+    "rows": 120,
+    "split_rows": {"train": 84, "validation": 18, "sealed_test": 18},
+    "sealed_test_sha256": "5ca67d108bc37798eca33109a0b483cb68832846f30fa5b7dbb694636001c871"
+  },
+  "reports": {
+    "rules_only": {"macro_f1": 0.4205128205128205, "log_loss": 1.0967488714243279, "brier_score": 0.6502759533930981, "expected_calibration_error": 0.26252136263614145, "abstention_rate": 0.0, "covered_accuracy": 0.5, "milliseconds_per_row": 0.19800466381841236},
+    "structural": {"macro_f1": 0.4871794871794872, "log_loss": 1.0605254945610634, "brier_score": 0.6410460584363418, "expected_calibration_error": 0.1948823598224817, "abstention_rate": 0.16666666666666666, "covered_accuracy": 0.6, "milliseconds_per_row": 0.09781944229164058},
+    "semantic_linear": {"macro_f1": 0.48787878787878797, "log_loss": 0.9695216446140642, "brier_score": 0.6036278034813234, "expected_calibration_error": 0.21621204552338066, "abstention_rate": 0.16666666666666666, "covered_accuracy": 0.5333333333333333, "milliseconds_per_row": 2.369159722648975},
+    "hybrid_linear": {"macro_f1": 0.4026936026936027, "log_loss": 0.9672008863786721, "brier_score": 0.6105669987655787, "expected_calibration_error": 0.16768143670075747, "abstention_rate": 0.3333333333333333, "covered_accuracy": 0.5, "milliseconds_per_row": 2.4669791649406156}
+  },
+  "best_by_macro_f1": "semantic_linear",
+  "runtime_routing_changed": false,
+  "selected_config_changed": false,
+  "decision": "diagnostics_only_no_promotion"
+}

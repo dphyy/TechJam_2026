@@ -5,7 +5,7 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 
-from mercury.types import Preference
+from mercury.types import FeedbackDecision, Preference
 
 
 @dataclass(slots=True)
@@ -118,6 +118,10 @@ _LOOKUPS = {
     attribute: {alias: canonical for canonical, aliases in values.items() for alias in aliases}
     for attribute, values in _VALUES.items()
 }
+_COMPONENT_AFTER = re.compile(
+    r"^\s+(?:on|for|in|with|as)?\s*(body|lining|handles?|straps?|zipper|sole|laces?|"
+    r"sleeves?|collar|cuffs?|pockets?|closure)\b"
+)
 _PATTERNS = {
     attribute: re.compile(r"(?<!\w)(?:" + "|".join(
         re.escape(alias) for alias in sorted(aliases, key=len, reverse=True)
@@ -132,7 +136,8 @@ _ATTRIBUTE_WORDS = {
 }
 _NO_PREFERENCE = re.compile(
     r"\b(?:no (?:particular |strong |specific )?(?:(?:material|fabric|color|colour|size|style|brand) )?preference|"
-    r"(?:don't|do not) have (?:a |any )?(?:particular |strong |specific )?preference|"
+    r"(?:don't|do not) have (?:a |any )?(?:particular |strong |specific )?"
+    r"(?:(?:material|fabric|color|colour|size|style|brand) )?preference|"
     r"don't (?:really )?care|do not care|flexible (?:on|about)|"
     r"doesn't matter|does not matter|anything (?:is |would be )?(?:fine|okay|ok)|"
     r"(?:any|either)\b.*\b(?:fine|okay|ok|works|will do)|not (?:fussy|fussed|picky)|"
@@ -152,10 +157,30 @@ _UNPRODUCTIVE = re.compile(
     r"(?:nothing|no more|anything else|any more preferences) to add|"
     r"none of (?:these|those)|not (?:these|those)|different options|keep looking|surprise me)\b"
 )
+_ACTIONABLE_REJECTION = re.compile(r"\bnot (?:these|those)\b")
+_NOT_JUST_COMPONENT = re.compile(r"\bnot\s+(?:just|only|merely)\b")
 _REPLACEMENT = re.compile(r"\b(?:actually|instead|rather than|after all|on second thought|change|switch|replace)\b")
 _ADDITIVE = re.compile(r"\b(?:also|as well|in addition|either|or|too)\b")
 _SOFT = re.compile(r"\b(?:prefer|preference|ideally|maybe|perhaps|would be nice|if possible|leaning|nice to have)\b")
 _HARD = re.compile(r"\b(?:must|need|needs|required|only|essential|have to|has to|cannot|can't)\b")
+_PRODUCT_TYPE_REJECTION = re.compile(
+    r"\b(?:not|don't want|do not want) (?:this|that) (?:product )?(?:type|category|kind)\b"
+)
+_ITEM_REJECTION = re.compile(
+    r"\b(?:not|don't want|do not want) (?:this|that|these|those) "
+    r"(?:item|items|one|ones|option|options|product|products)\b"
+)
+_ATTRIBUTE_REJECTION = re.compile(
+    r"\b(?:not|don't want|do not want) (?:this|that) "
+    r"(material|fabric|colou?r|style|brand|size|feature)\b"
+)
+# An approximate budget states a target, not a limit a product must satisfy.
+# Hedges are matched near the money span because several budget patterns absorb
+# the hedge word themselves, as in "budget around $40".
+_BUDGET_HEDGE = re.compile(r"\b(?:around|about|approximately|approx|roughly|circa|or so)\b|~")
+_SUFFIX_RELAXATION = re.compile(
+    r"\b(?:isn't|is not|aren't|are not|no longer)\s+(?:necessary|required|important|needed)\b"
+)
 _NUMBER = r"\d[\d,]*(?:\.\d+)?"
 _MONEY = r"(?:usd\s*|sgd\s*|us\s*)?\$?\s*(" + _NUMBER + r")"
 _UNITS = {"%": "%", "percent": "%", "mm": "mm", "millimeter": "mm", "millimeters": "mm",
@@ -174,15 +199,15 @@ _RESIDUAL_STOPWORDS = frozenset("""
     something nothing everything none either neither all each both another other else
     am is isn't are aren't was were be been being do don't does doesn't did didn't
     have has had having can can't cannot could would should will won't must may might
-    to of in on at for from by with without into about as than and or nor but so if
-    because while when where which who how what not no yes yeah okay ok sure please
+    to of in on at for from by with without into about as than and or nor but except so if
+    because while when where which who how what whether not no yes yeah okay ok sure please
     thanks thank just really very quite maybe perhaps ideally actually also too well
     want wants wanted need needs needed like liked prefer preferred preference preferences
     looking look find searching search shop shopping buy buying browse browsing after
     get give show see pick choose keep continue try trying use wear wearing made make
     meant mean thought second instead rather change switch replace add answer say tell
     know discuss share provide more less most much many few only still yet already now
-    then again ever always never possible fine nice good great right wrong better best
+    then again ever always never possible fine nice good great right wrong better best longer
     different same previous next options option choices choice recommendations recommendation
     item items product products thing things details detail information new particular
     specific strong necessary required important anymore maximum minimum budget dollars
@@ -206,6 +231,10 @@ def _mentioned_attributes(text: str) -> set[str]:
 def _polarity(clause: str, start: int, end: int) -> int:
     prefix = clause[:start]
     suffix = clause[end:]
+    if re.search(r"\b(?:any(?:\s+\w+){0,2}|anything|everything)\s+other\s+than\s*$", prefix):
+        return -1
+    if re.search(r"\bexcept\s*$", prefix):
+        return -1
     # The last contrast/replacement boundary defines the negation's scope.
     prefix = re.split(r"\b(?:but|however|except)\b", prefix)[-1]
     if re.search(r"\b(?:instead of|rather than)\s*(?:the\s+)?$", prefix):
@@ -215,8 +244,11 @@ def _polarity(clause: str, start: int, end: int) -> int:
     prefix = re.sub(r"\b(?:no|not) (?:more|less) than\b", "", prefix)
     # A no-show design is a compound descriptor, not a refusal of the item.
     prefix = re.sub(r"\bno[- ]+show\b", "", prefix)
+    # "No matter if/whether" introduces a concessive description; its "no"
+    # does not negate the following product terms.
+    prefix = re.sub(r"\bno\s+matter\b(?:\s+(?:if|whether))?", "", prefix)
     if re.search(r"\b(?:no|not|without|avoid|excluding|exclude|hate|dislike|don't want|do not want)\b", prefix):
-        if not re.search(r"\bnot (?:only|just)\b", prefix):
+        if not re.search(r"\bnot (?:only|just|merely)\b", prefix):
             return -1
     return 1
 
@@ -261,6 +293,17 @@ def _budget(clause: str, prompted: bool) -> list[tuple[str, int, int]]:
         if match:
             return [(f"<= {_number(next(value for value in match.groups() if value is not None))}", match.start(), match.end())]
     return []
+
+
+def budget_hedged(clause: str, start: int, end: int) -> bool:
+    """Whether a money span is stated approximately rather than as a firm limit.
+
+    A hedged ceiling must not become a hard constraint. The guard would demote a
+    product one cent over the stated figure below the entire candidate pool, and
+    an approximate figure is not evidence that such a product is wrong.
+    """
+    window = clause[max(0, start - 20):end] + clause[end:end + 8]
+    return bool(_BUDGET_HEDGE.search(window))
 
 
 def _sizes(clause: str, prompted: bool) -> list[tuple[str, int, int]]:
@@ -340,7 +383,8 @@ class SessionState:
     attribute, and history mode deliberately retains past positive facts.
     """
 
-    def __init__(self, profile: dict, mode: str = "ledger", alternatives_mode: str = "off") -> None:
+    def __init__(self, profile: dict, mode: str = "ledger", alternatives_mode: str = "off",
+                 scoped_preferences: bool = False) -> None:
         if mode not in {"ledger", "latest", "history"}:
             raise ValueError(f"Invalid state mode: {mode!r}")
         if alternatives_mode not in {"off", "parse", "grouped"}:
@@ -350,33 +394,78 @@ class SessionState:
         self.profile = deepcopy(profile)
         self.mode = mode
         self.alternatives_mode = alternatives_mode
+        self.scoped_preferences = scoped_preferences
         self.unsupported_alternatives: list[dict[str, str]] = []
         self.history: list[SourceRecord] = []
         self.preferences: list[Preference] = []
         self.last_question: str | None = None
+        self.last_question_goal: str | None = None
         self.asked_counts: dict[str, int] = {}
+        self.asked_question_goals: set[str] = set()
         self.unproductive_attributes: set[str] = set()
         self.last_update_informative = False
+        self.last_answer_productivity = "not_applicable"
+        self.last_feedback = FeedbackDecision("none")
         self.revision = 0
         self.turn = 0
 
-    def record_question(self, attribute: str | None) -> None:
+    def record_question(self, attribute: str | None, goal: str | None = None) -> None:
         self.last_question = attribute
+        self.last_question_goal = goal
         if attribute is not None:
             self.asked_counts[attribute] = self.asked_counts.get(attribute, 0) + 1
+        if goal is not None:
+            self.asked_question_goals.add(goal)
 
     def active_preferences(self) -> list[Preference]:
         return [preference for preference in self.preferences if preference.active]
 
-    def _signature(self) -> set[tuple[str, str, int, bool, float, tuple[str, str] | None, str | None]]:
-        return {(p.attribute, p.value, p.polarity, p.hard, p.confidence, p.depends_on, p.alternative_group)
+    def effective_preferences(self, decay_turns: int = 0) -> list[Preference]:
+        """Return ranking evidence with decay applied only to inferred soft signals."""
+        result = deepcopy(self.active_preferences())
+        if decay_turns <= 0:
+            return result
+        for preference in result:
+            if preference.source_kind == "inferred" and not preference.hard and preference.polarity == 1:
+                age = max(0, self.turn - preference.source_turn)
+                preference.confidence *= 0.5 ** (age / decay_turns)
+        return result
+
+    def _signature(self) -> set[tuple[str, str, int, bool, float, tuple[str, str] | None,
+                                    str | None, str | None, str]]:
+        return {(p.attribute, p.value, p.polarity, p.hard, p.confidence, p.depends_on,
+                 p.alternative_group, p.scope, p.source_kind)
                 for p in self.active_preferences()}
 
     def update(self, user_message: str, turn: int) -> None:
         self.turn = turn
         self.unsupported_alternatives = []
         before = self._signature()
-        assertions = self._extract(user_message, turn)
+        normalized = _normalize(user_message)
+        attribute_rejection = _ATTRIBUTE_REJECTION.search(normalized)
+        parse_message = user_message
+        if _PRODUCT_TYPE_REJECTION.search(normalized):
+            self.last_feedback = FeedbackDecision("product_type", "category", "generic_product_type_rejection")
+            for preference in self.active_preferences():
+                if preference.attribute == "category" and preference.polarity == 1:
+                    preference.active = False
+            parse_message = _PRODUCT_TYPE_REJECTION.sub("", normalized)
+        elif _ITEM_REJECTION.search(normalized):
+            self.last_feedback = FeedbackDecision("item", None, "item_only_rejection")
+        elif attribute_rejection:
+            attribute = {"fabric": "material", "colour": "color"}.get(
+                attribute_rejection.group(1), attribute_rejection.group(1),
+            )
+            self.last_feedback = FeedbackDecision("attribute_unknown", attribute,
+                                                  "attribute_rejection_without_value")
+            parse_message = _ATTRIBUTE_REJECTION.sub("", normalized)
+        else:
+            self.last_feedback = FeedbackDecision("none")
+        assertions = self._extract(parse_message, turn)
+        negative = next((item.preference for item in assertions if item.preference.polarity == -1), None)
+        if negative is not None and self.last_feedback.scope not in {"item", "product_type"}:
+            self.last_feedback = FeedbackDecision("attribute_value", negative.attribute,
+                                                  "explicit_negative_value")
         grouped: dict[int, dict[str, list[_Assertion]]] = defaultdict(lambda: defaultdict(list))
         for assertion in assertions:
             # The control modes retain their whole-message attribute groups.
@@ -396,6 +485,19 @@ class SessionState:
                 if preference.polarity == 1 and preference.depends_on is not None and preference.depends_on not in owners:
                     preference.active = False
         self.last_update_informative = self._signature() != before
+        if self.last_question is None:
+            self.last_answer_productivity = "not_applicable"
+        elif any(item.preference.polarity == 0 for item in assertions):
+            self.last_answer_productivity = "neutral"
+        elif self.last_update_informative:
+            self.last_answer_productivity = (
+                "contradictory" if self.last_feedback.scope in {"product_type", "attribute_value"}
+                or bool(_REPLACEMENT.search(normalized)) else "productive"
+            )
+        elif self.last_question in self.unproductive_attributes:
+            self.last_answer_productivity = "neutral"
+        else:
+            self.last_answer_productivity = "unresolved"
         if self.last_update_informative:
             self.revision += 1
         self.history.append(SourceRecord(turn, user_message, [a.preference for a in assertions], self.last_update_informative))
@@ -406,6 +508,7 @@ class SessionState:
             text = re.sub(r"\bneither\b", "not", text)
         result: list[_Assertion] = []
         residual_assertions: list[_Assertion] = []
+        qualified_component_contrast = bool(_NOT_JUST_COMPONENT.search(text))
         clauses = re.split(
             r"(?<!\d)\.(?!\d)|[;!?]|,(?!\d)|\bbut\b|"
             r"\band\s+(?=(?:i\s+(?:need|want|prefer|don't|do not)|it\s+(?:must|needs|should)))",
@@ -452,7 +555,8 @@ class SessionState:
                 self.unproductive_attributes.update(neutral_attributes)
                 if not independent_alternatives:
                     continue
-            if _UNPRODUCTIVE.search(clause):
+            unproductive_match = _UNPRODUCTIVE.search(clause)
+            if unproductive_match and not _ACTIONABLE_REJECTION.search(clause):
                 self.unproductive_attributes.update(attributes or ({self.last_question} if self.last_question else set()))
                 unproductive = True
                 continue
@@ -471,9 +575,10 @@ class SessionState:
             owner_spans = [(attribute, value, start, end) for attribute, value, start, end in mentions if attribute not in {"budget", "size"}]
             for attribute, value, start, end in mentions:
                 polarity = _polarity(clause, start, end)
-                if re.search(r"\b(?:isn't|is not|aren't|are not|no longer)\s+(?:necessary|required|important|needed)\b", clause[end:]):
+                if _SUFFIX_RELAXATION.search(clause[end:]):
                     polarity = 0
-                hard = polarity == -1 or bool(_HARD.search(clause)) or (attribute == "budget" and not soft)
+                hard = polarity == -1 or bool(_HARD.search(clause)) or (
+                    attribute == "budget" and not soft and not budget_hedged(clause, start, end))
                 if polarity == 0:
                     hard = False
                 confidence = 0.8 if soft and not hard else 1.0
@@ -483,13 +588,25 @@ class SessionState:
                     if self.alternatives_mode == "grouped" and polarity == 1 and value in alternatives.get(attribute, set())
                     else None
                 )
+                component = (_COMPONENT_AFTER.match(clause[end:])
+                             if self.scoped_preferences and attribute in {"material", "color", "feature"} else None)
+                scope = component.group(1) if component else None
                 result.append(_Assertion(Preference(attribute, value, turn, message, hard=hard,
                                                    polarity=polarity, confidence=confidence,
-                                                   alternative_group=alternative_group), additive,
+                                                   alternative_group=alternative_group, scope=scope), additive,
                                          replacement or replace_material, clause=clause_index,
                                          choice_replacement=attribute in choice_replacements))
             for value, start, end in residuals:
-                polarity = _polarity(clause, start, end)
+                not_just_match = _NOT_JUST_COMPONENT.search(clause)
+                if not_just_match and not_just_match.start() < start:
+                    # The component is insufficient on its own, not forbidden.
+                    # Keep it out of the preference ledger and retain the
+                    # qualified relation that appeared before the contrast.
+                    continue
+                polarity = 0 if _SUFFIX_RELAXATION.search(clause[end:]) else _polarity(clause, start, end)
+                qualified_materials = [material for attribute, material, _, material_end in mentions
+                                       if qualified_component_contrast and material_end <= start
+                                       and attribute == "material" and not clause[material_end:start].strip(" -")]
                 existing_attributes = {p.attribute for p in self.active_preferences() if p.value == value}
                 residual_attribute = (
                     next(iter(attributes)) if len(attributes) == 1 else
@@ -497,8 +614,15 @@ class SessionState:
                 )
                 residual_assertions.append(_Assertion(
                     Preference(residual_attribute, value, turn, message, hard=polarity == -1,
-                               polarity=polarity, confidence=0.65), additive, replacement, clause=clause_index,
+                               polarity=polarity, confidence=0.65, source_kind="inferred"),
+                    additive, replacement, clause=clause_index,
                 ))
+                if qualified_materials:
+                    residual_assertions.append(_Assertion(
+                        Preference("other", f"{qualified_materials[-1]} {value}", turn, message,
+                                   hard=polarity == -1, polarity=polarity, confidence=0.8),
+                        additive, replacement, clause=clause_index,
+                    ))
                 owner_spans.append((residual_attribute, value, start, end))
             for quantity, start, end in quantities:
                 following = [owner for owner in owner_spans if owner[2] >= end and not clause[end:owner[2]].strip(" -")]
@@ -615,7 +739,11 @@ class SessionState:
             changed_owners = {p.depends_on for p in incoming if p.depends_on is not None}
             retained_groups = {p.alternative_group for p in incoming if p.alternative_group is not None}
             for preference in previous:
-                excluded = preference.value in negatives or (attribute == "other" and any(
+                excluded = any(
+                    candidate.value == preference.value
+                    and (candidate.scope is None or preference.scope is None or candidate.scope == preference.scope)
+                    for candidate in incoming if candidate.polarity == -1
+                ) or (attribute == "other" and any(
                     re.search(r"(?<!\w)" + re.escape(value) + r"(?!\w)", preference.value) for value in negatives
                 ))
                 superseded_quantity = preference.depends_on in changed_owners and preference.value not in positives | negatives
@@ -624,12 +752,16 @@ class SessionState:
                 elif preference.polarity == 1 and (excluded or (replace_slot and preference.value not in positives
                                                                and preference.alternative_group not in retained_groups)):
                     preference.active = False
-                elif preference.polarity == -1 and preference.value in positives:
+                elif preference.polarity == -1 and any(
+                    candidate.value == preference.value
+                    and (candidate.scope is None or preference.scope is None or candidate.scope == preference.scope)
+                    for candidate in incoming if candidate.polarity == 1
+                ):
                     preference.active = False
         for preference in incoming:
             duplicate = next((p for p in self.active_preferences() if p.attribute == attribute
                               and p.value == preference.value and p.polarity == preference.polarity
-                              and p.depends_on == preference.depends_on), None)
+                              and p.depends_on == preference.depends_on and p.scope == preference.scope), None)
             if duplicate is None:
                 self.preferences.append(preference)
             else:
@@ -692,3 +824,16 @@ class SessionState:
         values = dict.fromkeys(p.value for p in active if p.polarity == 1 and p.attribute != "budget"
                                and (p.attribute, p.value) not in expanded)
         return " ".join(values)
+
+    def source_alias_query(self) -> str:
+        """Return exact non-canonical parser aliases from current positive facts."""
+        aliases: dict[str, None] = {}
+        for preference in self.active_preferences():
+            if preference.polarity != 1 or preference.depends_on is not None:
+                continue
+            for alias in _VALUES.get(preference.attribute, {}).get(preference.value, ()):
+                if alias == preference.value:
+                    continue
+                if re.search(r"(?<!\w)" + re.escape(alias) + r"(?!\w)", _normalize(preference.source_text)):
+                    aliases.setdefault(alias, None)
+        return " ".join(aliases)

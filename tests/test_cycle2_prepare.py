@@ -154,7 +154,8 @@ class Cycle2PrepareTest(unittest.TestCase):
             rows[1]["title"] += "\u2028distinctive"
             catalog = root / "catalog.jsonl"
             old = root / "old.jsonl"
-            catalog.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows))
+            catalog.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+                               encoding="utf-8")
             old.write_text("".join(json.dumps(row) + "\n" for row in old_samples()))
             self.assertEqual(lock_pack(catalog, old, root / "pack")["counts"],
                              {"development": 32, "validation": 32})

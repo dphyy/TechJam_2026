@@ -45,7 +45,7 @@ class FreezeTests(unittest.TestCase):
                 name: file_sha256(pack / name) for name in ("capability-development.json", "capability-validation.json")}}))
 
     def hash_sources(self):
-        return {str(path.relative_to(self.root)): file_sha256(path)
+        return {path.relative_to(self.root).as_posix(): file_sha256(path)
                 for directory in ("mercury", "tests", "experiments")
                 for path in sorted((self.root / directory).glob("*.py"))}
 

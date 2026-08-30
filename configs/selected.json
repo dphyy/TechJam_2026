@@ -1,1 +1,20 @@
-{"evidence_ranking": false, "neural_rerank": true, "neural_weight": 0.75, "other_question_limit": 4, "rerank_limit": 30, "alternatives_mode": "grouped"}
+{
+  "alternatives_mode": "grouped",
+  "evidence_ranking": false,
+  "intent_browsing_language_weight": 0.50,
+  "intent_buying_language_weight": 0.20,
+  "intent_hard_weight": 0.00,
+  "intent_object_weight": 0.20,
+  "intent_slot_weight": 0.25,
+  "intent_sparse_request_weight": 0.50,
+  "intent_unresolved_weight": 0.25,
+  "intent_use_case_weight": 0.25,
+  "neural_rerank": true,
+  "neural_weight": 0.75,
+  "other_question_limit": 4,
+  "rerank_limit": 30,
+  "router_browsing_threshold": 0.50,
+  "router_buying_threshold": 0.50,
+  "slate_paging_first_turn": 5,
+  "soft_price_weight": 0.02
+}

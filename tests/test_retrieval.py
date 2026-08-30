@@ -47,6 +47,16 @@ class RetrievalTest(unittest.TestCase):
         result = self.index.search("blue cotton", 10, categories=["shirts"])
         self.assertEqual(set(result), {"shirt", "copy"})
 
+    def test_factored_route_requires_category_and_ordinary_catalog_evidence(self):
+        result = self.index.search_factored(["shirts"], ["blue", "cotton"], 10)
+        self.assertEqual(set(result), {"shirt", "copy"})
+        self.assertEqual(self.index.search_factored(["shoes"], ["waterproof"], 10), ["shoes"])
+        self.assertEqual(self.index.search_factored([], [], 10), [])
+
+    def test_close_is_idempotent(self):
+        self.index.close()
+        self.index.close()
+
     def test_fusion_is_deterministic_and_deduplicated(self):
         scores = fuse_routes({"sparse": ["shirt", "dress", "shirt"], "dense": ["dress", "copy"]},
                              {"sparse": 0.5, "dense": 0.5})

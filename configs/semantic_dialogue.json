@@ -1,0 +1,17 @@
+{
+  "alternatives_mode": "grouped",
+  "evidence_ranking": false,
+  "insufficient_action": "minimal_probe",
+  "max_deferred_turns": 1,
+  "minimal_probe_limit": 30,
+  "minimum_retrieval_specificity": 0.35,
+  "neural_rerank": true,
+  "neural_weight": 0.75,
+  "other_question_limit": 4,
+  "question_policy": "intent",
+  "require_positive_question_value": true,
+  "rerank_limit": 30,
+  "retrieval_sufficiency_gate": true,
+  "semantic_question_goals": true,
+  "soft_price_weight": 0.02
+}

@@ -8,7 +8,7 @@ import numpy as np
 
 from mercury.catalog import product_from_dict
 from mercury.model_assets import MODELS, file_sha256, verify_model
-from mercury.neural import DOCUMENT_VERSION, document_text, validate_dense_manifest
+from mercury.neural import DOCUMENT_VERSION, document_text, structured_document_text, validate_dense_manifest
 
 
 class NeuralAssetsTest(unittest.TestCase):
@@ -43,6 +43,65 @@ class NeuralAssetsTest(unittest.TestCase):
         self.assertTrue(text.startswith("Title: Cotton shirt"))
         self.assertLess(len(text), 5000)
         self.assertNotIn("a\n", text)
+
+    def test_structured_document_prioritizes_type_role_and_price(self):
+        product = product_from_dict({"parent_asin": "a", "title": "Replacement shoe laces",
+                                     "categories": ["Shoe Accessories"], "price": 8.5,
+                                     "description": "word " * 2000})
+        text = structured_document_text(product)
+        self.assertTrue(text.startswith("Product role: component"))
+        self.assertIn("Price: 8.5", text)
+        self.assertLess(len(text), 5000)
+
+    def test_ranker_uses_structured_document_when_enabled(self):
+        from mercury.neural import NeuralRanker
+        from mercury.types import Candidate
+
+        class FakeModel:
+            def __init__(self):
+                self.pairs = None
+
+            def tokenizer(self, left, right, **kwargs):
+                return {"input_ids": [[1, 2] for _ in left]}
+
+            def predict(self, pairs, **kwargs):
+                self.pairs = pairs
+                return np.array([1.0])
+
+        ranker = NeuralRanker.__new__(NeuralRanker)
+        ranker.model, ranker.prompt_tokens = FakeModel(), 0
+        candidate = Candidate(product_from_dict({"parent_asin": "a", "title": "Cotton shirt",
+                                                  "categories": ["Shirts"]}), 1.0)
+        ranker.rank("Mode: buying\nObject: shirts", [candidate], 1, .75, structured=True)
+        self.assertEqual(ranker.model.pairs[0][0], "Mode: buying\nObject: shirts")
+        self.assertIn("Product type: clothing", ranker.model.pairs[0][1])
+
+    def test_protected_document_keeps_title_categories_and_matching_source_spans(self):
+        from mercury.types import Preference
+
+        product = product_from_dict({
+            "parent_asin": "jacket", "title": "City jacket", "categories": ["Jackets"],
+            "features": ["The shell is faux leather."],
+            "details": {"Material": "Wool"},
+            "description": "word " * 400,
+        })
+        preferences = [
+            Preference("material", "leather", 2, "no leather", hard=True, polarity=-1),
+            Preference("material", "wool", 1, "wool", hard=True),
+        ]
+        text = document_text(product, "wool jacket", preferences, "protected")
+        self.assertIn("Title: City jacket", text)
+        self.assertIn("Categories: Jackets", text)
+        self.assertIn("faux leather", text)
+        self.assertIn("Details: Material Wool", text)
+        self.assertLessEqual(len(text.split()), 160)
+
+    def test_lexical_document_is_query_dependent_and_rejects_unknown_modes(self):
+        product = product_from_dict({"parent_asin": "shoe", "title": "Trail shoe", "categories": ["Shoes"],
+                                     "description": "Designed for wet trail running with waterproof lining."})
+        self.assertIn("waterproof", document_text(product, "waterproof trail", mode="lexical"))
+        with self.assertRaisesRegex(ValueError, "Unsupported"):
+            document_text(product, mode="oracle")
 
     def test_manifest_rejects_wrong_catalog_model_or_document_version(self):
         manifest = {"catalog_sha256": "catalog", "model_revision": MODELS["embedding"]["revision"],
@@ -111,6 +170,38 @@ class NeuralAssetsTest(unittest.TestCase):
             with patch("mercury.model_assets.file_sha256", return_value=MODELS["reranker"]["weights_sha256"]):
                 with self.assertRaisesRegex(ValueError, "every required"):
                     verify_model(root, "reranker")
+
+
+    def test_alternative_reranker_is_pinned_like_the_default(self):
+        for kind in ("reranker", "bge_reranker_base"):
+            with self.subTest(kind=kind):
+                spec = MODELS[kind]
+                self.assertRegex(spec["revision"], r"^[0-9a-f]{40}$")
+                self.assertRegex(spec["weights_sha256"], r"^[0-9a-f]{64}$")
+                self.assertTrue(spec["repo_id"] and spec["license"])
+                self.assertIn("model.safetensors", spec["required"])
+                self.assertIn("config.json", spec["required"])
+
+    def test_reranker_kind_selects_its_own_pinned_asset_directory(self):
+        import sentence_transformers
+
+        from mercury.neural import NeuralRanker
+
+        seen = {}
+
+        def fake_verify(path, kind):
+            seen["verified"] = (Path(path), kind)
+            return {}
+
+        class FakeCrossEncoder:
+            def __init__(self, path, **kwargs):
+                seen["loaded"] = Path(path)
+
+        with patch("mercury.neural.verify_model", fake_verify),                 patch.object(sentence_transformers, "CrossEncoder", FakeCrossEncoder):
+            NeuralRanker(Path("artifacts"), kind="bge_reranker_base")
+        expected = Path("artifacts") / "models" / "bge_reranker_base"
+        self.assertEqual(seen["verified"], (expected, "bge_reranker_base"))
+        self.assertEqual(seen["loaded"], expected)
 
 
 if __name__ == "__main__":

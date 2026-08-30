@@ -21,7 +21,17 @@ MODELS = {
         "license": "Apache-2.0",
         "required": ["model.safetensors", "config.json", "tokenizer_config.json"],
     },
+    "bge_reranker_base": {
+        "repo_id": "BAAI/bge-reranker-base",
+        "revision": "2cfc18c9415c912f9d8155881c133215df768a70",
+        "weights_sha256": "ced967c45fd1902eb92716c9ceeca7c95a936770ea9db611f5a841b926e33fbd",
+        "license": "MIT",
+        "required": ["model.safetensors", "config.json", "tokenizer_config.json"],
+    },
 }
+
+# Cross-encoder kinds selectable by configuration; the default stays first.
+RERANKERS = ("reranker", "bge_reranker_base")
 
 
 def file_sha256(path: Path) -> str:

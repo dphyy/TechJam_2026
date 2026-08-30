@@ -1,0 +1,1 @@
+{"evidence_ranking": false, "neural_rerank": true, "neural_weight": 0.75, "other_question_limit": 4, "rerank_limit": 30, "alternatives_mode": "grouped", "rerank_admission": "stratified"}

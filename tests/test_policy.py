@@ -7,7 +7,7 @@ from mercury.config import Config
 from mercury.policy import choose_policy
 from mercury.ranking import rank_candidates
 from mercury.state import SessionState
-from mercury.types import Candidate, FacetEvidence, Preference, Product
+from mercury.types import Candidate, FacetEvidence, IntentDecision, Preference, Product
 
 
 ATTRIBUTES = ("category", "material", "color", "size", "style", "brand",
@@ -32,17 +32,44 @@ def material_pool(count=12):
 
 
 class PolicyTest(unittest.TestCase):
-    def test_other_question_limit_retains_uninformative_answer_stop(self):
+    def test_semantic_other_goals_skip_paraphrases_of_the_same_question(self):
         state = SessionState({})
+        config = Config(question_policy="other", other_question_limit=4,
+                        semantic_question_goals=True)
+        decisions = []
+        for turn in range(1, 4):
+            decision = choose_policy(state, material_pool(), config, turn, 10)
+            decisions.append(decision)
+            state.record_question(decision.ask_attribute, decision.question_goal)
+        self.assertEqual([decision.question_goal for decision in decisions], [
+            "other:open_detail", "other:must_have_or_dealbreaker", "other:priority",
+        ])
+        self.assertEqual(len({decision.message for decision in decisions}), 3)
+
+    def test_positive_value_gate_does_not_ask_to_consume_a_turn(self):
+        state = SessionState({})
+        state.update("I am exploring.", 1)
+        intent = IntentDecision("browsing", .1, .9, 0, True)
+        decision = choose_policy(
+            state, [], Config(question_policy="intent", require_positive_question_value=True),
+            1, 10, intent=intent,
+        )
+        self.assertIsNone(decision.ask_attribute)
+        self.assertEqual(decision.diagnostics["decision"], "question_value_below_turn_cost")
+
+    def test_generic_discovery_prompts_do_not_repeat_verbatim(self):
+        state = SessionState({})
+        prompts = []
+        config = Config(other_question_limit=9)
         for turn, message in enumerate(("A shirt", "Cotton", "Blue"), 1):
             state.update(message, turn)
+            decision = choose_policy(state, material_pool(), config, turn, 10)
+            self.assertEqual(decision.ask_attribute, "other")
+            prompts.append(decision.message)
             state.record_question("other")
-        pool = material_pool()
-        self.assertNotEqual(choose_policy(state, pool, Config(), 4, 10).ask_attribute, "other")
-        config = Config(other_question_limit=9)
-        self.assertEqual(choose_policy(state, pool, config, 4, 10).ask_attribute, "other")
+        self.assertEqual(len(prompts), len(set(prompts)))
         state.update("Nothing more to add", 4)
-        self.assertNotEqual(choose_policy(state, pool, config, 4, 10).ask_attribute, "other")
+        self.assertNotEqual(choose_policy(state, material_pool(), config, 4, 10).ask_attribute, "other")
 
     def test_other_question_limit_is_bounded(self):
         for value in (-1, 10, True, 1.5):
@@ -95,6 +122,29 @@ class PolicyTest(unittest.TestCase):
         self.assertIsNone(decision.ask_attribute)
         self.assertNotIn("?", decision.message)
         self.assertEqual(decision.slate_size, 10)
+
+    def test_intent_policy_asks_product_type_for_broad_browsing(self):
+        intent = IntentDecision("browsing", .1, .9, 0, True, ("over_general",))
+        decision = choose_policy(SessionState({}), material_pool(), Config(question_policy="intent"),
+                                 1, 10, intent=intent)
+        self.assertEqual(decision.ask_attribute, "category")
+        self.assertEqual(decision.diagnostics["decision"], "browsing_product_type")
+        self.assertEqual(decision.diagnostics["ask_turn_cost"], .02)
+
+    def test_intent_policy_does_not_repeat_no_preference_slot(self):
+        state = SessionState({})
+        state.record_question("category")
+        state.update("I do not have a category preference.", 1)
+        intent = IntentDecision("browsing", .1, .9, 0, True)
+        decision = choose_policy(state, material_pool(), Config(question_policy="intent"),
+                                 2, 10, intent=intent)
+        self.assertNotEqual(decision.ask_attribute, "category")
+
+    def test_intent_policy_never_asks_on_final_turn(self):
+        intent = IntentDecision("browsing", .1, .9, 0, True)
+        decision = choose_policy(SessionState({}), material_pool(), Config(question_policy="intent"),
+                                 10, 10, intent=intent)
+        self.assertIsNone(decision.ask_attribute)
 
     def test_schedule_avoids_known_negative_neutral_asked_and_unproductive_fields(self):
         state = SessionState({})

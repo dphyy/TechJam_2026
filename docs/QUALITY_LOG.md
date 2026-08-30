@@ -42,7 +42,7 @@ An external cross-model adversarial review was attempted twice but failed before
 
 ## Fresh environment and offline execution
 
-Created `.venv-repro` with CPython 3.12.12, installed `requirements.txt` and `requirements-dev.txt`, and ran `pip check` successfully. The full tested transitive lock is `requirements-neural.lock.txt`.
+Created `.venv-repro` with CPython 3.12.12, installed the then-current split requirements files, and ran `pip check` successfully. Current setup has since been consolidated into the single `requirements.txt`; historical aggregate hashes still name the old files to preserve the original evidence record.
 
 Both pinned models loaded and performed real inference in this fresh environment under macOS `sandbox-exec` with `(deny network*)`, with `HF_TOKEN`, `HUGGING_FACE_HUB_TOKEN`, `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` removed. A separate socket probe confirmed OS-level network denial. BGE produced a `(1, 384)` embedding; the reranker ranked two invented products and reported 21 input tokens. This is an actual model smoke test, not yet the final full official-harness reproduction.
 
@@ -116,3 +116,9 @@ The original freeze verifier passed after all six completed validation jobs and 
 The final-source real-catalog replay retains all 24 calls and all controls, with no verified real-catalog grouped intervention. The clearly invented cotton/linen example verifies a penalty reduction and rank 2 to 1 under the same query and retrieved candidates. Healthy, missing-model and invalid-weights full-catalog probes also complete under OS network denial, preserving corrections and valid unique IDs. These are demonstrations and operational checks, not independent shopper outcomes.
 
 A read-only final evidence audit recomputed official aggregate metrics, token totals, diagnostics and authored assertion/group counts from raw results. It verified nine target runs (2,487 recorded turns), six capability runs (120 turns), all run-file hashes, unchanged source/model inventories, exact selected config, the 737-turn OFF parity, 12 validation ledger files, 24 replay contracts, six offline contracts, report resource-table values and local document links. No model inference or validation rerun was performed during this audit. Raw artifacts and the audit program remain local; [the report](CYCLE2_RESULTS.md) and [aggregate](cycle2-summary.json) carry the release evidence. The README remains zero bytes.
+
+## Intent-routed pipeline evolution
+
+Phases 0-7 of `plan.md` were implemented in isolated commits with configuration gates. The final suite contains 393 passing tests; Ruff and `pip check` pass. The selected configuration passes all 19 private-like assertions with zero fallbacks and reproduces the frozen public result exactly: HitRate@10 0.895000, MRR 0.613746, MTTC 3.245000 and TechnicalScore 0.786724.
+
+No behavior-changing candidate met the predeclared `>= 0.01` promotion threshold. Routed retrieval scored 0.785165, the product guard 0.772674, structured reranking 0.754929, intent-aware clarification 0.753090 and runtime adaptation 0.786636. These features remain opt-in; `configs/selected.json` is unchanged. Phase 8's optional LLM fallback was not activated because the preceding experiments did not justify its additional cost and complexity. Exact phase scope, caveats and interpretation are recorded in [PIPELINE_EVOLUTION_RESULTS.md](PIPELINE_EVOLUTION_RESULTS.md).

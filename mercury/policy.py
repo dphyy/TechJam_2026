@@ -8,7 +8,7 @@ from collections import defaultdict
 from mercury.config import Config
 from mercury.ranking import rank_candidates
 from mercury.state import SessionState
-from mercury.types import Candidate, PolicyDecision, Preference
+from mercury.types import Candidate, IntentDecision, PolicyDecision, Preference
 
 
 _ATTRIBUTES = ("category", "material", "color", "size", "style", "brand",
@@ -25,6 +25,17 @@ _QUESTIONS = {
     "use_case": "What would you mainly use the item for?",
     "other": "What other detail matters most for finding the right item?",
 }
+_OTHER_QUESTIONS = (
+    ("open_detail", _QUESTIONS["other"]),
+    ("open_detail", "What else would help narrow down the right options?"),
+    ("must_have_or_dealbreaker", "Is there another must-have feature or deal-breaker?"),
+    ("priority", "What should I prioritize next: fit, use, or design?"),
+    ("use_case", "Is there anything else about how you will use it?"),
+    ("material_style_feature", "Would another material, style, or feature help decide?"),
+    ("decisive_detail", "What remaining detail would make one option clearly better?"),
+    ("constraint", "Is there another constraint I should keep in mind?"),
+    ("final_preference", "What final preference should I use to refine these choices?"),
+)
 _MAX_POOL = 40
 _MAX_ANSWERS = 4
 _OUTSIDE_POOL_WEIGHT = 0.20
@@ -39,9 +50,30 @@ def _eligible_attributes(state: SessionState) -> list[str]:
             and not state.asked_counts.get(attribute, 0)]
 
 
-def _other_available(state: SessionState, limit: int) -> bool:
-    return ("other" not in state.unproductive_attributes
-            and state.asked_counts.get("other", 0) < limit)
+def _other_entry(state: SessionState, config: Config) -> tuple[str, str] | None:
+    limit = min(config.other_question_limit, len(_OTHER_QUESTIONS))
+    if "other" in state.unproductive_attributes or state.asked_counts.get("other", 0) >= limit:
+        return None
+    if config.semantic_question_goals:
+        return next((entry for entry in _OTHER_QUESTIONS[:limit]
+                     if f"other:{entry[0]}" not in state.asked_question_goals), None)
+    return _OTHER_QUESTIONS[min(state.asked_counts.get("other", 0), limit - 1)] if limit else None
+
+
+def _question_goal(question: str | None, state: SessionState, config: Config) -> str | None:
+    if question is None:
+        return None
+    if question != "other":
+        return f"facet:{question}"
+    entry = _other_entry(state, config)
+    return f"other:{entry[0]}" if entry else None
+
+
+def _question_message(question: str | None, state: SessionState, config: Config) -> str | None:
+    if question != "other":
+        return _QUESTIONS.get(question) if question is not None else None
+    entry = _other_entry(state, config)
+    return entry[1] if entry else None
 
 
 def _uninformative_answer(state: SessionState) -> bool:
@@ -51,8 +83,9 @@ def _uninformative_answer(state: SessionState) -> bool:
     )
 
 
-def _fallback_question(state: SessionState, eligible: list[str], limit: int) -> str | None:
-    if _other_available(state, limit) and not (state.last_question == "other" and _uninformative_answer(state)):
+def _fallback_question(state: SessionState, eligible: list[str], config: Config) -> str | None:
+    if _other_entry(state, config) is not None and not (
+            state.last_question == "other" and _uninformative_answer(state)):
         return "other"
     return eligible[0] if eligible else None
 
@@ -116,8 +149,7 @@ def _outcome_model(pool: list[Candidate], attribute: str, reference_size: int, t
     original_ids = [candidate.product.parent_asin for candidate in pool]
     outcomes = []
     for answer in selected:
-        hypothetical = Preference(attribute, answer, turn, "catalog-grounded hypothetical answer",
-                                  hard=attribute == "budget")
+        hypothetical = Preference(attribute, answer, turn, "catalog-grounded hypothetical answer")
         reranked = rank_candidates(pool, [hypothetical])
         ranks = {candidate.product.parent_asin: rank for rank, candidate in enumerate(reranked, 1)}
         reranked_ids = [candidate.product.parent_asin for candidate in reranked]
@@ -210,7 +242,8 @@ def _slate_size(state: SessionState, candidates: list[Candidate], config: Config
 
 
 def choose_policy(state: SessionState, candidates: list[Candidate], config: Config,
-                  turn: int, top_k: int, previous_abstentions: int = 0) -> PolicyDecision:
+                  turn: int, top_k: int, previous_abstentions: int = 0,
+                  intent: IntentDecision | None = None) -> PolicyDecision:
     """Choose one allowed question and a slate size without mutating session state.
 
     Scores model incremental recovery after the current full reference slate,
@@ -227,34 +260,72 @@ def choose_policy(state: SessionState, candidates: list[Candidate], config: Conf
         "pool_size": len(pool),
         "unmodeled_candidates": max(0, len(candidates) - len(pool)),
         "reference_slate_size": capacity,
-        "ask_turn_cost": 0.0,
+        "ask_turn_cost": config.question_turn_cost if config.question_policy == "intent" else 0.0,
         "weight_model": "heuristic_rank_prior_not_calibrated",
         "uncertainty_assumptions": {"outside_pool": _OUTSIDE_POOL_WEIGHT,
                                     "no_preference": _NO_PREFERENCE_WEIGHT},
+        "already_asked": sorted(attribute for attribute, count in state.asked_counts.items() if count),
     }
     question = None
     if turn < 10 and config.question_policy != "none":
         if config.question_policy == "schedule":
-            question = eligible[0] if eligible else _fallback_question(state, eligible, config.other_question_limit)
+            question = eligible[0] if eligible else _fallback_question(state, eligible, config)
         elif config.question_policy == "entropy":
             entropy = {attribute: _entropy(pool, attribute) for attribute in eligible}
             diagnostics["facet_entropy"] = {attribute: value[0] for attribute, value in entropy.items()}
             diagnostics["unknown_mass"] = {attribute: value[1] for attribute, value in entropy.items()}
             best = max(eligible, key=lambda attribute: entropy[attribute][0], default=None)
-            question = best if best is not None and entropy[best][0] > 1e-12 else _fallback_question(state, eligible, config.other_question_limit)
+            question = best if best is not None and entropy[best][0] > 1e-12 else _fallback_question(state, eligible, config)
         elif config.question_policy == "rank_value":
             models = {attribute: _outcome_model(pool, attribute, capacity, turn) for attribute in eligible}
             diagnostics["outcome_models"] = models
             diagnostics["question_scores"] = {attribute: model["value"] for attribute, model in models.items()}
             diagnostics["objective"] = "0.30 * expected_rr_gain + 0.50 * expected_recovery_gain"
             best = max(eligible, key=lambda attribute: models[attribute]["value"], default=None)
-            question = best if best is not None and models[best]["value"] > 1e-12 else _fallback_question(state, eligible, config.other_question_limit)
+            question = best if best is not None and models[best]["value"] > 1e-12 else _fallback_question(state, eligible, config)
+        elif config.question_policy == "intent":
+            mode = intent.mode if intent is not None else "mixed"
+            diagnostics["intent_mode"] = mode
+            diagnostics["over_general"] = bool(intent and intent.over_general)
+            models = {attribute: _outcome_model(pool, attribute, capacity, turn) for attribute in eligible}
+            scores = {attribute: model["value"] - config.question_turn_cost
+                      for attribute, model in models.items()}
+            diagnostics["outcome_models"] = models
+            diagnostics["question_scores"] = scores
+            diagnostics["objective"] = "expected rank/recovery value minus explicit turn cost"
+            if mode == "browsing" and "category" in eligible:
+                question = "category"
+                diagnostics["decision"] = "browsing_product_type"
+            elif mode == "browsing" and "use_case" in eligible:
+                question = "use_case"
+                diagnostics["decision"] = "browsing_use_case"
+            else:
+                best = max(eligible, key=lambda attribute: scores[attribute], default=None)
+                if best is not None and scores[best] > 0:
+                    question = best
+                    diagnostics["decision"] = "highest_expected_value"
+                else:
+                    entropy = {attribute: _entropy(pool, attribute)[0] for attribute in eligible}
+                    best = max(eligible, key=lambda attribute: entropy[attribute], default=None)
+                    question = best if best is not None and entropy[best] > 0 else _fallback_question(
+                        state, eligible, config,
+                    )
+                    diagnostics["decision"] = "facet_uncertainty" if best and entropy[best] > 0 else "bounded_fallback"
+            if config.require_positive_question_value and (
+                    question == "other" or question is None or scores.get(question, 0.0) <= 0):
+                question = None
+                diagnostics["decision"] = "question_value_below_turn_cost"
         else:
-            question = _fallback_question(state, eligible, config.other_question_limit)
+            question = _fallback_question(state, eligible, config)
+    goal = _question_goal(question, state, config)
+    if question is not None and goal is None:
+        question = None
     size, reason = _slate_size(state, candidates, config, turn, capacity,
                                previous_abstentions, question, diagnostics)
     diagnostics["slate_reason"] = reason
-    message = _QUESTIONS[question] if question else (
+    diagnostics["question_goal"] = goal
+    diagnostics["previous_answer_productivity"] = state.last_answer_productivity
+    message = _question_message(question, state, config) if question else (
         "Here are the current options." if size else "I don't have a recommendation to show on this turn."
     )
-    return PolicyDecision(question, message, size, diagnostics)
+    return PolicyDecision(question, message, size, diagnostics, goal)

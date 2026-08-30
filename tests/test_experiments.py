@@ -6,6 +6,13 @@ from experiments.run import ObservedAgent, source_hashes, summarize_traces
 
 
 class ExperimentTest(unittest.TestCase):
+    def test_peak_memory_is_reported_on_every_supported_platform(self):
+        from experiments.run import peak_rss_bytes
+
+        value = peak_rss_bytes()
+        self.assertIs(type(value), int)
+        self.assertGreater(value, 0)
+
     def test_score_matches_published_first_hit_formula(self):
         self.assertAlmostEqual(session_score({"hit": True, "reciprocal_rank": 1.0, "first_hit_turn": 1}), 1.0)
         self.assertAlmostEqual(session_score({"hit": True, "reciprocal_rank": 0.1, "first_hit_turn": 10}), 0.55)
@@ -30,6 +37,7 @@ class ExperimentTest(unittest.TestCase):
                                    [{"sample_id": "baseline", "hit": False}])
         self.assertIsNone(summary["ever_ranked_recall"])
         self.assertIsNone(summary["ever_route_recall"])
+        self.assertIsNone(summary["ever_route_depth_recall"])
         self.assertEqual(summary["failure_diagnostics"], {"agent_error_turns": 0})
 
     def test_intent_override_failures_follow_official_hits(self):
@@ -64,6 +72,9 @@ class ExperimentTest(unittest.TestCase):
                 })
                 self.assertEqual(summary["ever_ranked_recall"]["10"], 1)
                 self.assertEqual(summary["ever_route_recall"], {"sparse": 1})
+                self.assertEqual(summary["ever_route_depth_recall"], {
+                    "sparse": {"30": 1, "60": 1, "120": 1},
+                })
 
     def test_failure_diagnostics_partition_official_misses_by_sample_id(self):
         samples = [{"sample_id": identifier, "ground_truth": {"parent_asin": target}}
@@ -81,6 +92,21 @@ class ExperimentTest(unittest.TestCase):
         self.assertEqual(failures["not_retrieved"] + failures["ranking_or_policy"],
                          sum(not session["hit"] for session in sessions))
         self.assertEqual(summary["ever_ranked_recall"]["10"], 1 / 3)
+        self.assertEqual(summary["failure_taxonomy"]["retrieval_miss"], 1)
+        self.assertEqual(summary["failure_taxonomy"]["ranking_or_policy_miss"], 1)
+
+    def test_rerank_prefix_recall_is_counted_once_per_session(self):
+        samples = [{"sample_id": "target", "ground_truth": {"parent_asin": "target"}}]
+        traces = [[
+            {"latency_seconds": .01, "diagnostics": {"retrieved_ids": ["target"],
+                                                        "ranked_ids": ["target"],
+                                                        "rerank_prefix_ids": ["target"]}},
+            {"latency_seconds": .01, "diagnostics": {"retrieved_ids": ["target"],
+                                                        "ranked_ids": ["target"],
+                                                        "rerank_prefix_ids": ["target"]}},
+        ]]
+        summary = summarize_traces(traces, samples, [{"sample_id": "target", "hit": True}])
+        self.assertEqual(summary["ever_rerank_prefix_recall"], 1.0)
 
     def test_summary_rejects_mismatched_result_ids(self):
         samples = [{"sample_id": "a", "ground_truth": {"parent_asin": "target"}}]
@@ -109,10 +135,11 @@ class ExperimentTest(unittest.TestCase):
             summarize_traces([], [{"sample_id": "a", "ground_truth": {"parent_asin": "target"}}],
                              [{"sample_id": "a", "hit": False}])
 
-    def test_source_hashes_include_runtime_and_development_requirements(self):
+    def test_source_hashes_include_single_requirements_manifest(self):
         hashes = source_hashes()
         self.assertIn("requirements.txt", hashes)
-        self.assertIn("requirements-dev.txt", hashes)
+        self.assertNotIn("requirements-dev.txt", hashes)
+        self.assertNotIn("requirements-neural.lock.txt", hashes)
         self.assertIn("experiments/freeze.py", hashes)
 
 

@@ -1,0 +1,139 @@
+{
+  "schema": "cycle2-capability-fixtures-v1",
+  "split": "development",
+  "evidence_kind": "private-like authored engineering validation; not organizer-private evidence",
+  "authoring": "Static mini-catalog cases focused on generalization risks documented before this validation command existed.",
+  "interpretation": "Use for regression and demo confidence only. Do not tune repeatedly against these cases and call them held out.",
+  "cases": [
+    {
+      "id": "plv_ordinary_vague_001",
+      "group": "ordinary vague query",
+      "catalog": [
+        {"parent_asin": "A", "title": "Everyday canvas tote bag", "categories": ["Clothing", "Bags"], "features": ["canvas", "zipper"], "details": {"color": "blue"}},
+        {"parent_asin": "B", "title": "Formal leather belt", "categories": ["Clothing", "Belts"], "features": ["leather"], "details": {"color": "black"}}
+      ],
+      "turns": [
+        {"message": "I need an everyday bag, still figuring out the details.", "assertions": [
+          {"kind": "rank_before", "preferred": "A", "other": "B"}
+        ]}
+      ]
+    },
+    {
+      "id": "plv_override_001",
+      "group": "intent override",
+      "catalog": [
+        {"parent_asin": "A", "title": "Blue canvas shoulder bag", "categories": ["Clothing", "Bags"], "features": ["canvas", "zipper"], "details": {"color": "blue"}},
+        {"parent_asin": "B", "title": "Black leather shoulder bag", "categories": ["Clothing", "Bags"], "features": ["leather"], "details": {"color": "black"}}
+      ],
+      "turns": [
+        {"message": "I want a black leather shoulder bag.", "assertions": []},
+        {"message": "Actually switch that to blue canvas instead.", "assertions": [
+          {"kind": "active_preference", "attribute": "material", "value": "canvas", "polarity": 1},
+          {"kind": "active_preference", "attribute": "color", "value": "blue", "polarity": 1},
+          {"kind": "absent_positive_preference", "attribute": "color", "value": "black"},
+          {"kind": "rank_before", "preferred": "A", "other": "B"}
+        ]}
+      ]
+    },
+    {
+      "id": "plv_negation_001",
+      "group": "explicit negation",
+      "catalog": [
+        {"parent_asin": "A", "title": "Canvas travel backpack", "categories": ["Clothing", "Backpacks"], "features": ["canvas", "water resistant"]},
+        {"parent_asin": "B", "title": "Leather travel backpack", "categories": ["Clothing", "Backpacks"], "features": ["leather"]}
+      ],
+      "turns": [
+        {"message": "I need a travel backpack, but no leather.", "assertions": [
+          {"kind": "active_preference", "attribute": "material", "value": "leather", "polarity": -1},
+          {"kind": "rank_before", "preferred": "A", "other": "B"}
+        ]}
+      ]
+    },
+    {
+      "id": "plv_no_preference_001",
+      "group": "no preference",
+      "catalog": [
+        {"parent_asin": "A", "title": "Blue cotton shirt", "categories": ["Clothing", "Shirts"], "features": ["cotton"], "details": {"color": "blue"}},
+        {"parent_asin": "B", "title": "Red polyester shirt", "categories": ["Clothing", "Shirts"], "features": ["polyester"], "details": {"color": "red"}}
+      ],
+      "turns": [
+        {"message": "I need a cotton shirt in blue.", "assertions": []},
+        {"message": "Actually I do not have a color preference.", "assertions": [
+          {"kind": "active_preference", "attribute": "color", "value": "any", "polarity": 0},
+          {"kind": "active_preference", "attribute": "material", "value": "cotton", "polarity": 1},
+          {"kind": "absent_positive_preference", "attribute": "color", "value": "blue"}
+        ]}
+      ]
+    },
+    {
+      "id": "plv_alternatives_001",
+      "group": "alternatives",
+      "catalog": [
+        {"parent_asin": "A", "title": "Cotton summer shirt", "categories": ["Clothing", "Shirts"], "features": ["cotton", "linen-free"]},
+        {"parent_asin": "B", "title": "Polyester summer shirt", "categories": ["Clothing", "Shirts"], "features": ["polyester", "linen-free"]}
+      ],
+      "turns": [
+        {"message": "I need a cotton or linen summer shirt.", "assertions": [
+          {"kind": "not_hard_excluded", "product_id": "A"},
+          {"kind": "rank_before", "preferred": "A", "other": "B"}
+        ]}
+      ]
+    },
+    {
+      "id": "plv_body_component_001",
+      "group": "body versus component",
+      "catalog": [
+        {"parent_asin": "A", "title": "Leather body bag with cotton lining", "categories": ["Clothing", "Bags"], "features": ["leather body", "cotton lining"]},
+        {"parent_asin": "B", "title": "Cotton body bag with leather handles", "categories": ["Clothing", "Bags"], "features": ["cotton body", "leather handles"]}
+      ],
+      "turns": [
+        {"message": "I need a bag with a leather body, not just leather handles.", "assertions": [
+          {"kind": "rank_before", "preferred": "A", "other": "B"}
+        ]}
+      ]
+    },
+    {
+      "id": "plv_accessory_object_001",
+      "group": "accessory versus primary object",
+      "catalog": [
+        {"parent_asin": "A", "title": "Running shoes with arch support", "categories": ["Clothing", "Shoes"], "features": ["arch support", "running"]},
+        {"parent_asin": "B", "title": "Replacement shoe laces for running shoes", "categories": ["Clothing", "Shoe Accessories"], "features": ["laces"]}
+      ],
+      "turns": [
+        {"message": "I need running shoes, not replacement laces.", "assertions": [
+          {"kind": "rank_before", "preferred": "A", "other": "B"}
+        ]}
+      ]
+    },
+    {
+      "id": "plv_sparse_metadata_001",
+      "group": "sparse metadata",
+      "catalog": [
+        {"parent_asin": "A", "title": "Simple waterproof rain hat", "categories": ["Clothing", "Hats"]},
+        {"parent_asin": "B", "title": "Simple sun hat", "categories": ["Clothing", "Hats"], "features": ["cotton"]}
+      ],
+      "turns": [
+        {"message": "I need a waterproof hat.", "assertions": [
+          {"kind": "unknown_fact", "product_id": "B", "attribute": "feature", "value": "waterproof"},
+          {"kind": "rank_before", "preferred": "A", "other": "B"}
+        ]}
+      ]
+    },
+    {
+      "id": "plv_negative_feedback_001",
+      "group": "negative feedback",
+      "catalog": [
+        {"parent_asin": "A", "title": "Blue canvas tote bag with zipper", "categories": ["Clothing", "Bags"], "features": ["canvas", "zipper"], "details": {"color": "blue"}},
+        {"parent_asin": "B", "title": "Blue leather tote bag with zipper", "categories": ["Clothing", "Bags"], "features": ["leather", "zipper"], "details": {"color": "blue"}}
+      ],
+      "turns": [
+        {"message": "I need a blue tote bag with a zipper.", "assertions": []},
+        {"message": "Not those leather ones; show me canvas instead.", "assertions": [
+          {"kind": "active_preference", "attribute": "material", "value": "leather", "polarity": -1},
+          {"kind": "active_preference", "attribute": "material", "value": "canvas", "polarity": 1},
+          {"kind": "rank_before", "preferred": "A", "other": "B"}
+        ]}
+      ]
+    }
+  ]
+}

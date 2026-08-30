@@ -1,0 +1,12 @@
+{
+  "alternatives_mode": "grouped",
+  "evidence_ranking": false,
+  "neural_rerank": true,
+  "neural_weight": 0.75,
+  "other_question_limit": 4,
+  "profile_prior": true,
+  "profile_weight": 0.005,
+  "rerank_limit": 30,
+  "soft_decay_turns": 3,
+  "soft_preference_decay": true
+}

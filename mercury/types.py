@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +39,8 @@ class Preference:
     confidence: float = 1.0
     depends_on: tuple[str, str] | None = None
     alternative_group: str | None = None
+    scope: str | None = None
+    source_kind: str = "explicit"
 
 
 @dataclass(slots=True)
@@ -53,3 +56,78 @@ class PolicyDecision:
     message: str
     slate_size: int
     diagnostics: dict = field(default_factory=dict)
+    question_goal: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class IntentDecision:
+    """Explainable routing decision derived only from live conversational state."""
+
+    mode: Literal["buying", "browsing", "mixed"]
+    specificity: float
+    confidence: float
+    hard_constraint_count: int
+    over_general: bool
+    reasons: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalSufficiencyDecision:
+    """Target-independent decision about how much retrieval work to perform."""
+
+    action: Literal["retrieve", "minimal_probe", "clarify_first"]
+    sufficient: bool
+    reasons: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ComputeCascadeDecision:
+    """Bounded pre-rerank decision; one turn runs either D30 or D60 once."""
+
+    escalate: bool
+    rerank_limit: int
+    uncertainty: float
+    reasons: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalHypothesis:
+    query: str
+    object_types: tuple[str, ...]
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class FeedbackDecision:
+    scope: Literal["none", "item", "product_type", "attribute_value", "attribute_unknown"]
+    attribute: str | None = None
+    reason: str = "none"
+
+
+@dataclass(frozen=True, slots=True)
+class PlanSignal:
+    attribute: str
+    value: str
+    polarity: int
+    hard: bool
+    confidence: float
+    source_turn: int
+    scope: str | None = None
+    alternative_group: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalPlan:
+    mode: Literal["buying", "browsing", "mixed"]
+    object_types: tuple[str, ...]
+    category_terms: tuple[str, ...]
+    positive_terms: tuple[str, ...]
+    negative_terms: tuple[str, ...]
+    hard_constraints: tuple[PlanSignal, ...]
+    soft_preferences: tuple[PlanSignal, ...]
+    use_case: tuple[str, ...]
+    scoped_features: tuple[PlanSignal, ...]
+    semantic_queries: tuple[str, ...]
+    lexical_query: str
+    rerank_context: str
+    hypotheses: tuple[RetrievalHypothesis, ...] = ()

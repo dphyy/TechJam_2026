@@ -4,6 +4,32 @@ from mercury.state import SessionState
 
 
 class SessionStateTest(unittest.TestCase):
+    def test_negative_feedback_scope_is_narrow_and_explicit(self):
+        state = SessionState({})
+        state.update("I need a blue canvas bag.", 1)
+        state.update("Not this item.", 2)
+        self.assertEqual(state.last_feedback.scope, "item")
+        self.assertTrue(any(item.attribute == "category" and item.active for item in state.preferences))
+        state.update("Not this product type.", 3)
+        self.assertEqual(state.last_feedback.scope, "product_type")
+        self.assertFalse(any(item.attribute == "category" and item.active and item.polarity == 1
+                             for item in state.preferences))
+        self.assertFalse(any(item.attribute == "category" and item.active and item.polarity == -1
+                             for item in state.preferences))
+        state.update("No leather, please.", 4)
+        self.assertEqual(state.last_feedback.scope, "attribute_value")
+        self.assertEqual(state.last_feedback.attribute, "material")
+
+    def test_question_goal_and_answer_productivity_are_recorded(self):
+        state = SessionState({})
+        state.record_question("material", "facet:material")
+        state.update("Cotton, please.", 1)
+        self.assertEqual(state.last_answer_productivity, "productive")
+        self.assertIn("facet:material", state.asked_question_goals)
+        state.record_question("color", "facet:color")
+        state.update("I do not have a color preference.", 2)
+        self.assertEqual(state.last_answer_productivity, "neutral")
+
     def test_conversation_management_is_not_a_product_feature(self):
         state = SessionState({})
         state.update("I am exploring tunics. My primary requirement is cotton.", 1)
@@ -85,6 +111,18 @@ class SessionStateTest(unittest.TestCase):
                 self.assertIn("grey", self.values(state, "color"))
                 self.assertIn("sneakers", self.values(state, "category"))
                 self.assertIn("running", self.values(state, "use_case"))
+
+    def test_source_alias_query_keeps_only_current_direct_parser_aliases(self):
+        state = SessionState({}, alternatives_mode="grouped")
+        state.update("I need grey trainers made from vegan leather.", 1)
+        self.assertEqual(state.query(), "faux leather grey sneakers")
+        self.assertEqual(state.source_alias_query(), "vegan leather trainers")
+
+        state.update("Actually, grey sneakers in faux leather.", 2)
+        self.assertEqual(state.source_alias_query(), "")
+
+        state.update("No trainers after all.", 3)
+        self.assertEqual(state.source_alias_query(), "")
 
     def test_correction_removes_superseded_source_terms_only(self):
         state = SessionState({})
@@ -328,6 +366,54 @@ class SessionStateTest(unittest.TestCase):
         self.assertEqual(self.values(state, "budget"), {"<= 120"})
         self.assertEqual(self.values(state, "category"), {"boots"})
 
+    def test_hedged_budget_is_soft_while_a_stated_limit_stays_hard(self):
+        for message, expected in (
+            ("For that, what matters is: budget around $22.99.", False),
+            ("Budget of about 50 dollars.", False),
+            ("My budget is roughly $75.", False),
+            ("Under $80 please.", True),
+            ("No more than $60.", True),
+            ("Maximum budget of $100.", True),
+            ("My budget is between $50 and $100.", True),
+            # A hedge belonging to another attribute must not soften the budget.
+            ("A stylish jacket under $40.", True),
+            ("About 12 inches long, with a maximum budget of $90.", True),
+        ):
+            with self.subTest(message=message):
+                state = SessionState({})
+                state.update(message, 1)
+                budgets = [p for p in state.active_preferences() if p.attribute == "budget"]
+                self.assertEqual(len(budgets), 1)
+                self.assertIs(budgets[0].hard, expected)
+
+    def test_an_explicit_requirement_overrides_a_hedge(self):
+        state = SessionState({})
+        state.update("I must stay under about $40.", 1)
+        budget = next(p for p in state.active_preferences() if p.attribute == "budget")
+        self.assertTrue(budget.hard)
+
+    def test_hedged_budget_never_demotes_a_product_over_the_figure(self):
+        from mercury.ranking import rank_constraints
+        from mercury.types import Candidate, Product
+
+        fields = {name: "" for name in ("title", "categories", "features", "details", "store", "description")}
+        state = SessionState({})
+        state.update("My budget is around $22.99.", 1)
+        candidates = [
+            Candidate(Product("UNDER", "t", fields, price=22.99), 1.0),
+            Candidate(Product("OVER", "t", fields, price=23.00), 0.9),
+        ]
+        ranked = rank_constraints(candidates, state.active_preferences())
+        self.assertEqual([item.product.parent_asin for item in ranked], ["UNDER", "OVER"])
+        for item in ranked:
+            self.assertNotIn("constraint_penalty", item.route_scores)
+
+        firm = SessionState({})
+        firm.update("My budget is under $22.99.", 1)
+        demoted = rank_constraints(candidates, firm.active_preferences())
+        over = next(item for item in demoted if item.product.parent_asin == "OVER")
+        self.assertIn("constraint_penalty", over.route_scores)
+
     def test_budget_range_and_answer_to_budget_question(self):
         state = SessionState({})
         state.update("My budget is between $50 and $100.", 1)
@@ -565,6 +651,21 @@ class SessionStateTest(unittest.TestCase):
                 self.assertEqual(self.values(state, "material", -1), {"wool"})
                 self.assertNotIn("wool", state.query())
 
+    def test_no_matter_concessive_does_not_create_false_exclusions(self):
+        for message in (
+            "No matter if your hair is thick or thin, I want a beanie.",
+            "No matter whether it is leather or canvas, I want a jacket.",
+        ):
+            with self.subTest(message=message):
+                state = SessionState({})
+                state.update(message, 1)
+                self.assertFalse(any(preference.polarity == -1 for preference in state.active_preferences()))
+                self.assertNotIn("whether", state.query())
+
+        state = SessionState({})
+        state.update("I want a jacket without wool.", 1)
+        self.assertEqual(self.values(state, "material", -1), {"wool"})
+
     def test_no_show_compound_preserves_clause_order_corrections(self):
         state = SessionState({})
         state.update("A red pair of no-show socks. Actually, blue.", 1)
@@ -657,6 +758,22 @@ class SessionStateTest(unittest.TestCase):
         self.assertEqual(self.values(state, "feature"), {"pockets"})
         self.assertEqual(self.values(state, "feature", -1), set())
 
+    def test_open_vocabulary_suffix_relaxation_retracts_owned_quantity(self):
+        for suffix in ("are no longer needed", "are not required", "aren't necessary"):
+            with self.subTest(suffix=suffix):
+                state = SessionState({}, alternatives_mode="grouped")
+                state.update("A jacket with 3 snap closures.", 1)
+                state.update(f"Snap closures {suffix}.", 2)
+                self.assertEqual(state.query(), "jackets")
+                self.assertFalse(any(
+                    preference.active and preference.polarity != 0 and "snap closure" in preference.value
+                    for preference in state.preferences
+                ))
+                self.assertFalse(any(
+                    preference.active and preference.value == "longer"
+                    for preference in state.preferences
+                ))
+
     def test_neutral_language_does_not_invent_a_brand(self):
         state = SessionState({})
         state.record_question("brand")
@@ -680,6 +797,70 @@ class SessionStateTest(unittest.TestCase):
                 self.assertEqual(self.values(state, "category"), {"coats"})
                 self.assertEqual(self.values(state, "color"), {"red"})
 
+    def test_do_not_have_named_color_preference_clears_color_only(self):
+        state = SessionState({})
+        state.update("A red wool coat.", 1)
+        state.update("I do not have a color preference.", 2)
+        self.assertEqual(self.values(state, "color"), set())
+        self.assertEqual(self.values(state, "color", 0), {"any"})
+        self.assertEqual(self.values(state, "material"), {"wool"})
+        self.assertEqual(self.values(state, "category"), {"coats"})
+
+    def test_negative_feedback_with_specific_value_records_exclusion(self):
+        state = SessionState({})
+        state.update("I need a blue tote bag with a zipper.", 1)
+        state.update("Not those leather ones; show me canvas instead.", 2)
+        self.assertEqual(self.values(state, "material", -1), {"leather"})
+        self.assertEqual(self.values(state, "material"), {"canvas"})
+        self.assertEqual(self.values(state, "color"), {"blue"})
+        self.assertEqual(self.values(state, "category"), {"bags"})
+
+    def test_not_just_component_keeps_the_component_eligible(self):
+        state = SessionState({})
+        state.update("I need a bag with a leather body, not just leather handles.", 1)
+        self.assertIn("leather", self.values(state, "material"))
+        self.assertIn("body", self.values(state, "other"))
+        self.assertIn("leather body", self.values(state, "other"))
+        self.assertNotIn("handles", self.values(state, "other"))
+        self.assertNotIn("handles", self.values(state, "other", -1))
+
+    def test_not_merely_component_keeps_the_whole_product_requirement(self):
+        state = SessionState({})
+        state.update("I need a leather outer shell, not merely leather elbow patches.", 1)
+        self.assertEqual(self.values(state, "material"), {"leather"})
+        self.assertIn("outer shell", self.values(state, "other"))
+        self.assertIn("leather outer shell", self.values(state, "other"))
+        self.assertNotIn("elbow patches", self.values(state, "other"))
+        self.assertNotIn("elbow patches", self.values(state, "other", -1))
+
+    def test_uncertainty_does_not_create_a_named_exclusion(self):
+        for message in ("I am not sure about blue.", "I do not know about leather."):
+            with self.subTest(message=message):
+                state = SessionState({})
+                state.update(message, 1)
+                self.assertEqual(self.values(state, "color", -1), set())
+                self.assertEqual(self.values(state, "material", -1), set())
+
+    def test_only_inferred_soft_preferences_decay(self):
+        state = SessionState({})
+        state.update("I need a shirt with subtle geometric detailing.", 1)
+        state.update("Keep looking.", 4)
+        active = state.active_preferences()
+        effective = state.effective_preferences(decay_turns=3)
+        inferred = next(p for p in effective if p.source_kind == "inferred")
+        original = next(p for p in active if p.source_kind == "inferred")
+        self.assertLess(inferred.confidence, original.confidence)
+        explicit = next(p for p in effective if p.attribute == "category")
+        self.assertEqual(explicit.confidence, 1.0)
+
+    def test_intent_override_retires_incompatible_inferred_residual(self):
+        state = SessionState({})
+        state.update("I want a bag with geometric detailing.", 1)
+        state.update("Actually, no geometric detailing; show me floral instead.", 2)
+        inferred = [p.value for p in state.active_preferences()
+                    if p.source_kind == "inferred" and p.polarity == 1]
+        self.assertNotIn("geometric detailing", inferred)
+
     def test_feature_replacement_does_not_clear_unrelated_features(self):
         state = SessionState({})
         state.update("A waterproof jacket with pockets.", 1)
@@ -698,6 +879,16 @@ class SessionStateTest(unittest.TestCase):
         state.update("Anything but wool.", 1)
         self.assertEqual(self.values(state, "material", -1), {"wool"})
         self.assertEqual(self.values(state, "material"), set())
+
+    def test_other_than_and_except_create_exclusions_without_spurious_values(self):
+        state = SessionState({})
+        state.update("I want blue, anything other than red.", 1)
+        self.assertEqual(self.values(state, "color"), {"blue"})
+        self.assertEqual(self.values(state, "color", -1), {"red"})
+        state = SessionState({})
+        state.update("Any color except red.", 1)
+        self.assertEqual(self.values(state, "color"), set())
+        self.assertEqual(self.values(state, "color", -1), {"red"})
 
     def test_refusal_paraphrase_is_unproductive_but_not_persistent(self):
         state = SessionState({})
