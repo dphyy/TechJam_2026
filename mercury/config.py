@@ -29,6 +29,7 @@ class Config:
     role_evidence: bool = False
     composition_evidence: bool = False
     source_alias_retrieval: bool = False
+    typed_plan_mode: str = "off"
     state_mode: str = "ledger"
     alternatives_mode: str = "off"
     question_policy: str = "other"
@@ -81,6 +82,7 @@ class Config:
     profile_weight: float = 0.005
     soft_price_weight: float = 0.02
     soft_negative_weight: float = 0.02
+    typed_plan_weight: float = 0.10
     minimum_retrieval_specificity: float = 0.35
     cascade_threshold: float = 0.65
     cascade_low_overlap: float = 0.15
@@ -101,6 +103,7 @@ class Config:
             "rerank_document_mode": {"head", "lexical", "protected"},
             "insufficient_action": {"minimal_probe", "clarify_first"},
             "reranker_model": set(RERANKERS),
+            "typed_plan_mode": {"off", "shadow", "active"},
             "device": {"cpu", "mps", "cuda"},
         }
         for key, allowed in choices.items():
@@ -141,7 +144,8 @@ class Config:
                     "intent_sparse_request_weight", "buying_scoped_weight", "browsing_scenario_weight",
                     "mixed_scoped_weight",
                     "buying_dense_weight", "browsing_dense_weight", "mixed_dense_weight", "question_turn_cost",
-                    "profile_weight", "soft_price_weight", "soft_negative_weight", "minimum_retrieval_specificity",
+                    "profile_weight", "soft_price_weight", "soft_negative_weight", "typed_plan_weight",
+                    "minimum_retrieval_specificity",
                     "cascade_threshold", "cascade_low_overlap", "cascade_low_confidence"):
             value = getattr(self, key)
             if type(value) not in (int, float) or not 0 <= value <= 1:

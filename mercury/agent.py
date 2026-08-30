@@ -18,7 +18,7 @@ from mercury.policy import choose_policy
 from mercury.profile import distill_profile, rank_profile_prior
 from mercury.ranking import (rank_candidates, rank_composition_evidence, rank_constraints,
                              rank_product_compatibility, rank_role_evidence, rank_soft_negatives,
-                             rank_soft_prices)
+                             rank_soft_prices, rank_typed_plan)
 from mercury.retrieval import SparseIndex, fuse_routes, terms
 from mercury.state import SessionState
 from mercury.sufficiency import decide_retrieval_sufficiency
@@ -556,6 +556,13 @@ class Agent:
                     candidates, distill_profile(state.profile), self.config.profile_weight,
                 )
                 candidates = _apply_constraints(candidates, preferences, fallbacks)
+            if self.config.typed_plan_mode != "off":
+                candidates = rank_typed_plan(
+                    candidates, plan, self.config.typed_plan_weight,
+                    self.config.typed_plan_mode == "active",
+                )
+                if self.config.typed_plan_mode == "active":
+                    candidates = _apply_constraints(candidates, preferences, fallbacks)
             if self.config.product_guard:
                 candidates = _apply_product_guard(candidates, preferences, fallbacks)
             stage_counts["guarded_after_rerank"] = len(candidates)
@@ -669,6 +676,15 @@ class Agent:
                 item.product.parent_asin: item.route_scores.get("soft_negative_preference", 0.0)
                 for item in candidates
             },
+            "typed_plan": {
+                "mode": self.config.typed_plan_mode,
+                "weight": self.config.typed_plan_weight,
+                "evidence": {item.product.parent_asin: item.route_scores.get("typed_plan_evidence", 0.0)
+                             for item in candidates},
+                "adjustments": {item.product.parent_asin: item.route_scores.get("typed_plan_adjustment", 0.0)
+                                for item in candidates},
+            },
+            "candidate_scores": {item.product.parent_asin: item.score for item in candidates},
             "fallbacks": fallbacks, "policy": decision.diagnostics,
             "question": {"attribute": decision.ask_attribute, "goal": decision.question_goal,
                          "reason": decision.diagnostics.get("decision", "policy")},

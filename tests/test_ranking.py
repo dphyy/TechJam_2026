@@ -1,9 +1,12 @@
 import unittest
 
 from mercury.catalog import product_from_dict
+from mercury.intent import decide_intent
+from mercury.planning import build_retrieval_plan
 from mercury.ranking import (evidence_score, preference_evidence, rank_candidates, rank_constraints,
                              rank_product_compatibility, rank_soft_negatives, rank_soft_prices,
-                             value_matches)
+                             rank_typed_plan, typed_plan_evidence, value_matches)
+from mercury.state import SessionState
 from mercury.types import Candidate, Preference
 
 
@@ -64,6 +67,26 @@ class RankingTest(unittest.TestCase):
         ranked = rank_constraints(candidates, [preference("material", "leather", polarity=-1, hard=True)])
         self.assertEqual([item.product.parent_asin for item in ranked], ["clean", "avoided"])
         self.assertIn("constraint_penalty", ranked[-1].route_scores)
+
+    def test_typed_plan_shadow_is_order_neutral_and_active_mode_uses_force(self):
+        state = SessionState({})
+        message = "I need a cotton shirt, ideally blue."
+        state.update(message, 1)
+        plan = build_retrieval_plan(state, decide_intent(state, message))
+        candidates = [
+            Candidate(product_from_dict({"parent_asin": "mismatch", "title": "Blue shirt",
+                                         "features": ["Cotton-free linen fabric."]}), 1.0),
+            Candidate(product_from_dict({"parent_asin": "match", "title": "Blue cotton shirt"}), 1.0),
+        ]
+
+        shadow = rank_typed_plan(candidates, plan, .1, active=False)
+        self.assertEqual([item.product.parent_asin for item in shadow], ["mismatch", "match"])
+        self.assertEqual([item.score for item in shadow], [1.0, 1.0])
+        self.assertGreater(typed_plan_evidence(candidates[1].product, plan),
+                           typed_plan_evidence(candidates[0].product, plan))
+        active = rank_typed_plan(shadow, plan, .1, active=True)
+        self.assertEqual([item.product.parent_asin for item in active], ["match", "mismatch"])
+        self.assertEqual(rank_typed_plan(active, plan, .1, active=True), active)
 
     def test_negated_material_is_not_positive_support(self):
         product = product_from_dict({"parent_asin": "a", "title": "Faux leather bag"})

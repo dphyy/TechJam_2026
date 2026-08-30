@@ -1206,6 +1206,25 @@ class AgentTest(unittest.TestCase):
         finally:
             agent.close()
 
+    def test_typed_plan_shadow_exposes_scores_without_changing_response(self):
+        control = Agent(self.path, Config(evidence_ranking=False))
+        shadow = Agent(self.path, Config(evidence_ranking=False, typed_plan_mode="shadow"))
+        try:
+            for agent in (control, shadow):
+                agent.reset("typed", {})
+            control_response = control.respond("typed", "A blue cotton shirt", 1, 10)
+            shadow_response = shadow.respond("typed", "A blue cotton shirt", 1, 10)
+            self.assertEqual(shadow_response, control_response)
+            self.assertEqual(shadow.last_diagnostics["typed_plan"]["mode"], "shadow")
+            self.assertTrue(any(shadow.last_diagnostics["typed_plan"]["evidence"].values()))
+            self.assertTrue(all(not value for value in
+                                shadow.last_diagnostics["typed_plan"]["adjustments"].values()))
+            self.assertEqual(set(shadow.last_diagnostics["candidate_scores"]),
+                             set(shadow.last_diagnostics["ranked_ids"]))
+        finally:
+            control.close()
+            shadow.close()
+
     def test_advanced_page_selects_highest_ranked_unseen_after_tail_changes(self):
         agent = Agent(self.paging_catalog(), Config(slate_paging_first_turn=2))
         try:

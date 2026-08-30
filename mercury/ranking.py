@@ -6,7 +6,7 @@ from mercury.catalog import negated_match
 from mercury.composition_evidence import composition_evidence
 from mercury.product_types import accessory_mismatch, classify_product, scoped_value_evidence
 from mercury.role_evidence import role_evidence
-from mercury.types import Candidate, Preference, Product
+from mercury.types import Candidate, PlanSignal, Preference, Product, RetrievalPlan
 
 
 WEIGHTS = {"category": 1.1, "material": 0.65, "color": 0.55, "use_case": 0.65,
@@ -153,6 +153,51 @@ def evidence_score(product: Product, preferences: list[Preference]) -> float:
                 strength *= 2.0
             groups.setdefault(key, []).append(WEIGHTS.get(preference.attribute, 0.4) * signal * strength)
     return sum(max(signals) for signals in groups.values())
+
+
+def _plan_preference(signal: PlanSignal) -> Preference:
+    return Preference(
+        signal.attribute, signal.value, signal.source_turn, "typed retrieval plan",
+        hard=signal.hard, polarity=signal.polarity, confidence=signal.confidence,
+        scope=signal.scope, alternative_group=signal.alternative_group,
+    )
+
+
+def typed_plan_evidence(product: Product, plan: RetrievalPlan) -> float:
+    """Bounded catalog evidence for typed hard/soft signals, excluding price."""
+    groups: dict[str | tuple[str, str], list[float]] = {}
+    for signal in (*plan.hard_constraints, *plan.soft_preferences):
+        if signal.attribute == "budget" or signal.polarity == 0:
+            continue
+        key: str | tuple[str, str] = signal.attribute
+        if signal.polarity == 1 and signal.alternative_group is not None:
+            key = (signal.attribute, signal.alternative_group)
+        elif key == "feature" or signal.polarity < 0:
+            key += ":" + signal.value + ":" + str(signal.polarity)
+        evidence = preference_evidence(product, _plan_preference(signal))
+        strength = 1.0 if signal.hard else 0.6 * signal.confidence
+        if evidence < 0:
+            strength *= 1.5
+        groups.setdefault(key, []).append(WEIGHTS.get(signal.attribute, 0.4) * evidence * strength)
+    return sum(max(signals) for signals in groups.values())
+
+
+def rank_typed_plan(candidates: list[Candidate], plan: RetrievalPlan,
+                    weight: float, active: bool) -> list[Candidate]:
+    """Attach typed evidence in shadow mode or apply its weighted adjustment."""
+    result = []
+    for candidate in candidates:
+        parts = dict(candidate.route_scores)
+        score = candidate.score - parts.pop("typed_plan_adjustment", 0.0)
+        evidence = typed_plan_evidence(candidate.product, plan)
+        parts["typed_plan_evidence"] = evidence
+        adjustment = weight * evidence if active else 0.0
+        if adjustment:
+            parts["typed_plan_adjustment"] = adjustment
+        result.append(Candidate(candidate.product, score + adjustment, parts))
+    if not active:
+        return result
+    return sorted(result, key=lambda item: (-item.score, item.product.parent_asin))
 
 
 def rank_candidates(candidates: list[Candidate], preferences: list[Preference]) -> list[Candidate]:

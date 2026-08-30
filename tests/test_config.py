@@ -87,6 +87,15 @@ class ConfigTest(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 Config(soft_negative_weight=value)
 
+    def test_typed_plan_scoring_mode_and_weight_are_validated(self):
+        for mode in ("off", "shadow", "active"):
+            with self.subTest(mode=mode):
+                self.assertEqual(Config(typed_plan_mode=mode).typed_plan_mode, mode)
+        for values in ({"typed_plan_mode": "oracle"}, {"typed_plan_weight": -0.1},
+                       {"typed_plan_weight": 1.1}):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                Config.from_dict(values)
+
     def test_retrieval_sufficiency_controls_are_gated_and_bounded(self):
         config = Config(retrieval_sufficiency_gate=True, insufficient_action="minimal_probe",
                         max_deferred_turns=1, minimal_probe_limit=30,
