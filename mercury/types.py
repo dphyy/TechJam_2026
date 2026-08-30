@@ -72,6 +72,29 @@ class IntentDecision:
 
 
 @dataclass(frozen=True, slots=True)
+class OverrideFact:
+    """A compact semantic preference fact used to explain a turn transition."""
+
+    attribute: str
+    value: str
+    polarity: int
+    scope: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class OverrideDecision:
+    """Target-independent explanation of whether a turn revises live intent."""
+
+    detected: bool = False
+    confidence: float = 0.0
+    changed_attributes: tuple[str, ...] = ()
+    retired: tuple[OverrideFact, ...] = ()
+    added: tuple[OverrideFact, ...] = ()
+    retained: tuple[OverrideFact, ...] = ()
+    reasons: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class RetrievalSufficiencyDecision:
     """Target-independent decision about how much retrieval work to perform."""
 

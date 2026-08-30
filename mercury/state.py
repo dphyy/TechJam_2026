@@ -5,7 +5,7 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 
-from mercury.types import FeedbackDecision, Preference
+from mercury.types import FeedbackDecision, OverrideDecision, OverrideFact, Preference
 
 
 @dataclass(slots=True)
@@ -169,6 +169,28 @@ _REPLACEMENT = re.compile(
     r"\b(?:actually|instead|rather than|after all|on second thought|change|switch|replace|"
     r"make that|go with|changed my mind|scratch that|swap(?: it| that)?)\b"
 )
+_IMPLICIT_PREFERENCE_SHIFT = re.compile(
+    r"\b(?:let'?s try|back to|(?:works|sounds|feels|looks|seems) better|"
+    r"makes? (?:more|better) sense|not feeling)\b"
+)
+_EXPLICIT_OVERRIDE = re.compile(
+    r"\b(?:ignore|disregard|forget) (?:my |the )?(?:earlier|previous|old)|"
+    r"\b(?:on second thought|changed my mind|make that|scratch that|swap(?: it| that)?|"
+    r"switch(?: that| it)?|change (?:that|it)|no longer|rather than|let'?s try|back to|"
+    r"not feeling|(?:works|sounds|feels|looks|seems) better|makes? (?:more|better) sense)\b"
+)
+_POSSIBLE_OVERRIDE = re.compile(r"\b(?:actually|instead|after all|go with|change|replace)\b")
+_NO_CHANGE_GUARD = re.compile(
+    r"\b(?:(?:still|already) (?:is |are |works? )?(?:fine|okay|ok|good)|"
+    r"(?:do not|don't) need to change|no (?:need|reason) to change|nothing to change|"
+    r"instead of changing\b.{0,48}\bkeep|keep\b.{0,48}\b(?:the )?same)\b"
+)
+_EITHER_OR_GUARD = re.compile(r"\b(?:either\b.{0,48}\bor|(?:any|either) (?:one|option))\b")
+_ATTRIBUTE_CHANGE_REQUEST = re.compile(
+    r"\b(?:different|another|new)\s+(material|fabric|colou?r|style|brand|size|category|"
+    r"product type|features?)\b|\bexcept\s+(?:the\s+)?(material|fabric|colou?r|style|"
+    r"brand|size|category|product type|features?)\b"
+)
 _ADDITIVE = re.compile(r"\b(?:also|as well|in addition|either|or|too)\b")
 _SOFT = re.compile(r"\b(?:prefer|preference|ideally|maybe|perhaps|would be nice|if possible|leaning|nice to have)\b")
 _HARD = re.compile(r"\b(?:must|need|needs|required|only|essential|have to|has to|cannot|can't)\b")
@@ -242,6 +264,8 @@ def _mentioned_attributes(text: str) -> set[str]:
 def _polarity(clause: str, start: int, end: int) -> int:
     prefix = clause[:start]
     suffix = clause[end:]
+    if re.search(r"\bnot feeling (?:the )?$", prefix):
+        return -1
     if re.search(r"\b(?:any(?:\s+\w+){0,2}|anything|everything)\s+other\s+than\s*$", prefix):
         return -1
     if re.search(r"\bexcept\s*$", prefix):
@@ -425,6 +449,7 @@ class SessionState:
         self.last_update_informative = False
         self.last_answer_productivity = "not_applicable"
         self.last_feedback = FeedbackDecision("none")
+        self.last_override = OverrideDecision()
         self.revision = 0
         self.turn = 0
 
@@ -456,11 +481,75 @@ class SessionState:
                  p.alternative_group, p.scope, p.source_kind)
                 for p in self.active_preferences()}
 
+    def _override_facts(self) -> set[OverrideFact]:
+        """Project active state onto semantic facts, excluding source churn."""
+        return {
+            OverrideFact(p.attribute, p.value, p.polarity, p.scope)
+            for p in self.active_preferences() if p.polarity != 0
+        }
+
+    @staticmethod
+    def _attribute_change(match: re.Match[str] | None) -> str | None:
+        if match is None:
+            return None
+        value = next((group for group in match.groups() if group), None)
+        return {
+            "fabric": "material", "colour": "color", "product type": "category",
+            "features": "feature",
+        }.get(value, value)
+
+    def _decide_override(self, normalized: str, before: set[OverrideFact],
+                         assertions: list[_Assertion], requested_attribute: str | None) -> OverrideDecision:
+        after = self._override_facts()
+        retired = before - after
+        added = after - before
+        retained = before & after
+        retired_attributes = {fact.attribute for fact in retired}
+        added_attributes = {fact.attribute for fact in added}
+        changed = retired_attributes | ({requested_attribute} if requested_attribute else set())
+        reasons: list[str] = []
+        semantic = False
+        if retired:
+            semantic = True
+            reasons.append("preference_retracted")
+        if retired_attributes & added_attributes:
+            reasons.append("attribute_replaced")
+        if any(old.attribute == new.attribute and old.value == new.value and old.polarity != new.polarity
+               for old in retired for new in added):
+            reasons.append("polarity_changed")
+        if requested_attribute:
+            semantic = True
+            reasons.append("attribute_change_requested")
+
+        protected = bool(_NO_CHANGE_GUARD.search(normalized) or _EITHER_OR_GUARD.search(normalized))
+        marker = bool(_EXPLICIT_OVERRIDE.search(normalized) or _POSSIBLE_OVERRIDE.search(normalized))
+        meaningful_assertion = any(item.preference.polarity != 0 for item in assertions)
+        phrase_restatement = bool(before and marker and meaningful_assertion and not protected and not semantic)
+        if phrase_restatement:
+            reasons.append("explicit_correction_restatement")
+        detected = semantic or phrase_restatement
+        confidence = 0.98 if semantic and (retired_attributes & added_attributes) else (
+            0.92 if semantic else 0.75 if phrase_restatement else 0.0
+        )
+        return OverrideDecision(
+            detected=detected,
+            confidence=confidence,
+            changed_attributes=tuple(sorted(changed)),
+            retired=tuple(sorted(retired, key=lambda fact: (fact.attribute, fact.value, fact.polarity, fact.scope or ""))),
+            added=tuple(sorted(added, key=lambda fact: (fact.attribute, fact.value, fact.polarity, fact.scope or ""))),
+            retained=tuple(sorted(retained, key=lambda fact: (fact.attribute, fact.value, fact.polarity, fact.scope or ""))),
+            reasons=tuple(dict.fromkeys(reasons)),
+        )
+
     def update(self, user_message: str, turn: int) -> None:
         self.turn = turn
         self.unsupported_alternatives = []
         before = self._signature()
+        override_before = self._override_facts()
         normalized = _normalize(user_message)
+        no_change_guard = bool(_NO_CHANGE_GUARD.search(normalized))
+        attribute_change_match = None if no_change_guard else _ATTRIBUTE_CHANGE_REQUEST.search(normalized)
+        requested_attribute = self._attribute_change(attribute_change_match)
         attribute_rejection = _ATTRIBUTE_REJECTION.search(normalized)
         parse_message = user_message
         if _PRODUCT_TYPE_REJECTION.search(normalized):
@@ -479,6 +568,13 @@ class SessionState:
             self.last_feedback = FeedbackDecision("attribute_unknown", attribute,
                                                   "attribute_rejection_without_value")
             parse_message = _ATTRIBUTE_REJECTION.sub("", normalized)
+        elif requested_attribute:
+            self.last_feedback = FeedbackDecision(
+                "attribute_unknown", requested_attribute, "attribute_change_without_value",
+            )
+            for preference in self.active_preferences():
+                if preference.attribute == requested_attribute and preference.polarity == 1:
+                    preference.active = False
         else:
             self.last_feedback = FeedbackDecision("none")
         assertions = self._extract(parse_message, turn)
@@ -505,6 +601,9 @@ class SessionState:
                 if preference.polarity == 1 and preference.depends_on is not None and preference.depends_on not in owners:
                     preference.active = False
         self.last_update_informative = self._signature() != before
+        self.last_override = self._decide_override(
+            normalized, override_before, assertions, requested_attribute,
+        )
         if self.last_question is None:
             self.last_answer_productivity = "not_applicable"
         elif any(item.preference.polarity == 0 for item in assertions):
@@ -512,7 +611,7 @@ class SessionState:
         elif self.last_update_informative:
             self.last_answer_productivity = (
                 "contradictory" if self.last_feedback.scope in {"product_type", "attribute_value"}
-                or bool(_REPLACEMENT.search(normalized)) else "productive"
+                or self.last_override.detected else "productive"
             )
         elif self.last_question in self.unproductive_attributes:
             self.last_answer_productivity = "neutral"
@@ -587,7 +686,7 @@ class SessionState:
             quantities = _quantities(clause, mentions)
 
             additive = bool(_ADDITIVE.search(clause))
-            replacement = bool(_REPLACEMENT.search(clause)) or pending_replacement
+            replacement = bool(_REPLACEMENT.search(clause) or _IMPLICIT_PREFERENCE_SHIFT.search(clause)) or pending_replacement
             soft = bool(_SOFT.search(clause))
             discourse = [("discourse", "", match.start(), match.end()) for match in re.finditer(r"\bworks\b", clause)] if alternatives else []
             residuals = _residuals(clause, mentions + discourse + [("quantity", value, start, end) for value, start, end in quantities])

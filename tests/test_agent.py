@@ -1198,6 +1198,24 @@ class AgentTest(unittest.TestCase):
             self.assertEqual(ids(third), ids(first))
             self.assertEqual(agent.last_diagnostics["slate_page"], 0)
             self.assertEqual(agent.last_diagnostics["slate_page_reset"], "intent_override")
+            self.assertTrue(agent.last_diagnostics["override"]["detected"])
+            self.assertIn("explicit_correction_restatement",
+                          agent.last_diagnostics["override"]["reasons"])
+        finally:
+            agent.close()
+
+    def test_no_change_language_does_not_reset_early_paging(self):
+        agent = Agent(self.paging_catalog(), Config(
+            slate_paging_first_turn=1, slate_reset_on_override=True,
+        ))
+        try:
+            agent.reset("no-reset", {})
+            agent.respond("no-reset", "blue cotton shirt", 1, 10)
+            agent.respond("no-reset", "blue cotton shirt", 2, 10)
+            agent.respond("no-reset", "Actually, blue is still fine", 3, 10)
+            self.assertEqual(agent.last_diagnostics["slate_page"], 2)
+            self.assertIsNone(agent.last_diagnostics["slate_page_reset"])
+            self.assertFalse(agent.last_diagnostics["override"]["detected"])
         finally:
             agent.close()
 

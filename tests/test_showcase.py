@@ -44,6 +44,9 @@ class ShowcaseTests(unittest.TestCase):
         self.assertEqual(len(report["turns"]), 5)
         self.assertGreaterEqual(report["turns"][4]["slate_page"], 1)
         self.assertEqual(report["turns"][1]["slate_page_reset"], "intent_override")
+        self.assertTrue(report["turns"][1]["override"]["detected"])
+        self.assertEqual(set(report["turns"][1]["override"]["changed_attributes"]),
+                         {"color", "material"})
         self.assertTrue(any(item["value"] == "leather"
                             for item in report["turns"][1]["retracted_preferences"]))
         self.assertFalse(any(item["value"] == "adjustable"
@@ -57,6 +60,7 @@ class ShowcaseTests(unittest.TestCase):
         self.assertIn("See what Mercury remembered, changed, and proved.", page)
         self.assertIn("Technical score", page)
         self.assertIn("evidence.json", page)
+        self.assertIn("Changed attributes", page)
 
     def test_refuses_to_overwrite_an_existing_showcase(self):
         output = self.root / "showcase"

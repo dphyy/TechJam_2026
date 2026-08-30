@@ -563,6 +563,27 @@ class Agent:
             "query": query, "source_alias_query": source_alias_query,
             "revision": state.revision, "cache_hit": cache_hit, "slate_page": page,
             "slate_page_reset": "intent_override" if override_page_reset else None,
+            "override": {
+                "detected": state.last_override.detected,
+                "confidence": state.last_override.confidence,
+                "changed_attributes": list(state.last_override.changed_attributes),
+                "retired": [
+                    {"attribute": fact.attribute, "value": fact.value, "polarity": fact.polarity,
+                     "scope": fact.scope}
+                    for fact in state.last_override.retired
+                ],
+                "added": [
+                    {"attribute": fact.attribute, "value": fact.value, "polarity": fact.polarity,
+                     "scope": fact.scope}
+                    for fact in state.last_override.added
+                ],
+                "retained": [
+                    {"attribute": fact.attribute, "value": fact.value, "polarity": fact.polarity,
+                     "scope": fact.scope}
+                    for fact in state.last_override.retained
+                ],
+                "reasons": list(state.last_override.reasons),
+            },
             "retrieval_sufficiency": {
                 "action": sufficiency.action, "sufficient": sufficiency.sufficient,
                 "reasons": list(sufficiency.reasons),

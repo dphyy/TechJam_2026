@@ -207,7 +207,7 @@ python -m demo.showcase \
   --output artifacts/judge-showcase
 ```
 
-Open `artifacts/judge-showcase/index.html`. The five-turn story shows a shopper changing black leather to blue canvas while retaining an adjustable strap, declining extra questions, then rejecting the current slate at the real paging boundary. Judges can inspect active and retracted preferences, routing rationale, result paging, fallbacks, real catalog IDs, and supported/contradicted/unknown evidence. The adjacent `evidence.json` contains the complete machine-readable trace. Use a new output directory for each run; the generator refuses to overwrite prior evidence.
+Open `artifacts/judge-showcase/index.html`. The five-turn story shows a shopper changing black leather to blue canvas while retaining an adjustable strap, declining extra questions, then rejecting the current slate at the real paging boundary. Judges can inspect the structured override decision (changed attributes plus retired, added, and retained facts), routing rationale, result paging, fallbacks, real catalog IDs, and supported/contradicted/unknown evidence. The adjacent `evidence.json` contains the complete machine-readable trace. Use a new output directory for each run; the generator refuses to overwrite prior evidence.
 
 ## Private-Like Engineering Validation
 
@@ -243,7 +243,7 @@ python -m pip check
 Recent verification:
 
 ```text
-539 tests passed
+547 tests passed
 ruff passed
 pip check passed
 ```

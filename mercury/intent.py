@@ -16,13 +16,6 @@ _BROWSING = re.compile(
     r"something for|gift(?:s|ing)?|occasion|not sure|figuring out|open to)\b",
     re.I,
 )
-_OVERRIDE = re.compile(
-    r"\b(?:actually|instead|switch|change (?:that|it)|no longer|rather than|on second thought|"
-    r"make that|go with|changed my mind|scratch that|swap(?: it| that)?)\b",
-    re.I,
-)
-
-
 @dataclass(frozen=True, slots=True)
 class IntentWeights:
     """Interpretable rule weights fitted without evaluator targets.
@@ -83,7 +76,7 @@ def decide_intent(state: SessionState, message: str, buying_threshold: float = 0
         reasons.append("use_case_without_object")
     if unresolved:
         reasons.append("unresolved_open_vocabulary")
-    if _OVERRIDE.search(message):
+    if state.last_override.detected:
         reasons.append("intent_override")
 
     if buying_score >= buying_threshold and browsing_score < browsing_threshold:
