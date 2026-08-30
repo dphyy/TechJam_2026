@@ -231,11 +231,13 @@ class ConfigTest(unittest.TestCase):
 
     def test_rerank_admission_is_explicit_and_bounded(self):
         self.assertEqual(Config().rerank_admission, "prefix")
-        for mode in ("prefix", "stratified", "cover"):
+        for mode in ("prefix", "stratified", "cover", "fusion", "linear"):
             with self.subTest(mode=mode):
                 self.assertEqual(Config(rerank_admission=mode).rerank_admission, mode)
         with self.assertRaises(ValueError):
             Config(rerank_admission="oracle")
+        with self.assertRaises(ValueError):
+            Config(admission_model_path="")
 
     def test_retrieval_mode_is_explicit_and_bounded(self):
         self.assertEqual(Config().retrieval_mode, "broad")

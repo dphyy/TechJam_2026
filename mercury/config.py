@@ -100,6 +100,7 @@ class Config:
     cascade_low_confidence: float = 0.65
     cascade_previous_margin_threshold: float = 0.0
     artifact_dir: str = "artifacts"
+    admission_model_path: str = "models/admission_linear_v1.json"
     device: str = "cpu"
     threads: int = 4
 
@@ -109,7 +110,7 @@ class Config:
             "alternatives_mode": {"off", "parse", "grouped"},
             "question_policy": {"other", "schedule", "entropy", "rank_value", "intent", "none"},
             "slate_policy": {"fixed", "gap", "lookahead"},
-            "rerank_admission": {"prefix", "stratified", "cover"},
+            "rerank_admission": {"prefix", "stratified", "cover", "fusion", "linear"},
             "retrieval_mode": {"broad", "field_union", "factored"},
             "rerank_document_mode": {"head", "lexical", "protected"},
             "insufficient_action": {"minimal_probe", "clarify_first"},
@@ -209,6 +210,8 @@ class Config:
             raise ValueError("page_local_budget_seconds must be a finite number of seconds > 0")
         if not isinstance(self.artifact_dir, str) or not self.artifact_dir:
             raise ValueError("artifact_dir must be a nonempty path")
+        if not isinstance(self.admission_model_path, str) or not self.admission_model_path:
+            raise ValueError("admission_model_path must be a nonempty path")
 
     @classmethod
     def from_dict(cls, values: dict) -> Config:

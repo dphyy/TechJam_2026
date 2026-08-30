@@ -116,20 +116,19 @@ def _consumed_key(path: Path) -> str:
 
 
 def _assign_category_groups(groups: dict[str, list[str]], seed: str) -> dict[str, str]:
-    """Greedily balance whole category groups across requested split capacities."""
-    remaining = dict(SPLIT_COUNTS)
+    """Greedily balance whole groups while preventing one huge group monopoly."""
+    load = {name: 0 for name in SPLIT_COUNTS}
     assignment: dict[str, str] = {}
-    ordered = sorted(groups, key=lambda key: (-len(groups[key]), _order(seed, "category", key), key))
+    ordered = sorted(groups, key=lambda key: (_order(seed, "category", key), key))
     for group in ordered:
-        eligible = [name for name, capacity in remaining.items() if capacity > 0]
-        if not eligible:
-            break
-        split = max(
-            eligible,
-            key=lambda name: (remaining[name] / SPLIT_COUNTS[name], _order(seed, group, name)),
+        split = min(
+            SPLIT_COUNTS,
+            key=lambda name: (load[name] / SPLIT_COUNTS[name], _order(seed, group, name)),
         )
         assignment[group] = split
-        remaining[split] -= min(remaining[split], len(groups[group]))
+        # A malformed or marketplace-specific mega-category still stays in one
+        # split, but it cannot satisfy that split's entire diversity budget.
+        load[split] += min(len(groups[group]), max(4, SPLIT_COUNTS[split] // 8))
     return assignment
 
 

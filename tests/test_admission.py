@@ -1,6 +1,17 @@
+import hashlib
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from mercury.admission import select_rerank_prefix
+from mercury.admission import (
+    FEATURE_NAMES,
+    AdmissionModel,
+    admission_features,
+    score_all_candidates,
+    select_rerank_prefix,
+)
+from mercury.catalog import Catalog
 from mercury.types import Candidate, Preference, Product
 
 
@@ -43,3 +54,54 @@ class RerankAdmissionTest(unittest.TestCase):
             select_rerank_prefix(candidates, [], 1, "oracle")
         with self.assertRaisesRegex(ValueError, "positive"):
             select_rerank_prefix(candidates, [], 0, "prefix")
+
+    def test_fusion_scores_the_full_pool_and_promotes_supported_tail(self):
+        candidates = [candidate(f"p{index:02d}", "black polyester formal shirt", 1 - index / 100) for index in range(24)]
+        candidates.append(candidate("target", "blue cotton travel shirt", .75))
+        candidates.extend(candidate(f"tail{index:02d}", "black polyester formal shirt", .74 - index / 100)
+                          for index in range(15))
+        preferences = [
+            Preference("category", "shirts", 1, "shirts", hard=True),
+            Preference("color", "blue", 1, "blue"),
+            Preference("material", "cotton", 1, "cotton"),
+            Preference("use_case", "travel", 1, "travel"),
+        ]
+        ordered, diagnostics = score_all_candidates(candidates, preferences, None, "fusion")
+        self.assertEqual(len(ordered), 40)
+        self.assertEqual({item.product.parent_asin for item in ordered}, {item.product.parent_asin for item in candidates})
+        self.assertLess([item.product.parent_asin for item in ordered].index("target"), 20)
+        self.assertEqual(diagnostics["pool_size"], 40)
+
+    def test_features_leave_missing_price_neutral(self):
+        rows = admission_features(
+            [candidate("unknown", "blue shirt", 1.0)],
+            [Preference("budget", "<=20", 1, "under 20", hard=True)],
+            None,
+        )
+        self.assertEqual(rows[0]["price_compatibility"], 0.0)
+
+    def test_linear_model_is_hash_bound_to_catalog_and_feature_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog_path = root / "catalog.jsonl"
+            catalog_path.write_text(json.dumps({
+                "parent_asin": "A", "title": "Hat", "categories": ["Hats"],
+            }) + "\n", encoding="utf-8")
+            catalog_hash = Catalog(catalog_path).sha256
+            model_path = root / "model.json"
+            model_path.write_text(json.dumps({
+                "schema": "mercury-admission-linear-v1",
+                "feature_version": "admission-features-v1",
+                "feature_names": list(FEATURE_NAMES),
+                "mean": [0.0] * len(FEATURE_NAMES),
+                "scale": [1.0] * len(FEATURE_NAMES),
+                "coefficients": [1.0] * len(FEATURE_NAMES),
+                "intercept": 0.0,
+                "catalog_sha256": catalog_hash,
+                "training_sha256": "training",
+                "validation_sha256": "validation",
+            }), encoding="utf-8")
+            model = AdmissionModel.load(model_path, catalog_hash)
+            self.assertEqual(model.model_sha256, hashlib.sha256(model_path.read_bytes()).hexdigest())
+            with self.assertRaisesRegex(ValueError, "catalog hash"):
+                AdmissionModel.load(model_path, "different")

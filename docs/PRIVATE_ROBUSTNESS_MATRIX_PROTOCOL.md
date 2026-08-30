@@ -10,7 +10,7 @@ does not import Mercury, the evaluator, model scores, or simulator outcomes.
 - Generator: `experiments/robustness_matrix_prepare.py`
 - Lock directory: `artifacts/robustness-matrix-v1` (local and ignored)
 - Frozen manifest SHA-256:
-  `5658a5f81f85fb6e062c1d7cbcbe519fd7558bf390082d87d8abebadd5cffc59`
+  `fda4900cfd8828ae8a861c51ecae3cbe7a2ef5f5ba7dacf81a19d65109b73727`
 - Metamorphic fixture SHA-256:
   `f2384ecf4962e4861b349a66736c433fb34832115bf0ec7acb6387acb1bb7b6d`
 
@@ -91,5 +91,8 @@ python -m experiments.metamorphic_validate \
 ```
 
 At freeze time the matrix had 47,786 eligible title families and 771 eligible
-category groups after excluding 1,343 prior targets. No confirmation or final
-outcomes were opened.
+category groups after excluding 1,343 prior targets. The training selection
+spans 116 whole category groups and screening spans 45; no single marketplace-
+specific mega-category can consume a split's entire diversity budget. No
+screening, confirmation, or final outcomes were opened at the Phase 3 source
+freeze.

@@ -7,7 +7,7 @@ from collections import OrderedDict
 from dataclasses import replace
 from pathlib import Path
 
-from mercury.admission import select_rerank_prefix
+from mercury.admission import AdmissionModel, score_all_candidates, select_rerank_prefix
 from mercury.cascade import decide_compute_cascade
 from mercury.catalog import Catalog
 from mercury.config import Config
@@ -119,10 +119,18 @@ class Agent:
         self.dense = None
         self.reranker = None
         self.contrast = None
+        self.admission_model = None
         self.startup_fallbacks: dict[str, str] = {}
         self._rerank_cost: float | None = None
         self.last_diagnostics: dict = {}
         artifacts = Path(self.config.artifact_dir)
+        if self.config.rerank_admission == "linear":
+            try:
+                self.admission_model = AdmissionModel.load(
+                    self.config.admission_model_path, self.catalog.sha256,
+                )
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                self._startup_failure("admission_model", error)
         if self.config.dense:
             try:
                 from mercury.neural import DenseIndex
@@ -472,6 +480,12 @@ class Agent:
         preferences = state.effective_preferences(
             self.config.soft_decay_turns if self.config.soft_preference_decay else 0,
         )
+        admission_diagnostics = {
+            "mode": self.config.rerank_admission,
+            "pool_size": 0,
+            "model_sha256": getattr(self.admission_model, "model_sha256", None),
+            "fallback": None,
+        }
         frontier_scored_this_turn: list[str] = []
         frontier_triggered = False
         if sufficiency.action == "clarify_first":
@@ -544,6 +558,12 @@ class Agent:
                     fallbacks.append("contrast")
                     LOGGER.warning("Contrast ranking failed: %s", type(error).__name__)
             rerank_prefix_ids = []
+            admission_diagnostics = {
+                "mode": self.config.rerank_admission,
+                "pool_size": len(candidates),
+                "model_sha256": getattr(self.admission_model, "model_sha256", None),
+                "fallback": None,
+            }
             neural_base: list[Candidate] | None = None
             affordable = (
                 cascade.rerank_limit
@@ -561,9 +581,21 @@ class Agent:
                             and len(candidates) > self.config.over_general_candidate_threshold):
                         rerank_limit = min(rerank_limit, self.config.over_general_rerank_limit)
                         stage_counts["over_general_cutoff"] = rerank_limit
-                    admitted = select_rerank_prefix(
-                        candidates, preferences, rerank_limit, self.config.rerank_admission,
-                    )
+                    admission_mode = self.config.rerank_admission
+                    if admission_mode == "linear" and self.admission_model is None:
+                        if "admission_model" not in fallbacks:
+                            fallbacks.append("admission_model")
+                        admission_diagnostics["fallback"] = "prefix"
+                        admitted = select_rerank_prefix(candidates, preferences, rerank_limit, "prefix")
+                    elif admission_mode in {"fusion", "linear"}:
+                        scored_pool, admission_diagnostics = score_all_candidates(
+                            candidates, preferences, plan, admission_mode, self.admission_model,
+                        )
+                        admitted = scored_pool[:rerank_limit]
+                    else:
+                        admitted = select_rerank_prefix(
+                            candidates, preferences, rerank_limit, admission_mode, plan,
+                        )
                     rerank_prefix_ids = [item.product.parent_asin for item in admitted]
                     admitted_ids = set(rerank_prefix_ids)
                     ordered = admitted + [
@@ -608,6 +640,12 @@ class Agent:
                     rerank_prefix_ids = []
             else:
                 rerank_prefix_ids = []
+                admission_diagnostics = {
+                    "mode": self.config.rerank_admission,
+                    "pool_size": len(candidates),
+                    "model_sha256": getattr(self.admission_model, "model_sha256", None),
+                    "fallback": None,
+                }
             if self.config.progressive_frontier_rerank and not rerank_prefix_ids:
                 self._frontier_revision.pop(session_id, None)
                 self._frontier_base.pop(session_id, None)
@@ -978,6 +1016,7 @@ class Agent:
             "stage_ids": stage_ids,
             "retrieved_ids": retrieved_ids, "comparison_tail_ids": comparison_tail_ids,
             "rerank_admission": self.config.rerank_admission,
+            "admission": admission_diagnostics,
             "rerank_document_mode": self.config.rerank_document_mode, "rerank_prefix_ids": rerank_prefix_ids,
             "role_evidence": role_witnesses,
             "composition_evidence": composition_witnesses,

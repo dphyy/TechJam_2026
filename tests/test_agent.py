@@ -1121,6 +1121,42 @@ class AgentTest(unittest.TestCase):
         finally:
             agent.close()
 
+    def test_all_pool_admission_is_diagnosed_and_missing_model_falls_back(self):
+        class FakeRanker:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def rank(self, query, candidates, limit, weight):
+                return list(candidates)
+
+            def token_usage(self):
+                return 0
+
+        with patch("mercury.neural.NeuralRanker", FakeRanker):
+            fusion = Agent(self.path, Config(neural_rerank=True, rerank_admission="fusion"))
+            linear = Agent(self.path, Config(
+                neural_rerank=True, rerank_admission="linear",
+                admission_model_path=str(Path(self.temp.name) / "missing-model.json"),
+            ))
+        try:
+            fusion.reset("fusion", {})
+            fusion.respond("fusion", "blue cotton shirt", 1, 10)
+            self.assertEqual(fusion.last_diagnostics["admission"]["mode"], "fusion")
+            self.assertEqual(
+                fusion.last_diagnostics["admission"]["pool_size"],
+                fusion.last_diagnostics["stage_counts"]["candidate_limited"],
+            )
+            self.assertIsNone(fusion.last_diagnostics["admission"]["fallback"])
+
+            linear.reset("linear", {})
+            linear.respond("linear", "blue cotton shirt", 1, 10)
+            self.assertIn("admission_model", linear.startup_fallbacks)
+            self.assertEqual(linear.last_diagnostics["admission"]["fallback"], "prefix")
+            self.assertIn("admission_model", linear.last_diagnostics["fallbacks"])
+        finally:
+            fusion.close()
+            linear.close()
+
 
     def test_unbudgeted_agent_reranks_the_whole_configured_prefix(self):
         agent = Agent(self.path, Config(rerank_limit=30))
