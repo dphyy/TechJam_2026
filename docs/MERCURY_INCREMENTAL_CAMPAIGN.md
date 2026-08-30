@@ -133,3 +133,29 @@ pages. This exposes a frozen-simulator coverage gap: the generated language does
 not test mixed strength within one clause. The stage is kept as a predeclared,
 unit-tested correctness fix with no score, fallback, or resource regression;
 latency differences are treated as noise.
+
+## Stage 1C: hard versus soft negatives — keep
+
+Branch `exp/01c-soft-negative-preferences`, implementation commit `fa91825`,
+keeps direct exclusions such as `no leather` as hard constraints while parsing
+soft language such as `prefer not to have leather` as a soft negative. Both stay
+out of lexical retrieval. Hard negatives retain the pool-wide constraint guard;
+soft negatives are represented as `Prefer to avoid` and receive a bounded
+`0.02` evidence demotion without filtering or changing candidate identity.
+Repeated application is idempotent. The complete suite passed with 532 tests
+and Ruff passed.
+
+The source-matched screening candidate was exactly neutral:
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stage 1B control | 0.937500 | 0.575444 | 3.131250 | 0.798758 | 1,826,142 | 0.593333 s |
+| Stage 1C | 0.937500 | 0.575444 | 3.131250 | 0.798758 | 1,826,142 | 0.581618 s |
+
+All 491 paired responses, preferences, hard/soft groups, plans, rankings, and
+slate pages were identical, and the soft-negative adjustment fired on zero
+turns. The frozen simulator has no actual soft-exclusion paraphrases; incidental
+catalog phrases containing `No` are not user exclusions. The stage is kept as a
+predeclared correctness and preference-fidelity fix with no regression. The
+`0.02` weight is bounded and unit-tested but cannot be claimed as empirically
+tuned until a dedicated soft-negative language pack exists.
