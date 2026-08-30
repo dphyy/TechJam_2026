@@ -6,8 +6,12 @@ from pathlib import Path
 
 from mercury.admission import (
     FEATURE_NAMES,
+    FEATURE_VERSION_V2,
+    MODEL_SCHEMA_V2,
+    AdmissionFeatureCache,
     AdmissionModel,
     admission_features,
+    admission_features_v2,
     score_all_candidates,
     select_rerank_prefix,
 )
@@ -105,3 +109,47 @@ class RerankAdmissionTest(unittest.TestCase):
             self.assertEqual(model.model_sha256, hashlib.sha256(model_path.read_bytes()).hexdigest())
             with self.assertRaisesRegex(ValueError, "catalog hash"):
                 AdmissionModel.load(model_path, "different")
+
+    def test_v2_uses_precomputed_tokens_and_preserves_unknown_safe_coverage(self):
+        product = Product(
+            "one", "Blue cotton shirt", {
+                "title": "Blue cotton shirt",
+                "categories": "Clothing > Shirts",
+                "features": "Breathable",
+            },
+        )
+        candidates = [Candidate(product, 1.0)]
+        preferences = [Preference("color", "blue", 1, "blue")]
+        cache = AdmissionFeatureCache([product])
+        rows = admission_features_v2(candidates, preferences, None, cache)
+        self.assertEqual(rows[0]["positive_coverage"], 0.6)
+        self.assertEqual(rows[0]["all_field_coverage"], 1.0)
+
+        unknown_query = [Preference("other", "blue unobtainium", 1, "blue unobtainium")]
+        rows = admission_features_v2(candidates, unknown_query, None, cache)
+        self.assertEqual(rows[0]["positive_coverage"], 0.0)
+        self.assertEqual(rows[0]["all_field_coverage"], 0.5)
+
+    def test_v2_model_schema_loads_with_frozen_feature_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog_path = root / "catalog.jsonl"
+            catalog_path.write_text(json.dumps({
+                "parent_asin": "A", "title": "Hat", "categories": ["Hats"],
+            }) + "\n", encoding="utf-8")
+            catalog_hash = Catalog(catalog_path).sha256
+            model_path = root / "model.json"
+            model_path.write_text(json.dumps({
+                "schema": MODEL_SCHEMA_V2,
+                "feature_version": FEATURE_VERSION_V2,
+                "feature_names": list(FEATURE_NAMES),
+                "mean": [0.0] * len(FEATURE_NAMES),
+                "scale": [1.0] * len(FEATURE_NAMES),
+                "coefficients": [1.0] * len(FEATURE_NAMES),
+                "intercept": 0.0,
+                "catalog_sha256": catalog_hash,
+                "training_sha256": "training",
+                "validation_sha256": "validation",
+            }), encoding="utf-8")
+            model = AdmissionModel.load(model_path, catalog_hash)
+            self.assertEqual(model.feature_version, FEATURE_VERSION_V2)

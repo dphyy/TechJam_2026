@@ -687,6 +687,19 @@ silently discarding the signal that produced the quality gain.
 - Only after v2 passes may the existing Phase 4 D20/D30 confidence experiment be
   re-registered on new evidence; otherwise it remains skipped.
 
+### Phase 10 execution status — 30 August 2026
+
+Phase 10 passes. The frozen v2 scorer retains the v1 coefficients and catalog
+binding while using immutable 32-bit token indexes and precomputed static
+features. On 80 open grouped targets it matches v1 Recall@20 and Recall@30 at
+`0.9875`; feature extraction p95 falls from `69.08 ms` to `2.19 ms`.
+
+The source-matched screening candidate preserves HitRate at `0.98125`, improves
+rerank-prefix recall from `0.95625` to `0.98125`, and improves TechnicalScore
+from `0.864686` to `0.865071`. Warm p95 is `0.424832 s`, D30 and prompt-token
+limits are preserved, RSS is within 1% of control, and no fallback occurs.
+Phase 4 may therefore be re-registered once with the frozen v2 admission scorer.
+
 ## Phase 11: Product-Domain Adaptation at the Existing D30 Budget
 
 If admission v2 does not close the remaining Top-10 ordering gap, adapt the

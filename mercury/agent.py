@@ -9,7 +9,12 @@ from collections import OrderedDict
 from dataclasses import replace
 from pathlib import Path
 
-from mercury.admission import AdmissionModel, score_all_candidates, select_rerank_prefix
+from mercury.admission import (
+    AdmissionFeatureCache,
+    AdmissionModel,
+    score_all_candidates,
+    select_rerank_prefix,
+)
 from mercury.cascade import decide_compute_cascade
 from mercury.catalog import Catalog
 from mercury.config import Config
@@ -128,6 +133,7 @@ class Agent:
         self.reranker = None
         self.contrast = None
         self.admission_model = None
+        self.admission_feature_cache = None
         self.catalog_vocabulary = None
         self.startup_fallbacks: dict[str, str] = {}
         self._rerank_cost: float | None = None
@@ -140,11 +146,13 @@ class Agent:
                 )
             except (OSError, ValueError, KeyError, TypeError) as error:
                 self._startup_failure("catalog_vocabulary", error)
-        if self.config.rerank_admission == "linear":
+        if self.config.rerank_admission in {"linear", "linear_v2"}:
             try:
                 self.admission_model = AdmissionModel.load(
                     self.config.admission_model_path, self.catalog.sha256,
                 )
+                if self.config.rerank_admission == "linear_v2":
+                    self.admission_feature_cache = AdmissionFeatureCache(self.catalog.products)
             except (OSError, ValueError, KeyError, TypeError) as error:
                 self._startup_failure("admission_model", error)
         if self.config.dense:
@@ -626,14 +634,15 @@ class Agent:
                         stage_counts["over_general_cutoff"] = rerank_limit
                     admission_mode = self.config.rerank_admission
                     admission_started = time.perf_counter()
-                    if admission_mode == "linear" and self.admission_model is None:
+                    if admission_mode in {"linear", "linear_v2"} and self.admission_model is None:
                         if "admission_model" not in fallbacks:
                             fallbacks.append("admission_model")
                         admission_diagnostics["fallback"] = "prefix"
                         admitted = select_rerank_prefix(candidates, preferences, rerank_limit, "prefix")
-                    elif admission_mode in {"fusion", "linear"}:
+                    elif admission_mode in {"fusion", "linear", "linear_v2"}:
                         scored_pool, admission_diagnostics = score_all_candidates(
                             candidates, preferences, plan, admission_mode, self.admission_model,
+                            self.admission_feature_cache,
                         )
                         admitted = scored_pool[:rerank_limit]
                     else:
@@ -643,8 +652,9 @@ class Agent:
                     component_latency["admission"] = time.perf_counter() - admission_started
                     stage_ids["admission_ranked"] = [
                         item.product.parent_asin
-                        for item in (scored_pool if admission_mode in {"fusion", "linear"}
-                                     and not (admission_mode == "linear" and self.admission_model is None)
+                        for item in (scored_pool if admission_mode in {"fusion", "linear", "linear_v2"}
+                                     and not (admission_mode in {"linear", "linear_v2"}
+                                              and self.admission_model is None)
                                      else candidates)
                     ]
                     rerank_prefix_ids = [item.product.parent_asin for item in admitted]

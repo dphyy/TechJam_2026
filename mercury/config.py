@@ -113,7 +113,7 @@ class Config:
             "alternatives_mode": {"off", "parse", "grouped"},
             "question_policy": {"other", "schedule", "entropy", "rank_value", "intent", "none"},
             "slate_policy": {"fixed", "gap", "lookahead"},
-            "rerank_admission": {"prefix", "stratified", "cover", "fusion", "linear"},
+            "rerank_admission": {"prefix", "stratified", "cover", "fusion", "linear", "linear_v2"},
             "retrieval_mode": {"broad", "field_union", "factored"},
             "rerank_document_mode": {"head", "lexical", "protected"},
             "insufficient_action": {"minimal_probe", "clarify_first"},
