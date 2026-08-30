@@ -105,6 +105,16 @@ class FeedbackDecision:
 
 
 @dataclass(frozen=True, slots=True)
+class StateDelta:
+    """Observable semantic change produced by the latest user message."""
+
+    kind: Literal["none", "additive", "refinement", "replacement", "polarity_change", "category_change"]
+    added: tuple[tuple[str, str, int], ...] = ()
+    removed: tuple[tuple[str, str, int], ...] = ()
+    explicit_replacement: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class PlanSignal:
     attribute: str
     value: str

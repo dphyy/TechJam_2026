@@ -5,7 +5,7 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 
-from mercury.types import FeedbackDecision, Preference
+from mercury.types import FeedbackDecision, Preference, StateDelta
 
 
 @dataclass(slots=True)
@@ -426,8 +426,13 @@ class SessionState:
         self.last_update_informative = False
         self.last_answer_productivity = "not_applicable"
         self.last_feedback = FeedbackDecision("none")
+        self.last_state_delta = StateDelta("none")
         self.revision = 0
         self.turn = 0
+
+    @property
+    def last_update_kind(self) -> str:
+        return self.last_state_delta.kind
 
     def record_question(self, attribute: str | None, goal: str | None = None) -> None:
         self.last_question = attribute
@@ -461,6 +466,7 @@ class SessionState:
         self.turn = turn
         self.unsupported_alternatives = []
         before = self._signature()
+        before_facts = {(p.attribute, p.value, p.polarity) for p in self.active_preferences()}
         normalized = _normalize(user_message)
         attribute_rejection = _ATTRIBUTE_REJECTION.search(normalized)
         parse_message = user_message
@@ -505,6 +511,10 @@ class SessionState:
                 if preference.polarity == 1 and preference.depends_on is not None and preference.depends_on not in owners:
                     preference.active = False
         self.last_update_informative = self._signature() != before
+        after_facts = {(p.attribute, p.value, p.polarity) for p in self.active_preferences()}
+        self.last_state_delta = self._state_delta(
+            before_facts, after_facts, assertions, self.last_update_informative,
+        )
         if self.last_question is None:
             self.last_answer_productivity = "not_applicable"
         elif any(item.preference.polarity == 0 for item in assertions):
@@ -521,6 +531,45 @@ class SessionState:
         if self.last_update_informative:
             self.revision += 1
         self.history.append(SourceRecord(turn, user_message, [a.preference for a in assertions], self.last_update_informative))
+
+    @staticmethod
+    def _state_delta(before: set[tuple[str, str, int]], after: set[tuple[str, str, int]],
+                     assertions: list[_Assertion], informative: bool) -> StateDelta:
+        added = tuple(sorted(after - before))
+        removed = tuple(sorted(before - after))
+        explicit_replacement = any(item.replacement or item.choice_replacement for item in assertions)
+        if not informative:
+            return StateDelta("none")
+
+        before_categories = {value for attribute, value, polarity in before
+                             if attribute == "category" and polarity == 1}
+        after_categories = {value for attribute, value, polarity in after
+                            if attribute == "category" and polarity == 1}
+        if before and before_categories != after_categories:
+            kind = "category_change"
+        else:
+            before_polarities = {(attribute, value): polarity for attribute, value, polarity in before}
+            after_polarities = {(attribute, value): polarity for attribute, value, polarity in after}
+            polarity_changed = any(
+                key in after_polarities and after_polarities[key] != polarity
+                for key, polarity in before_polarities.items()
+            ) or any(polarity <= 0 for _, _, polarity in added + removed)
+            if polarity_changed:
+                kind = "polarity_change"
+            else:
+                positive_added = {(attribute, value) for attribute, value, polarity in added if polarity == 1}
+                positive_removed = {(attribute, value) for attribute, value, polarity in removed if polarity == 1}
+                replaced_slot = any(
+                    any(attribute == removed_attribute for removed_attribute, _ in positive_removed)
+                    for attribute, _ in positive_added
+                )
+                if explicit_replacement or replaced_slot:
+                    kind = "replacement"
+                elif added and any(item.additive for item in assertions):
+                    kind = "additive"
+                else:
+                    kind = "refinement"
+        return StateDelta(kind, added, removed, explicit_replacement)
 
     def _extract(self, message: str, turn: int) -> list[_Assertion]:
         text = re.sub(r"\b(?:anything|everything) but\b", "without", _normalize(message))

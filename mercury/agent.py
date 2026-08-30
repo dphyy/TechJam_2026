@@ -599,6 +599,14 @@ class Agent:
                 "scope": state.last_feedback.scope, "attribute": state.last_feedback.attribute,
                 "reason": state.last_feedback.reason,
             },
+            "state_delta": {
+                "kind": state.last_state_delta.kind,
+                "added": [{"attribute": attribute, "value": value, "polarity": polarity}
+                          for attribute, value, polarity in state.last_state_delta.added],
+                "removed": [{"attribute": attribute, "value": value, "polarity": polarity}
+                            for attribute, value, polarity in state.last_state_delta.removed],
+                "explicit_replacement": state.last_state_delta.explicit_replacement,
+            },
             "routes": routes, "route_weights": route_weights, "route_overlap": _route_overlap(routes),
             "stage_counts": stage_counts,
             "retrieved_ids": retrieved_ids, "comparison_tail_ids": comparison_tail_ids,

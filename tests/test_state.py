@@ -30,6 +30,35 @@ class SessionStateTest(unittest.TestCase):
         state.update("I do not have a color preference.", 2)
         self.assertEqual(state.last_answer_productivity, "neutral")
 
+    def test_semantic_state_delta_classifies_each_update_family(self):
+        state = SessionState({})
+        sequence = (
+            ("A blue shirt.", "refinement"),
+            ("It should also be waterproof.", "additive"),
+            ("Actually, green instead.", "replacement"),
+            ("No leather.", "polarity_change"),
+            ("Actually, boots instead.", "category_change"),
+            ("No new preferences to add.", "none"),
+        )
+        for turn, (message, expected) in enumerate(sequence, 1):
+            with self.subTest(message=message):
+                state.update(message, turn)
+                self.assertEqual(state.last_update_kind, expected)
+                self.assertEqual(state.last_state_delta.kind, expected)
+                if expected == "category_change":
+                    self.assertIn(("category", "boots", 1), state.last_state_delta.added)
+                    self.assertIn(("category", "shirts", 1), state.last_state_delta.removed)
+
+    def test_state_delta_records_added_removed_and_explicit_replacement(self):
+        state = SessionState({})
+        state.update("A blue shirt.", 1)
+        state.update("Actually, green instead.", 2)
+        delta = state.last_state_delta
+        self.assertEqual(delta.kind, "replacement")
+        self.assertIn(("color", "green", 1), delta.added)
+        self.assertIn(("color", "blue", 1), delta.removed)
+        self.assertTrue(delta.explicit_replacement)
+
     def test_conversation_management_is_not_a_product_feature(self):
         state = SessionState({})
         state.update("I am exploring tunics. My primary requirement is cotton.", 1)

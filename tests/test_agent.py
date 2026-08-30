@@ -78,6 +78,9 @@ class AgentTest(unittest.TestCase):
         response = self.agent.respond("a", "A cotton shirt", 1, 10)
         self.assert_legal_response(response)
         self.assertEqual(response["ask_attribute"], "other")
+        self.assertEqual(self.agent.last_diagnostics["state_delta"]["kind"], "refinement")
+        self.assertIn({"attribute": "category", "value": "shirts", "polarity": 1},
+                      self.agent.last_diagnostics["state_delta"]["added"])
 
     def test_public_entrypoints_load_selected_config_and_match_official_contract(self):
         root = Path(self.temp.name)
