@@ -35,6 +35,7 @@ class Config:
     progressive_frontier_rerank: bool = False
     page_local_rerank: bool = False
     neural_logit_cache: bool = False
+    catalog_vocabulary: bool = False
     state_mode: str = "ledger"
     alternatives_mode: str = "off"
     question_policy: str = "other"
@@ -101,6 +102,7 @@ class Config:
     cascade_previous_margin_threshold: float = 0.0
     artifact_dir: str = "artifacts"
     admission_model_path: str = "models/admission_linear_v1.json"
+    catalog_vocabulary_path: str = "models/catalog_vocabulary_v1.json"
     device: str = "cpu"
     threads: int = 4
 
@@ -129,7 +131,7 @@ class Config:
                     "semantic_question_goals", "require_positive_question_value", "role_evidence",
                     "composition_evidence", "source_alias_retrieval", "neural_margin_fusion",
                     "slate_reset_on_override", "seen_aware_slate", "progressive_frontier_rerank",
-                    "page_local_rerank", "neural_logit_cache"):
+                    "page_local_rerank", "neural_logit_cache", "catalog_vocabulary"):
             if type(getattr(self, key)) is not bool:
                 raise ValueError(f"{key} must be a boolean")
         if self.role_evidence and self.composition_evidence:
@@ -212,6 +214,8 @@ class Config:
             raise ValueError("artifact_dir must be a nonempty path")
         if not isinstance(self.admission_model_path, str) or not self.admission_model_path:
             raise ValueError("admission_model_path must be a nonempty path")
+        if not isinstance(self.catalog_vocabulary_path, str) or not self.catalog_vocabulary_path:
+            raise ValueError("catalog_vocabulary_path must be a nonempty path")
 
     @classmethod
     def from_dict(cls, values: dict) -> Config:

@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 
 from mercury.types import FeedbackDecision, OverrideDecision, OverrideFact, Preference
+from mercury.vocabulary import CatalogVocabulary, VocabularyMatch
 
 
 @dataclass(slots=True)
@@ -427,7 +428,8 @@ class SessionState:
     """
 
     def __init__(self, profile: dict, mode: str = "ledger", alternatives_mode: str = "off",
-                 scoped_preferences: bool = False) -> None:
+                 scoped_preferences: bool = False,
+                 catalog_vocabulary: CatalogVocabulary | None = None) -> None:
         if mode not in {"ledger", "latest", "history"}:
             raise ValueError(f"Invalid state mode: {mode!r}")
         if alternatives_mode not in {"off", "parse", "grouped"}:
@@ -438,6 +440,7 @@ class SessionState:
         self.mode = mode
         self.alternatives_mode = alternatives_mode
         self.scoped_preferences = scoped_preferences
+        self.catalog_vocabulary = catalog_vocabulary
         self.unsupported_alternatives: list[dict[str, str]] = []
         self.history: list[SourceRecord] = []
         self.preferences: list[Preference] = []
@@ -649,6 +652,13 @@ class SessionState:
                 continue
             mentions = [(attribute, _LOOKUPS[attribute][match.group()], match.start(), match.end())
                         for attribute, pattern in _PATTERNS.items() for match in pattern.finditer(clause)]
+            catalog_sources: dict[tuple[str, str, int, int], VocabularyMatch] = {}
+            if self.catalog_vocabulary is not None:
+                occupied = [(start, end) for _, _, start, end in mentions]
+                for match in self.catalog_vocabulary.find(clause, occupied):
+                    key = (match.attribute, match.canonical, match.start, match.end)
+                    mentions.append(key)
+                    catalog_sources[key] = match
             alternatives = self._alternatives(clause, mentions) if self.alternatives_mode != "off" else {}
             choice_replacements = self._choice_replacements(clause, mentions) if self.alternatives_mode == "grouped" else set()
             no_preference = _NO_PREFERENCE.search(clause) or re.search(r"\bdon't have (?:a |any )?preference\b", clause)
@@ -696,14 +706,19 @@ class SessionState:
             pending_replacement = replacement and not mentions and not residuals
             owner_spans = [(attribute, value, start, end) for attribute, value, start, end in mentions if attribute not in {"budget", "size"}]
             for attribute, value, start, end in mentions:
+                catalog_match = catalog_sources.get((attribute, value, start, end))
                 polarity = _polarity(clause, start, end)
                 if _SUFFIX_RELAXATION.search(clause[end:]):
                     polarity = 0
                 hard = polarity == -1 or bool(_HARD.search(clause)) or (
                     attribute == "budget" and not soft and not budget_hedged(clause, start, end))
+                if catalog_match is not None:
+                    hard = polarity == -1
                 if polarity == 0:
                     hard = False
                 confidence = 0.8 if soft and not hard else 1.0
+                if catalog_match is not None:
+                    confidence = min(confidence, catalog_match.confidence)
                 replace_material = attribute == "material" and not additive and bool(re.search(r"\bprefer\b", clause))
                 alternative_group = (
                     f"{turn}:{clause_index}:{attribute}"
@@ -715,7 +730,9 @@ class SessionState:
                 scope = component.group(1) if component else None
                 result.append(_Assertion(Preference(attribute, value, turn, message, hard=hard,
                                                    polarity=polarity, confidence=confidence,
-                                                   alternative_group=alternative_group, scope=scope), additive,
+                                                   alternative_group=alternative_group, scope=scope,
+                                                   source_kind=catalog_match.provenance if catalog_match else "explicit"),
+                                         additive or catalog_match is not None,
                                          replacement or replace_material, clause=clause_index,
                                          choice_replacement=attribute in choice_replacements))
             for value, start, end in residuals:

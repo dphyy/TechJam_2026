@@ -1,0 +1,439 @@
+{
+  "cases": [
+    {
+      "alias": "kids and baby halloween costume",
+      "attribute": "category",
+      "canonical": "kids and baby halloween costumes",
+      "id": "catalog_word_001",
+      "message": "I need kids and baby halloween costume.",
+      "paraphrase_family": "catalog-template-1",
+      "support": 8
+    },
+    {
+      "alias": "food service",
+      "attribute": "category",
+      "canonical": "food service",
+      "id": "catalog_word_002",
+      "message": "Could you show me some food service?",
+      "paraphrase_family": "catalog-template-2",
+      "support": 28
+    },
+    {
+      "alias": "special occasion accessory",
+      "attribute": "category",
+      "canonical": "special occasion accessories",
+      "id": "catalog_word_003",
+      "message": "I'm browsing for special occasion accessory.",
+      "paraphrase_family": "catalog-template-3",
+      "support": 44
+    },
+    {
+      "alias": "wraps pashmina",
+      "attribute": "category",
+      "canonical": "wraps pashminas",
+      "id": "catalog_word_004",
+      "message": "Please help me find wraps pashmina.",
+      "paraphrase_family": "catalog-template-4",
+      "support": 52
+    },
+    {
+      "alias": "platforms wedge",
+      "attribute": "category",
+      "canonical": "platforms wedges",
+      "id": "catalog_word_005",
+      "message": "I need platforms wedge.",
+      "paraphrase_family": "catalog-template-1",
+      "support": 545
+    },
+    {
+      "alias": "one piece pajamas",
+      "attribute": "category",
+      "canonical": "one piece pajamas",
+      "id": "catalog_word_006",
+      "message": "Could you show me some one piece pajamas?",
+      "paraphrase_family": "catalog-template-2",
+      "support": 29
+    },
+    {
+      "alias": "pajama set",
+      "attribute": "category",
+      "canonical": "pajama sets",
+      "id": "catalog_word_007",
+      "message": "I'm browsing for pajama set.",
+      "paraphrase_family": "catalog-template-3",
+      "support": 128
+    },
+    {
+      "alias": "tie set",
+      "attribute": "category",
+      "canonical": "tie sets",
+      "id": "catalog_word_008",
+      "message": "Please help me find tie set.",
+      "paraphrase_family": "catalog-template-4",
+      "support": 30
+    },
+    {
+      "alias": "arm warmers",
+      "attribute": "category",
+      "canonical": "arm warmers",
+      "id": "catalog_word_009",
+      "message": "I need arm warmers.",
+      "paraphrase_family": "catalog-template-1",
+      "support": 11
+    },
+    {
+      "alias": "club night out",
+      "attribute": "category",
+      "canonical": "club night out",
+      "id": "catalog_word_010",
+      "message": "Could you show me some club night out?",
+      "paraphrase_family": "catalog-template-2",
+      "support": 141
+    },
+    {
+      "alias": "jiu jitsu",
+      "attribute": "category",
+      "canonical": "jiu jitsu",
+      "id": "catalog_word_011",
+      "message": "I'm browsing for jiu jitsu.",
+      "paraphrase_family": "catalog-template-3",
+      "support": 7
+    },
+    {
+      "alias": "under 50s",
+      "attribute": "category",
+      "canonical": "under 50",
+      "id": "catalog_word_012",
+      "message": "Please help me find under 50s.",
+      "paraphrase_family": "catalog-template-4",
+      "support": 7
+    },
+    {
+      "alias": "replacement sunglass lense",
+      "attribute": "category",
+      "canonical": "replacement sunglass lenses",
+      "id": "catalog_word_013",
+      "message": "I need replacement sunglass lense.",
+      "paraphrase_family": "catalog-template-1",
+      "support": 61
+    },
+    {
+      "alias": "accessory set",
+      "attribute": "category",
+      "canonical": "accessory sets",
+      "id": "catalog_word_014",
+      "message": "Could you show me some accessory set?",
+      "paraphrase_family": "catalog-template-2",
+      "support": 22
+    },
+    {
+      "alias": "active tracksuit",
+      "attribute": "category",
+      "canonical": "active tracksuits",
+      "id": "catalog_word_015",
+      "message": "I'm browsing for active tracksuit.",
+      "paraphrase_family": "catalog-template-3",
+      "support": 44
+    },
+    {
+      "alias": "snow rainwear",
+      "attribute": "category",
+      "canonical": "snow rainwear",
+      "id": "catalog_word_016",
+      "message": "Please help me find snow rainwear.",
+      "paraphrase_family": "catalog-template-4",
+      "support": 39
+    },
+    {
+      "alias": "footies rompers",
+      "attribute": "category",
+      "canonical": "footies rompers",
+      "id": "catalog_word_017",
+      "message": "I need footies rompers.",
+      "paraphrase_family": "catalog-template-1",
+      "support": 71
+    },
+    {
+      "alias": "skullies beany",
+      "attribute": "category",
+      "canonical": "skullies beanies",
+      "id": "catalog_word_018",
+      "message": "Could you show me some skullies beany?",
+      "paraphrase_family": "catalog-template-2",
+      "support": 156
+    },
+    {
+      "alias": "active performances",
+      "attribute": "category",
+      "canonical": "active performance",
+      "id": "catalog_word_019",
+      "message": "I'm browsing for active performances.",
+      "paraphrase_family": "catalog-template-3",
+      "support": 140
+    },
+    {
+      "alias": "baby girls",
+      "attribute": "category",
+      "canonical": "baby girls",
+      "id": "catalog_word_020",
+      "message": "Please help me find baby girls.",
+      "paraphrase_family": "catalog-template-4",
+      "support": 692
+    },
+    {
+      "alias": "ice skatings",
+      "attribute": "category",
+      "canonical": "ice skating",
+      "id": "catalog_word_021",
+      "message": "I need ice skatings.",
+      "paraphrase_family": "catalog-template-1",
+      "support": 8
+    },
+    {
+      "alias": "graduation cohort 4 daily",
+      "attribute": "category",
+      "canonical": "graduation cohort 4 daily",
+      "id": "catalog_word_022",
+      "message": "Could you show me some graduation cohort 4 daily?",
+      "paraphrase_family": "catalog-template-2",
+      "support": 19
+    },
+    {
+      "alias": "track field cross country",
+      "attribute": "category",
+      "canonical": "track field cross country",
+      "id": "catalog_word_023",
+      "message": "I'm browsing for track field cross country.",
+      "paraphrase_family": "catalog-template-3",
+      "support": 14
+    },
+    {
+      "alias": "clip on",
+      "attribute": "category",
+      "canonical": "clip ons",
+      "id": "catalog_word_024",
+      "message": "Please help me find clip on.",
+      "paraphrase_family": "catalog-template-4",
+      "support": 23
+    },
+    {
+      "alias": "martial arts",
+      "attribute": "category",
+      "canonical": "martial arts",
+      "id": "catalog_word_025",
+      "message": "I need martial arts.",
+      "paraphrase_family": "catalog-template-1",
+      "support": 13
+    },
+    {
+      "alias": "money clip",
+      "attribute": "category",
+      "canonical": "money clips",
+      "id": "catalog_word_026",
+      "message": "Could you show me some money clip?",
+      "paraphrase_family": "catalog-template-2",
+      "support": 14
+    },
+    {
+      "alias": "pads enhancers",
+      "attribute": "category",
+      "canonical": "pads enhancers",
+      "id": "catalog_word_027",
+      "message": "I'm browsing for pads enhancers.",
+      "paraphrase_family": "catalog-template-3",
+      "support": 9
+    },
+    {
+      "alias": "military tactical",
+      "attribute": "category",
+      "canonical": "military tactical",
+      "id": "catalog_word_028",
+      "message": "Please help me find military tactical.",
+      "paraphrase_family": "catalog-template-4",
+      "support": 8
+    },
+    {
+      "alias": "tie clips",
+      "attribute": "category",
+      "canonical": "tie clips",
+      "id": "catalog_word_029",
+      "message": "I need tie clips.",
+      "paraphrase_family": "catalog-template-1",
+      "support": 15
+    },
+    {
+      "alias": "kids luggage",
+      "attribute": "category",
+      "canonical": "kids luggage",
+      "id": "catalog_word_030",
+      "message": "Could you show me some kids luggage?",
+      "paraphrase_family": "catalog-template-2",
+      "support": 8
+    },
+    {
+      "alias": "checkbook cover",
+      "attribute": "category",
+      "canonical": "checkbook covers",
+      "id": "catalog_word_031",
+      "message": "I'm browsing for checkbook cover.",
+      "paraphrase_family": "catalog-template-3",
+      "support": 9
+    },
+    {
+      "alias": "card cases",
+      "attribute": "category",
+      "canonical": "card cases",
+      "id": "catalog_word_032",
+      "message": "Please help me find card cases.",
+      "paraphrase_family": "catalog-template-4",
+      "support": 32
+    },
+    {
+      "alias": "fur faux furs",
+      "attribute": "category",
+      "canonical": "fur faux fur",
+      "id": "catalog_word_033",
+      "message": "I need fur faux furs.",
+      "paraphrase_family": "catalog-template-1",
+      "support": 42
+    },
+    {
+      "alias": "business pricing quantity discount",
+      "attribute": "category",
+      "canonical": "business pricing quantity discounts",
+      "id": "catalog_word_034",
+      "message": "Could you show me some business pricing quantity discount?",
+      "paraphrase_family": "catalog-template-2",
+      "support": 11
+    },
+    {
+      "alias": "short sets",
+      "attribute": "category",
+      "canonical": "short sets",
+      "id": "catalog_word_035",
+      "message": "I'm browsing for short sets.",
+      "paraphrase_family": "catalog-template-3",
+      "support": 84
+    },
+    {
+      "alias": "body jewelrys",
+      "attribute": "category",
+      "canonical": "body jewelry",
+      "id": "catalog_word_036",
+      "message": "Please help me find body jewelrys.",
+      "paraphrase_family": "catalog-template-4",
+      "support": 382
+    },
+    {
+      "alias": "clogs mule",
+      "attribute": "category",
+      "canonical": "clogs mules",
+      "id": "catalog_word_037",
+      "message": "I need clogs mule.",
+      "paraphrase_family": "catalog-template-1",
+      "support": 38
+    },
+    {
+      "alias": "luggage scales",
+      "attribute": "category",
+      "canonical": "luggage scales",
+      "id": "catalog_word_038",
+      "message": "Could you show me some luggage scales?",
+      "paraphrase_family": "catalog-template-2",
+      "support": 7
+    },
+    {
+      "alias": "down down alternatives",
+      "attribute": "category",
+      "canonical": "down down alternative",
+      "id": "catalog_word_039",
+      "message": "I'm browsing for down down alternatives.",
+      "paraphrase_family": "catalog-template-3",
+      "support": 87
+    },
+    {
+      "alias": "neck gaiters",
+      "attribute": "category",
+      "canonical": "neck gaiters",
+      "id": "catalog_word_040",
+      "message": "Please help me find neck gaiters.",
+      "paraphrase_family": "catalog-template-4",
+      "support": 41
+    },
+    {
+      "alias": "compression short",
+      "attribute": "category",
+      "canonical": "compression shorts",
+      "id": "catalog_word_041",
+      "message": "I need compression short.",
+      "paraphrase_family": "catalog-template-1",
+      "support": 11
+    },
+    {
+      "alias": "racquet sports",
+      "attribute": "category",
+      "canonical": "racquet sports",
+      "id": "catalog_word_042",
+      "message": "Could you show me some racquet sports?",
+      "paraphrase_family": "catalog-template-2",
+      "support": 6
+    },
+    {
+      "alias": "over the knee",
+      "attribute": "category",
+      "canonical": "over the knee",
+      "id": "catalog_word_043",
+      "message": "I'm browsing for over the knee.",
+      "paraphrase_family": "catalog-template-3",
+      "support": 16
+    },
+    {
+      "alias": "kids baby",
+      "attribute": "category",
+      "canonical": "kids baby",
+      "id": "catalog_word_044",
+      "message": "Please help me find kids baby.",
+      "paraphrase_family": "catalog-template-4",
+      "support": 208
+    },
+    {
+      "alias": "buttons pins",
+      "attribute": "category",
+      "canonical": "buttons pins",
+      "id": "catalog_word_045",
+      "message": "I need buttons pins.",
+      "paraphrase_family": "catalog-template-1",
+      "support": 66
+    },
+    {
+      "alias": "women s apparel",
+      "attribute": "category",
+      "canonical": "women s apparel",
+      "id": "catalog_word_046",
+      "message": "Could you show me some women s apparel?",
+      "paraphrase_family": "catalog-template-2",
+      "support": 12
+    },
+    {
+      "alias": "eyewear frames",
+      "attribute": "category",
+      "canonical": "eyewear frames",
+      "id": "catalog_word_047",
+      "message": "I'm browsing for eyewear frames.",
+      "paraphrase_family": "catalog-template-3",
+      "support": 88
+    },
+    {
+      "alias": "baby boy",
+      "attribute": "category",
+      "canonical": "baby boys",
+      "id": "catalog_word_048",
+      "message": "Please help me find baby boy.",
+      "paraphrase_family": "catalog-template-4",
+      "support": 366
+    }
+  ],
+  "evidence_kind": "catalog-derived slot cases authored without runtime ranking or evaluator outcomes",
+  "schema": "mercury-catalog-vocabulary-cases-v1",
+  "seed": "catalog-vocabulary-cases-20260830-v1"
+}

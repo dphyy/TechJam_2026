@@ -23,6 +23,7 @@ from mercury.retrieval import SparseIndex, fuse_routes, terms
 from mercury.state import SessionState
 from mercury.sufficiency import decide_retrieval_sufficiency
 from mercury.types import Candidate, ComputeCascadeDecision, Preference, RetrievalPlan
+from mercury.vocabulary import CatalogVocabulary
 
 
 LOGGER = logging.getLogger(__name__)
@@ -120,10 +121,18 @@ class Agent:
         self.reranker = None
         self.contrast = None
         self.admission_model = None
+        self.catalog_vocabulary = None
         self.startup_fallbacks: dict[str, str] = {}
         self._rerank_cost: float | None = None
         self.last_diagnostics: dict = {}
         artifacts = Path(self.config.artifact_dir)
+        if self.config.catalog_vocabulary:
+            try:
+                self.catalog_vocabulary = CatalogVocabulary(
+                    self.config.catalog_vocabulary_path, self.catalog.sha256,
+                )
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                self._startup_failure("catalog_vocabulary", error)
         if self.config.rerank_admission == "linear":
             try:
                 self.admission_model = AdmissionModel.load(
@@ -166,7 +175,7 @@ class Agent:
             raise ValueError("reset requires a nonempty string session ID and profile object")
         self.sessions[session_id] = SessionState(
             user_profile, self.config.state_mode, self.config.alternatives_mode,
-            self.config.scoped_preferences,
+            self.config.scoped_preferences, self.catalog_vocabulary,
         )
         self.sessions.move_to_end(session_id)
         self._cache.pop(session_id, None)
@@ -1017,6 +1026,11 @@ class Agent:
             "retrieved_ids": retrieved_ids, "comparison_tail_ids": comparison_tail_ids,
             "rerank_admission": self.config.rerank_admission,
             "admission": admission_diagnostics,
+            "catalog_vocabulary": {
+                "enabled": self.catalog_vocabulary is not None,
+                "version": getattr(self.catalog_vocabulary, "version", None),
+                "model_sha256": getattr(self.catalog_vocabulary, "model_sha256", None),
+            },
             "rerank_document_mode": self.config.rerank_document_mode, "rerank_prefix_ids": rerank_prefix_ids,
             "role_evidence": role_witnesses,
             "composition_evidence": composition_witnesses,

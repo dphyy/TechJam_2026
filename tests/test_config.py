@@ -216,6 +216,13 @@ class ConfigTest(unittest.TestCase):
             with self.subTest(batch_size=batch_size), self.assertRaises(ValueError):
                 Config(neural_batch_size=batch_size)
 
+    def test_catalog_vocabulary_is_explicit_and_path_bound(self):
+        config = Config(catalog_vocabulary=True, catalog_vocabulary_path="models/vocabulary.json")
+        self.assertTrue(config.catalog_vocabulary)
+        for values in ({"catalog_vocabulary": 1}, {"catalog_vocabulary_path": ""}):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                Config.from_dict(values)
+
     def test_alternatives_are_explicitly_opt_in(self):
         self.assertEqual(Config().alternatives_mode, "off")
         for mode in ("off", "parse", "grouped"):
