@@ -514,6 +514,7 @@ class SessionState:
         after_facts = {(p.attribute, p.value, p.polarity) for p in self.active_preferences()}
         self.last_state_delta = self._state_delta(
             before_facts, after_facts, assertions, self.last_update_informative,
+            bool(_REPLACEMENT.search(normalized)),
         )
         if self.last_question is None:
             self.last_answer_productivity = "not_applicable"
@@ -534,10 +535,13 @@ class SessionState:
 
     @staticmethod
     def _state_delta(before: set[tuple[str, str, int]], after: set[tuple[str, str, int]],
-                     assertions: list[_Assertion], informative: bool) -> StateDelta:
+                     assertions: list[_Assertion], informative: bool,
+                     message_replacement: bool = False) -> StateDelta:
         added = tuple(sorted(after - before))
         removed = tuple(sorted(before - after))
-        explicit_replacement = any(item.replacement or item.choice_replacement for item in assertions)
+        explicit_replacement = message_replacement or any(
+            item.replacement or item.choice_replacement for item in assertions
+        )
         if not informative:
             return StateDelta("none", explicit_replacement=explicit_replacement)
 

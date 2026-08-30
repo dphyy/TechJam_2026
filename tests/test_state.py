@@ -63,6 +63,10 @@ class SessionStateTest(unittest.TestCase):
         self.assertEqual(state.last_state_delta.kind, "none")
         self.assertTrue(state.last_state_delta.explicit_replacement)
 
+        state.update("Actually, ignore my earlier preference. What I need is: fabric.", 4)
+        self.assertEqual(state.last_state_delta.kind, "none")
+        self.assertTrue(state.last_state_delta.explicit_replacement)
+
     def test_conversation_management_is_not_a_product_feature(self):
         state = SessionState({})
         state.update("I am exploring tunics. My primary requirement is cotton.", 1)
