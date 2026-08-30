@@ -5,8 +5,10 @@
 The public development score is now strong enough that further public-set tuning
 is more likely to overfit than to improve the organizer-held private result. The
 next objective is to improve transfer to unseen targets, categories, metadata
-conditions, and dialogue phrasing while reducing local neural work and latency
-without a significant accuracy or robustness loss.
+conditions, and dialogue phrasing without sacrificing the selected release's
+ranking quality, legality, or latency. Phases 1-6 below are closed experiments;
+the active work now begins at Phase 7 under the evidence-driven continuation
+roadmap.
 
 Execute one bounded experiment at a time. Keep behavior-changing work behind a
 candidate configuration, freeze its hypothesis and evaluation data before
@@ -445,6 +447,292 @@ pair reduction and 20% warm-p95 reduction without quality loss. The selected
 release remains the strongest gate-compliant configuration, and the untouched
 final split remains available for a future genuinely new candidate.
 
+## Evidence-Driven Continuation Roadmap
+
+The completed work produced useful directional evidence even though it did not
+justify a release change:
+
+- catalog vocabulary improved fresh aggregate HitRate and TechnicalScore, but
+  one buying session regressed and p95 increased 9.8%;
+- all-pool admission improved fresh aggregate ranking, but repeated feature
+  extraction increased p95 about 65%;
+- the metamorphic suite found state-equivalence failures for reordering,
+  corrections, no-preference wording, and reordered alternatives;
+- the selected paging policy improved two disjoint evaluations without extra
+  neural work, while global seen-aware and larger-prefix strategies were weaker;
+- a larger general-purpose reranker, greater rerank depth, generic score fusion,
+  and stricter semantic question policies did not earn promotion.
+
+These findings narrow the next work to semantic invariance, conservative
+open-vocabulary recall, cheaper admission, product-domain ranking, and bounded
+continuation policy. Do not combine two candidates until each has independently
+passed its own gate.
+
+## Phase 7: Refresh Evidence and Add Causal Attribution
+
+Do not iterate on the consumed robustness-matrix screening or confirmation
+outcomes. Keep its final split sealed for one eventual release candidate.
+
+Create a second source-independent matrix before implementing another
+behavior-changing candidate. It must exclude all targets, loose-title families,
+category groups, authors/users, dialogue templates, and paraphrase families from
+every consumed public, frontier, page-local, unseen, and robustness-matrix split.
+Determine split sizes with a recorded power calculation, then freeze training,
+screening, and confirmation rows with hashes and a new consumption ledger. The
+original matrix's sealed final split remains the one release-only check.
+Increase coverage of:
+
+- precise multi-constraint buying requests and under-specified browsing requests;
+- category aliases that are also ordinary words, component names, brands, or
+  materials;
+- corrections that change one fact while retaining several unrelated facts;
+- explicit slate rejection, mild dissatisfaction, no-change language, and intent
+  override;
+- short titles, missing fields, contradictory fields, near duplicates,
+  accessories, and catalog-identical documents;
+- natural typos, punctuation, inflection, clause order, filler, and unseen
+  independently authored paraphrases.
+
+Add target-independent stage attribution and timing before evaluating a candidate:
+
+- state and retrieval-plan signatures;
+- rank and membership at retrieval, admission, neural, guard, policy, and slate
+  stages;
+- time spent in parsing, retrieval, admission feature extraction, neural
+  serialization/inference, post-ranking, and policy;
+- serialized tokens and metadata fields per reranked product;
+- paired gained/lost-session counts by scenario and metadata slice.
+
+Target IDs may appear in offline evaluator receipts, but never in runtime feature
+code, logs used by the agent, model artifacts, or candidate decisions.
+
+### Phase 7 gate
+
+- Zero group overlap across all frozen splits and all previously consumed evidence.
+- Independent authors cannot inspect Mercury rankings while writing intent cards
+  or expected state transitions.
+- Stage timings reconcile to measured turn latency within a predeclared tolerance.
+- A paired diff can distinguish retrieval, admission, Top-10 ordering, question,
+  paging, and hard-constraint failures without changing runtime behavior.
+- The selected configuration reproduces its established behavior after the new
+  diagnostics are added.
+
+### Phase 7 execution status — 30 August 2026
+
+Phase 7 is complete. A second source-independent lock contains 480 open training,
+160 sealed screening, and 80 sealed confirmation rows. It excludes all supplied
+previous targets, loose-title families, and 368 previously represented category
+groups, with zero cross-split target, category, author/user, template,
+paraphrase, or wording-family overlap. The original v1 final split was used only
+as an exclusion source and remains unevaluated.
+
+Runtime-safe diagnostics now expose canonical state and plan signatures,
+retrieval/admission/neural/guard/policy stage memberships, non-overlapping stage
+timings, and bounded neural serialization receipts. Offline attribution on the
+open 480-row training control found four admission misses, one within-D30
+ranking miss, and five question/policy misses; all 1,020 measured turns
+reconciled within 20 ms or 10% of observed latency. Screening and confirmation
+remain sealed. See
+[the continuation matrix and attribution result](docs/CONTINUATION_MATRIX_AND_ATTRIBUTION.md).
+
+## Phase 8: Canonical State Semantics and Phrasing Invariance
+
+First classify each existing metamorphic failure as either a representation-only
+difference or a real semantic difference. Do not change state merely to satisfy a
+diagnostic that incorrectly compares provenance, source turn, or arbitrary group
+identifiers.
+
+For genuine failures, make the semantic state independent of surface order while
+preserving the original source text and provenance for diagnostics:
+
+- canonicalize unordered alternative values and give a choice group a stable
+  semantic identity independent of mention order;
+- normalize equivalent punctuation, case, hyphenation, and inflection before
+  assertion comparison;
+- scope no-preference statements to the named attribute and retire only that
+  attribute's compatible active facts;
+- make correction transitions depend on the facts changed, not on one cue phrase;
+- preserve unrelated facts, negatives, hardness, component scope, and source
+  provenance through a correction;
+- derive retrieval plans from the canonical active ledger rather than incidental
+  assertion insertion order.
+
+Expand each property family with independently authored variants and deterministic
+transformations. Besides state equivalence, measure Top-120 membership Jaccard,
+Top-10 overlap, and rank correlation for semantically equivalent requests. Raw
+surface text can remain available to the neural reranker, but it must not create a
+different hard constraint or retire a different fact.
+
+### Phase 8 gate
+
+- All existing and newly frozen semantic-equivalence properties pass.
+- Equivalent variants have identical hard constraints, active semantic facts,
+  object scope, and retrieval-plan facts.
+- No regression on negation, no-change, correction, override, alternatives,
+  missing-metadata, or legality tests.
+- No HitRate loss and no more than `0.003` TechnicalScore loss on fresh screening;
+  a correctness-only change below that bound must be documented as such rather
+  than claimed as a score improvement.
+- Public outcomes remain descriptive and cannot promote the candidate.
+
+## Phase 9: Conservative Catalog Vocabulary v2
+
+The v1 vocabulary demonstrated useful coverage, so preserve the artifact-building
+idea but change how uncertain matches affect runtime. The default candidate should
+use a dual lane:
+
+1. high-confidence, explicitly cued attribute matches may propose soft ledger
+   evidence;
+2. all other unambiguous catalog aliases are retrieval-only expansions and never
+   become persistent preferences or direct rank boosts.
+
+Build v2 from a new artifact version and new open evidence. Do not tune an alias,
+threshold, or exception against the consumed confirmation session that v1 lost.
+Require:
+
+- an attribute cue, product-type compatibility, or repeated corroboration before
+  promoting an alias into state;
+- ambiguity margin as well as minimum support/confidence, with generic words,
+  brands, components, and cross-attribute collisions suppressed;
+- longest owned span, strict token boundaries, bounded expansions, and no fuzzy
+  matching when an exact static parser span exists;
+- category-path taxonomy checks so an accessory/component alias cannot replace the
+  requested whole-product type;
+- query-local expansion provenance and automatic removal on correction, explicit
+  no-preference, or override;
+- compact lookup structures loaded once, with no per-turn catalog scan.
+
+Evaluate exact aliases, near-miss ordinary words, negated aliases, correction
+sequences, component-qualified phrases, and precise buying requests separately.
+Report state precision/recall and retrieval Recall@30/@120 before end-to-end score.
+
+### Phase 9 gate
+
+- Preserve v1's unseen-alias recall gain while maintaining at least `0.99` slot
+  precision on the larger adversarial word suite.
+- No unsupported hard fact, object-type replacement, or component-scope error.
+- No paired HitRate loss overall or on buying, override, boundary, and
+  held-out-category slices on fresh screening and confirmation.
+- TechnicalScore improves on both fresh comparisons, with no material MRR loss.
+- p95 and RSS each increase no more than 5%, and serialized neural tokens increase
+  no more than 3%.
+
+## Phase 10: Admission v2 With Reused and Precomputed Features
+
+The v1 linear arithmetic was cheap; repeated construction of catalog-field and
+preference features was not. Retain the learned signal only if the expensive work
+can be removed from the turn path.
+
+Before changing selection, profile v1 by feature family on open data. Then:
+
+- precompute immutable per-product token sets, field-presence bits, category/type
+  signatures, and metadata-completeness values once at catalog load;
+- compute normalized query, preference, and retrieval-plan features once per turn;
+- reuse BM25 rank, fused score, route agreement, and token coverage already
+  produced by retrieval instead of reparsing every product document;
+- represent exact overlap and field coverage with compact integer/bitset or indexed
+  structures;
+- use a two-stage fixed budget only if needed: extremely cheap static scoring over
+  all 120, then dynamic preference features over a predeclared smaller pool;
+- keep the original BM25 prefix as an explicit failure fallback and never serialize
+  additional neural documents merely to compute admission.
+
+Run feature-family ablations only on open training evidence. Freeze one v2 scorer
+before screening. Compare its admission decisions to v1 so speed is not obtained by
+silently discarding the signal that produced the quality gain.
+
+### Phase 10 gate
+
+- Admission Recall@20/@30 matches or exceeds v1 on open grouped validation and
+  improves over the selected prefix on fresh screening.
+- No Recall@30 or end-to-end HitRate loss on critical slices.
+- Admission feature extraction p95 is at most 5 ms per turn and full turn p95 is at
+  most 10% above the selected control.
+- Neural pair count remains D30 and serialized tokens increase no more than 3%.
+- Only after v2 passes may the existing Phase 4 D20/D30 confidence experiment be
+  re-registered on new evidence; otherwise it remains skipped.
+
+## Phase 11: Product-Domain Adaptation at the Existing D30 Budget
+
+If admission v2 does not close the remaining Top-10 ordering gap, adapt the
+existing MiniLM architecture instead of increasing model size or rerank depth.
+This is a new hypothesis, not another generic blend-weight or larger-model sweep.
+
+Construct target-independent training pairs from the open catalog and Phase 7
+training groups:
+
+- positives from titles, category paths, reliable structured facets, and
+  independently authored request paraphrases;
+- hard negatives from same-category BM25 neighbors, near-duplicate titles,
+  accessory/component confusions, and products differing in one explicit fact;
+- balanced examples for missing metadata, ensuring absence is never labeled as a
+  contradiction;
+- correction and negation queries where active ledger state, not conversation
+  history noise, defines relevance;
+- group-held-out validation by loose-title family, category group, query template,
+  and author.
+
+Fine-tune one pinned MiniLM candidate with fixed seed, epochs, loss, negative
+mining, asset hash, and offline-loading tests. Keep the same D30 pair
+budget, maximum sequence length, document serializer, and CPU runtime for the first
+comparison. Measure ranking inside the admitted 30 separately from admission.
+
+### Phase 11 gate
+
+- Higher conditional MRR and Top-10 recall on more than one group-disjoint split.
+- No HitRate loss overall or on buying, browsing, override, boundary,
+  held-out-category, sparse-metadata, and near-duplicate slices.
+- Fresh TechnicalScore improves by at least `0.005` on screening and remains
+  positive on confirmation.
+- Warm p95, RSS, asset size, and prompt tokens remain within 5% of the selected
+  MiniLM path; no quantized or larger fallback is bundled into this arm.
+- Ranking is deterministic, local, pinned, corruption-tested, and sparse-fallback
+  safe.
+
+## Phase 12: Bounded Continuation and Question Policy
+
+Keep selected early paging as the control. Do not restore global seen-aware
+exclusion. Test at most one policy mechanism at a time:
+
+### 12A. Explicit-rejection page continuity
+
+When the shopper explicitly rejects the displayed slate without adding a new fact,
+advance within the current ranking even if harmless score jitter slightly changes
+the full 120 ordering. Key continuity to a semantic intent signature and the exact
+displayed slate, not to a global set of every previously seen product. Reset to page
+1 on a detected override or a genuine active-fact change. Never hide products after
+mere filler, uncertainty, or a question answer.
+
+### 12B. Conservative discriminating question
+
+Retain the selected `other` action unless one unanswered attribute splits the
+current Top-30 into well-supported groups, is present in enough catalog rows, and
+has not already been asked or answered. Ask at most one such typed question per
+session before falling back to `other`; never add a turn solely to save neural
+work. Treat an unproductive answer as a signal to stop asking typed questions, not
+as a preference.
+
+### Phase 12 gate
+
+- No repeated-slate regression, hidden-target lookup, or page carryover across an
+  override.
+- No HitRate, MRR, or MTTC loss overall or on override and boundary slices.
+- Questions yield new usable evidence more often without increasing repeated or
+  unanswered questions.
+- No added neural pairs and no material latency or token increase.
+- Reject either arm independently; do not combine two non-passing policy arms.
+
+## Candidate Combination and Release Rule
+
+If two candidates independently pass, freeze a small factorial interaction check
+on open tuning evidence before confirmation. A combination must beat the stronger
+single candidate and preserve every invariant; otherwise release the stronger
+single candidate. A failed arm cannot be rescued by a passing arm.
+
+Open the original robustness-matrix final split only once, after source, config,
+model assets, dependencies, and the release report are frozen. The final result may
+confirm or reject release, but it cannot trigger another tuning round.
+
 ## Evaluation and Promotion Protocol
 
 ### Required metrics
@@ -510,30 +798,43 @@ python -m experiments.evaluate_suite \
 
 Use a new output directory for every run and never overwrite prior evidence.
 
-## Recommended Execution Order
+## Recommended Next Execution Order
 
-1. Implement Phase 1A exact pair-logit caching and prove response parity.
-2. Add Phase 1B exact-document grouping under the same parity gate.
-3. Run Phase 1C batch/thread benchmarks without changing ranking behavior.
-4. Freeze the Phase 2 private-robustness and metamorphic evaluation matrix.
-5. Implement and evaluate the Phase 3 lightweight all-120 admission scorer.
-6. If Phase 3 passes, evaluate the Phase 4 D20/D30 confidence gate.
-7. Independently evaluate Phase 5 catalog-derived normalization.
-8. Attempt Phase 6 compression only if the earlier changes do not meet the
-   resource objective.
+1. Complete Phase 7's fresh matrix, attribution, and timing work without changing
+   selected behavior.
+2. Complete Phase 8 semantic-state invariance because every later query,
+   vocabulary, admission, and policy component consumes that state.
+3. Evaluate Phase 9 vocabulary v2 as the closest quality candidate to an earlier
+   pass; stop if precise-buying safety or the 5% resource caps fail.
+4. Independently profile and implement Phase 10 admission v2, then freeze and
+   screen it separately from vocabulary v2.
+5. Attempt Phase 11 product-domain MiniLM only if fresh attribution still shows a
+   material ordering gap inside the admitted D30 pool.
+6. Evaluate Phase 12A and 12B separately only after ranking and state are frozen;
+   policy should not compensate for unstable upstream rankings.
+7. Run a combination check only for independently passing arms, then freeze one
+   release candidate before opening final evidence.
 
 ## Definition of Done
 
-This roadmap is complete when Mercury:
+The continuation roadmap is complete when Mercury:
 
 - demonstrates stable performance on multiple target-, title-family-, category-,
   author-, and paraphrase-disjoint evaluations;
-- handles unseen wording, sparse metadata, corrections, negation, and no-change
-  language without evaluator-specific rules;
-- improves admission of relevant candidates before neural reranking;
-- reduces actual MiniLM pairs by at least 25% and warm p95 by at least 20%;
-- loses no HitRate and no more than `0.003` TechnicalScore on fresh confirmation;
+- handles unseen wording, clause order, sparse metadata, corrections, alternatives,
+  negation, and no-change language without evaluator-specific rules;
+- either safely improves open-vocabulary recall, improves admission before neural
+  reranking within its latency gate, or improves D30 ordering with a product-domain
+  model at the same inference budget;
+- has no HitRate loss on fresh screening, confirmation, or any critical safety
+  slice, and improves TechnicalScore on both fresh aggregate comparisons;
+- keeps the selected D30 neural-pair ceiling unless a separately registered
+  efficiency candidate proves a reduction without quality loss;
+- stays within the phase-specific p95, RSS, asset, and token caps;
 - preserves deterministic authority, unknown-safe evidence, offline operation,
   legal output, and explicit failure fallback;
-- reports public development performance honestly without treating it as a
+- passes the expanded semantic-invariance suite and records every gained and lost
+  session by causal pipeline stage;
+- opens final evidence once only after a complete source/config/model freeze; and
+- reports public and synthetic performance honestly without treating either as a
   private-score forecast.

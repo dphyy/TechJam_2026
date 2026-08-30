@@ -467,6 +467,32 @@ class SessionState:
     def active_preferences(self) -> list[Preference]:
         return [preference for preference in self.preferences if preference.active]
 
+    def semantic_signature(self) -> tuple[tuple, ...]:
+        """Canonical active facts without turn, source text, or group-ID churn."""
+        active = self.active_preferences()
+        group_values: dict[str, tuple[str, ...]] = {}
+        for preference in active:
+            if preference.alternative_group is not None:
+                group_values[preference.alternative_group] = tuple(sorted({
+                    item.value for item in active
+                    if item.attribute == preference.attribute
+                    and item.alternative_group == preference.alternative_group
+                    and item.polarity == 1
+                }))
+        return tuple(sorted(
+            (
+                preference.attribute,
+                preference.value,
+                preference.polarity,
+                preference.hard,
+                round(preference.confidence, 6),
+                preference.depends_on,
+                group_values.get(preference.alternative_group),
+                preference.scope,
+            )
+            for preference in active
+        ))
+
     def effective_preferences(self, decay_turns: int = 0) -> list[Preference]:
         """Return ranking evidence with decay applied only to inferred soft signals."""
         result = deepcopy(self.active_preferences())

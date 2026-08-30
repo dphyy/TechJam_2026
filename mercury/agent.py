@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import math
 import time
@@ -27,6 +29,11 @@ from mercury.vocabulary import CatalogVocabulary
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _signature(value: object) -> str:
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _route_overlap(routes: dict[str, list[str]]) -> dict[str, float]:
@@ -445,6 +452,8 @@ class Agent:
         self.sessions.move_to_end(session_id)
         state_started = time.perf_counter()
         state.update(user_message, turn)
+        parsing_seconds = time.perf_counter() - state_started
+        planning_started = time.perf_counter()
         intent = decide_intent(
             state, user_message, self.config.router_buying_threshold,
             self.config.router_browsing_threshold, self.config.router_over_general_threshold,
@@ -464,10 +473,21 @@ class Agent:
             plan = replace(plan, hypotheses=build_intent_hypotheses(
                 plan, self.config.max_intent_hypotheses,
             ))
-        component_latency = {"state_and_intent": time.perf_counter() - state_started}
         sufficiency = decide_retrieval_sufficiency(
             state, intent, plan, self.config, turn, self._deferred_turns[session_id],
         )
+        component_latency = {
+            "parsing_and_state": parsing_seconds,
+            "intent_planning": time.perf_counter() - planning_started,
+            "retrieval": 0.0,
+            "pre_neural_ranking": 0.0,
+            "admission": 0.0,
+            "neural": 0.0,
+            "post_neural_ranking": 0.0,
+            "policy": 0.0,
+            "page_local_rerank": 0.0,
+            "response_assembly": 0.0,
+        }
         if sufficiency.action == "retrieve":
             self._deferred_turns[session_id] = 0
         else:
@@ -503,9 +523,11 @@ class Agent:
             role_witnesses, composition_witnesses = {}, {}
             stage_counts = {"retrieved": 0, "clarify_first": 1}
             stage_ids = {"retrieved": [], "guarded_before_truncation": [],
-                         "candidate_limited": [], "neural_scored": [], "final_ranked": []}
+                         "candidate_limited": [], "admission_ranked": [],
+                         "admission_selected": [], "neural_scored": [],
+                         "neural_ranked": [], "guarded_after_rerank": [],
+                         "final_ranked": []}
             cascade = ComputeCascadeDecision(False, self.config.rerank_limit, 0.0, ("retrieval_deferred",))
-            component_latency["retrieval_and_ranking"] = 0.0
         elif cache_hit:
             (candidates, routes, route_weights, retrieved_ids, comparison_tail_ids,
              rerank_prefix_ids, role_witnesses, composition_witnesses,
@@ -513,7 +535,6 @@ class Agent:
             stage_counts = dict(stage_counts)
             stage_ids = {name: list(values) for name, values in stage_ids.items()}
             fallbacks = list(cached_fallbacks)
-            component_latency["retrieval_and_ranking"] = 0.0
         else:
             retrieval_started = time.perf_counter()
             if minimal_probe:
@@ -522,12 +543,14 @@ class Agent:
                 candidates, routes, route_weights = self._retrieve(
                     plan, state, fallbacks, source_alias_query,
                 )
+            component_latency["retrieval"] = time.perf_counter() - retrieval_started
             retrieved_ids = [item.product.parent_asin for item in candidates
                              if "tiny_catalog_tail" not in item.route_scores]
             comparison_tail_ids = [item.product.parent_asin for item in candidates
                                    if "tiny_catalog_tail" in item.route_scores]
             stage_counts = {"retrieved": len(candidates)}
             stage_ids = {"retrieved": list(retrieved_ids)}
+            pre_rank_started = time.perf_counter()
             if self.config.evidence_ranking:
                 try:
                     candidates = _valid_ranking(candidates, rank_candidates(candidates, preferences))
@@ -549,6 +572,7 @@ class Agent:
             candidates = candidates[:candidate_limit]
             stage_counts["candidate_limited"] = len(candidates)
             stage_ids["candidate_limited"] = [item.product.parent_asin for item in candidates]
+            component_latency["pre_neural_ranking"] = time.perf_counter() - pre_rank_started
             cascade = decide_compute_cascade(
                 intent, plan, _route_overlap(routes), len(candidates), self.config,
                 self._cascade_counts[session_id], self.reranker is not None and not minimal_probe,
@@ -591,6 +615,7 @@ class Agent:
                         rerank_limit = min(rerank_limit, self.config.over_general_rerank_limit)
                         stage_counts["over_general_cutoff"] = rerank_limit
                     admission_mode = self.config.rerank_admission
+                    admission_started = time.perf_counter()
                     if admission_mode == "linear" and self.admission_model is None:
                         if "admission_model" not in fallbacks:
                             fallbacks.append("admission_model")
@@ -605,7 +630,15 @@ class Agent:
                         admitted = select_rerank_prefix(
                             candidates, preferences, rerank_limit, admission_mode, plan,
                         )
+                    component_latency["admission"] = time.perf_counter() - admission_started
+                    stage_ids["admission_ranked"] = [
+                        item.product.parent_asin
+                        for item in (scored_pool if admission_mode in {"fusion", "linear"}
+                                     and not (admission_mode == "linear" and self.admission_model is None)
+                                     else candidates)
+                    ]
                     rerank_prefix_ids = [item.product.parent_asin for item in admitted]
+                    stage_ids["admission_selected"] = list(rerank_prefix_ids)
                     admitted_ids = set(rerank_prefix_ids)
                     ordered = admitted + [
                         item for item in candidates if item.product.parent_asin not in admitted_ids
@@ -635,7 +668,12 @@ class Agent:
                             rerank_query, ordered, rerank_limit, self.config.neural_weight,
                         )
                     candidates = _valid_ranking(candidates, ranked)
-                    self._record_rerank_cost(time.perf_counter() - reranked_at, len(admitted))
+                    neural_seconds = time.perf_counter() - reranked_at
+                    component_latency["neural"] = neural_seconds
+                    self._record_rerank_cost(neural_seconds, len(admitted))
+                    stage_ids["neural_ranked"] = [
+                        item.product.parent_asin for item in candidates
+                    ]
                     if self.config.progressive_frontier_rerank:
                         self._frontier_revision[session_id] = state.revision
                         self._frontier_base[session_id] = list(neural_base)
@@ -661,6 +699,14 @@ class Agent:
                 self._frontier_logits.pop(session_id, None)
             stage_counts["reranked"] = len(candidates)
             stage_ids["neural_scored"] = list(rerank_prefix_ids)
+            stage_ids.setdefault("admission_ranked", [
+                item.product.parent_asin for item in candidates
+            ])
+            stage_ids.setdefault("admission_selected", list(rerank_prefix_ids))
+            stage_ids.setdefault("neural_ranked", [
+                item.product.parent_asin for item in candidates
+            ])
+            post_rank_started = time.perf_counter()
             composition_witnesses: dict[str, list[dict]] = {}
             if self.config.composition_evidence:
                 candidates, composition_witnesses = rank_composition_evidence(candidates, preferences)
@@ -674,9 +720,13 @@ class Agent:
             if self.config.product_guard:
                 candidates = _apply_product_guard(candidates, preferences, fallbacks)
             stage_counts["guarded_after_rerank"] = len(candidates)
+            stage_ids["guarded_after_rerank"] = [
+                item.product.parent_asin for item in candidates
+            ]
             if minimal_probe:
                 stage_counts["minimal_probe"] = len(candidates)
             stage_ids["final_ranked"] = [item.product.parent_asin for item in candidates]
+            component_latency["post_neural_ranking"] = time.perf_counter() - post_rank_started
             if self.config.page_local_rerank:
                 if rerank_prefix_ids:
                     self._page_rerank_revision[session_id] = state.revision
@@ -692,7 +742,6 @@ class Agent:
                 rerank_prefix_ids, role_witnesses, composition_witnesses,
                 stage_counts, stage_ids, cascade, tuple(fallbacks),
             )
-            component_latency["retrieval_and_ranking"] = time.perf_counter() - retrieval_started
             self._last_candidates[session_id] = list(candidates)
 
         frontier_eligible = (
@@ -761,6 +810,12 @@ class Agent:
                     stage_counts["frontier_scored_this_turn"] = len(frontier_scored_this_turn)
                     stage_counts["frontier_scored_total"] = len(logits)
                     stage_ids["neural_scored"] = list(rerank_prefix_ids)
+                    stage_ids["neural_ranked"] = [
+                        item.product.parent_asin for item in candidates
+                    ]
+                    stage_ids["guarded_after_rerank"] = [
+                        item.product.parent_asin for item in candidates
+                    ]
                     stage_ids["final_ranked"] = [item.product.parent_asin for item in candidates]
                     self._record_rerank_cost(
                         time.perf_counter() - frontier_started, len(frontier),
@@ -775,7 +830,7 @@ class Agent:
                 except (RuntimeError, ValueError, TypeError, TimeoutError, AttributeError) as error:
                     fallbacks.append("frontier_rerank")
                     LOGGER.warning("Frontier neural ranking failed: %s", type(error).__name__)
-                component_latency["retrieval_and_ranking"] = time.perf_counter() - frontier_started
+                component_latency["neural"] += time.perf_counter() - frontier_started
         policy_started = time.perf_counter()
         decision = choose_policy(
             state, candidates, self.config, turn, top_k, self._abstentions[session_id], intent,
@@ -903,6 +958,7 @@ class Agent:
                 page_local_reason = "ineligible"
         stage_ids["control_page"] = list(control_page)
         stage_ids["returned_page"] = list(ranked)
+        assembly_started = time.perf_counter()
         neural_scores = _neural_score_summary(candidates)
         if neural_scores["logit_margin"] is not None:
             self._last_neural_margin[session_id] = neural_scores["logit_margin"]
@@ -912,6 +968,30 @@ class Agent:
             key: int(neural_cache_after.get(key, 0)) - int(neural_cache_before.get(key, 0))
             for key in ("hits", "misses", "evictions", "evaluated_pairs")
         }
+        semantic_state_signature = state.semantic_signature()
+        plan_signature_payload = {
+            "mode": plan.mode,
+            "object_types": sorted(plan.object_types),
+            "positive_terms": sorted(plan.positive_terms),
+            "negative_terms": sorted(plan.negative_terms),
+            "hard_constraints": sorted(
+                (item.attribute, item.value, item.polarity, item.hard, item.scope)
+                for item in plan.hard_constraints
+            ),
+            "soft_preferences": sorted(
+                (item.attribute, item.value, item.polarity, item.hard, item.scope)
+                for item in plan.soft_preferences
+            ),
+            "use_case": sorted(plan.use_case),
+        }
+        pair_receipts = []
+        receipt_reader = getattr(self.reranker, "pair_receipts", None)
+        if callable(receipt_reader) and (not cache_hit or frontier_triggered or page_local_triggered):
+            try:
+                pair_receipts = receipt_reader()
+            except (RuntimeError, ValueError, TypeError, AttributeError):
+                pair_receipts = []
+        component_latency["response_assembly"] = time.perf_counter() - assembly_started
         self.last_diagnostics = {
             "query": query, "source_alias_query": source_alias_query,
             "revision": state.revision, "cache_hit": cache_hit, "slate_page": page,
@@ -1001,6 +1081,9 @@ class Agent:
                                      "polarity": item.polarity, "scope": item.scope}
                                     for item in plan.scoped_features],
             },
+            "semantic_state_signature": [list(item) for item in semantic_state_signature],
+            "semantic_state_sha256": _signature(semantic_state_signature),
+            "retrieval_plan_sha256": _signature(plan_signature_payload),
             "preferences": [{"attribute": p.attribute, "value": p.value, "polarity": p.polarity,
                              "source_turn": p.source_turn, "hard": p.hard,
                              "source_kind": p.source_kind,
@@ -1032,6 +1115,14 @@ class Agent:
                 "model_sha256": getattr(self.catalog_vocabulary, "model_sha256", None),
             },
             "rerank_document_mode": self.config.rerank_document_mode, "rerank_prefix_ids": rerank_prefix_ids,
+            "rerank_serialization": {
+                "pairs": pair_receipts,
+                "pair_count": len(pair_receipts),
+                "token_count": sum(
+                    row["token_count"] for row in pair_receipts
+                    if type(row.get("token_count")) is int
+                ),
+            },
             "role_evidence": role_witnesses,
             "composition_evidence": composition_witnesses,
             "ranked_ids": [item.product.parent_asin for item in candidates],

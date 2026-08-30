@@ -291,6 +291,12 @@ class NeuralRanker:
         self._cache_misses = 0
         self._cache_evictions = 0
         self._evaluated_pairs = 0
+        self._last_prediction_token_lengths: list[int] = []
+        self._last_pair_receipts: list[dict] = []
+
+    def pair_receipts(self) -> list[dict]:
+        """Return bounded non-label serialization evidence for the latest call."""
+        return [dict(row) for row in self._last_pair_receipts]
 
     def cache_stats(self) -> dict[str, int | bool]:
         """Return a consistent snapshot without exposing cached query evidence."""
@@ -339,7 +345,8 @@ class NeuralRanker:
             [pair[0] for pair in pairs], [pair[1] for pair in pairs],
             truncation=True, max_length=MAX_LENGTH,
         )
-        self.prompt_tokens += sum(map(len, tokens["input_ids"]))
+        self._last_prediction_token_lengths = list(map(len, tokens["input_ids"]))
+        self.prompt_tokens += sum(self._last_prediction_token_lengths)
         logits = np.asarray(self.model.predict(
             pairs, batch_size=getattr(self, "batch_size", 16),
             convert_to_numpy=True, show_progress_bar=False,
@@ -357,12 +364,28 @@ class NeuralRanker:
             document_text(item.product, query, preferences, document_mode)
             for item in candidates
         ]
+        receipts = [
+            {
+                "product_id": item.product.parent_asin,
+                "serialized_characters": len(document),
+                "populated_fields": [
+                    field for field in ("title", "categories", "features", "details", "description", "store")
+                    if item.product.fields.get(field, "").strip()
+                ],
+                "token_count": None,
+            }
+            for item, document in zip(candidates, documents, strict=True)
+        ]
         if getattr(self, "_cache_capacity", 0) <= 0:
             cache_lock = getattr(self, "_cache_lock", None)
             if cache_lock is not None:
                 with cache_lock:
                     self._evaluated_pairs += len(candidates)
             logits = self._predict_logits(effective_query, documents)
+            for receipt, token_count in zip(
+                    receipts, self._last_prediction_token_lengths, strict=True):
+                receipt["token_count"] = token_count
+            self._last_pair_receipts = receipts
             return {
                 item.product.parent_asin: logit
                 for item, logit in zip(candidates, logits, strict=True)
@@ -390,6 +413,9 @@ class NeuralRanker:
             fresh = self._predict_logits(
                 effective_query, [documents[index] for index in missing_indices],
             )
+            for index, token_count in zip(
+                    missing_indices, self._last_prediction_token_lengths, strict=True):
+                receipts[index]["token_count"] = token_count
             with self._cache_lock:
                 for index, logit in zip(missing_indices, fresh, strict=True):
                     key = keys[index]
@@ -401,6 +427,7 @@ class NeuralRanker:
                         self._cache_evictions += 1
         if any(logit is None for logit in restored):
             raise RuntimeError("Neural cache failed to restore candidate scores")
+        self._last_pair_receipts = receipts
         return {
             item.product.parent_asin: float(logit)
             for item, logit in zip(candidates, restored, strict=True)
