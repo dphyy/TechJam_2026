@@ -107,6 +107,20 @@ class ConfigTest(unittest.TestCase):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 Config.from_dict(values)
 
+    def test_adaptive_depth_is_bound_to_linear_v2_and_d30(self):
+        config = Config(neural_rerank=True, rerank_admission="linear_v2",
+                        adaptive_rerank_depth=True)
+        self.assertEqual(config.adaptive_rerank_minimum, 20)
+        for values in (
+            {"adaptive_rerank_depth": 1},
+            {"adaptive_rerank_depth": True},
+            {"adaptive_rerank_depth": True, "neural_rerank": True,
+             "rerank_admission": "linear_v2", "rerank_limit": 20},
+            {"adaptive_admission_gap_threshold": 1.1},
+        ):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                Config.from_dict(values)
+
     def test_multi_hypothesis_retrieval_is_gated_and_shares_one_budget(self):
         config = Config(multi_hypothesis_retrieval=True, max_intent_hypotheses=2,
                         hypothesis_candidate_budget=120)

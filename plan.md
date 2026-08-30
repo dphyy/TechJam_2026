@@ -347,6 +347,15 @@ diagnostics.
   tolerance.
 - No candidate may advance based only on the consumed public score.
 
+### Phase 4 re-evaluation status — 30 August 2026
+
+Phase 10 satisfied the dependency, so one fixed D20/D30 rule was evaluated. A
+normalized admission gap threshold of `0.02` reduced screening neural pairs by
+`27.05%`, preserved aggregate HitRate, and improved aggregate TechnicalScore.
+It is nevertheless rejected: warm p95 improved only `7.87%` rather than the
+required 20%, and boundary MRR fell from `0.483503` to `0.453146`. D30 remains
+the frozen budget and confirmation was not opened for this arm.
+
 ## Phase 5: Catalog-Derived Vocabulary and Normalization
 
 Improve open-vocabulary private transfer without weakening deterministic state.

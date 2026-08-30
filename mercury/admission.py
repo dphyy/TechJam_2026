@@ -378,6 +378,31 @@ def score_all_candidates(
     }
 
 
+def adaptive_rerank_depth(
+    candidates: list[Candidate], minimum: int, maximum: int, gap_threshold: float,
+) -> tuple[int, dict[str, float | int | str]]:
+    """Choose D20 or D30 from one monotonic admission-separation signal."""
+    if not 1 <= minimum < maximum:
+        raise ValueError("Adaptive rerank depths must satisfy 1 <= minimum < maximum")
+    if not 0 <= gap_threshold <= 1:
+        raise ValueError("Adaptive rerank gap threshold must be in [0, 1]")
+    if len(candidates) <= minimum:
+        return minimum, {"depth": minimum, "reason": "pool_within_minimum", "gap": 1.0}
+    if len(candidates) < maximum:
+        return maximum, {"depth": maximum, "reason": "insufficient_gap_window", "gap": 0.0}
+    scores = [candidate.route_scores.get("admission_score") for candidate in candidates]
+    if any(type(score) not in (int, float) or not math.isfinite(score) for score in scores):
+        return maximum, {"depth": maximum, "reason": "invalid_admission_scores", "gap": 0.0}
+    span = scores[0] - scores[-1]
+    gap = (scores[minimum - 1] - scores[maximum - 1]) / span if span > 0 else 0.0
+    confident = gap >= gap_threshold
+    return (minimum if confident else maximum), {
+        "depth": minimum if confident else maximum,
+        "reason": "admission_gap_confident" if confident else "admission_gap_uncertain",
+        "gap": gap,
+    }
+
+
 def _positive_group(preference: Preference) -> tuple[str, str, str]:
     if preference.alternative_group is not None:
         return preference.attribute, "alternative", preference.alternative_group

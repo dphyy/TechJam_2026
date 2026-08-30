@@ -12,6 +12,7 @@ from pathlib import Path
 from mercury.admission import (
     AdmissionFeatureCache,
     AdmissionModel,
+    adaptive_rerank_depth,
     score_all_candidates,
     select_rerank_prefix,
 )
@@ -644,6 +645,22 @@ class Agent:
                             candidates, preferences, plan, admission_mode, self.admission_model,
                             self.admission_feature_cache,
                         )
+                        if (self.config.adaptive_rerank_depth
+                                and rerank_limit > self.config.adaptive_rerank_minimum):
+                            rerank_limit, depth_diagnostics = adaptive_rerank_depth(
+                                scored_pool,
+                                self.config.adaptive_rerank_minimum,
+                                rerank_limit,
+                                self.config.adaptive_admission_gap_threshold,
+                            )
+                            admission_diagnostics["adaptive_depth"] = depth_diagnostics
+                            stage_counts["adaptive_rerank_limit"] = rerank_limit
+                        elif self.config.adaptive_rerank_depth:
+                            admission_diagnostics["adaptive_depth"] = {
+                                "depth": rerank_limit,
+                                "reason": "external_budget_at_or_below_minimum",
+                                "gap": 0.0,
+                            }
                         admitted = scored_pool[:rerank_limit]
                     else:
                         admitted = select_rerank_prefix(

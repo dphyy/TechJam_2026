@@ -37,6 +37,7 @@ class Config:
     neural_logit_cache: bool = False
     catalog_vocabulary: bool = False
     canonical_state_semantics: bool = False
+    adaptive_rerank_depth: bool = False
     state_mode: str = "ledger"
     alternatives_mode: str = "off"
     question_policy: str = "other"
@@ -57,6 +58,7 @@ class Config:
     sparse_limit: int = 180
     dense_limit: int = 100
     rerank_limit: int = 30
+    adaptive_rerank_minimum: int = 20
     page_local_rerank_limit: int = 10
     page_local_max_batches: int = 2
     page_local_max_pairs: int = 20
@@ -101,6 +103,7 @@ class Config:
     cascade_low_overlap: float = 0.15
     cascade_low_confidence: float = 0.65
     cascade_previous_margin_threshold: float = 0.0
+    adaptive_admission_gap_threshold: float = 0.02
     artifact_dir: str = "artifacts"
     admission_model_path: str = "models/admission_linear_v1.json"
     catalog_vocabulary_path: str = "models/catalog_vocabulary_v1.json"
@@ -133,7 +136,7 @@ class Config:
                     "composition_evidence", "source_alias_retrieval", "neural_margin_fusion",
                     "slate_reset_on_override", "seen_aware_slate", "progressive_frontier_rerank",
                     "page_local_rerank", "neural_logit_cache", "catalog_vocabulary",
-                    "canonical_state_semantics"):
+                    "canonical_state_semantics", "adaptive_rerank_depth"):
             if type(getattr(self, key)) is not bool:
                 raise ValueError(f"{key} must be a boolean")
         if self.role_evidence and self.composition_evidence:
@@ -145,7 +148,7 @@ class Config:
                     "soft_decay_turns", "max_deferred_turns", "minimal_probe_limit",
                     "cascade_max_rerank_limit", "cascade_max_turns", "cascade_candidate_threshold",
                     "max_intent_hypotheses", "hypothesis_candidate_budget",
-                    "neural_logit_cache_size"):
+                    "neural_logit_cache_size", "adaptive_rerank_minimum"):
             value = getattr(self, key)
             if type(value) is not int or not 1 <= value <= 10000:
                 raise ValueError(f"{key} must be an integer in [1, 10000]")
@@ -199,6 +202,10 @@ class Config:
                 and self.cascade_max_rerank_limit <= self.candidate_limit
                 and self.cascade_max_turns <= 10):
             raise ValueError("compute cascade requires base <= max <= min(60, candidates) and at most 10 turns")
+        if self.adaptive_rerank_depth and not (
+                self.neural_rerank and self.rerank_admission == "linear_v2"
+                and self.adaptive_rerank_minimum < self.rerank_limit == 30):
+            raise ValueError("Adaptive depth requires neural linear_v2 admission with minimum < D30")
         if self.multi_hypothesis_retrieval and not (
                 self.max_intent_hypotheses <= 2
                 and self.hypothesis_candidate_budget <= self.candidate_limit):
@@ -206,6 +213,9 @@ class Config:
         if type(self.cascade_previous_margin_threshold) not in (int, float) \
                 or not 0 <= self.cascade_previous_margin_threshold <= 100:
             raise ValueError("cascade_previous_margin_threshold must be in [0, 100]")
+        if type(self.adaptive_admission_gap_threshold) not in (int, float) \
+                or not 0 <= self.adaptive_admission_gap_threshold <= 1:
+            raise ValueError("adaptive_admission_gap_threshold must be in [0, 1]")
         if type(self.turn_budget_seconds) not in (int, float) or \
                 not math.isfinite(self.turn_budget_seconds) or self.turn_budget_seconds < 0:
             raise ValueError("turn_budget_seconds must be a finite number of seconds >= 0")

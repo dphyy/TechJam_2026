@@ -10,6 +10,7 @@ from mercury.admission import (
     MODEL_SCHEMA_V2,
     AdmissionFeatureCache,
     AdmissionModel,
+    adaptive_rerank_depth,
     admission_features,
     admission_features_v2,
     score_all_candidates,
@@ -153,3 +154,16 @@ class RerankAdmissionTest(unittest.TestCase):
             }), encoding="utf-8")
             model = AdmissionModel.load(model_path, catalog_hash)
             self.assertEqual(model.feature_version, FEATURE_VERSION_V2)
+
+    def test_adaptive_depth_uses_only_the_predeclared_admission_gap(self):
+        rows = [candidate(f"p{index}", "shirt", 1.0) for index in range(30)]
+        for index, row in enumerate(rows):
+            row.route_scores["admission_score"] = 1.0 - index * 0.01
+        depth, diagnostics = adaptive_rerank_depth(rows, 20, 30, 0.10)
+        self.assertEqual(depth, 20)
+        self.assertEqual(diagnostics["reason"], "admission_gap_confident")
+
+        rows[29].route_scores["admission_score"] = rows[19].route_scores["admission_score"]
+        depth, diagnostics = adaptive_rerank_depth(rows, 20, 30, 0.10)
+        self.assertEqual(depth, 30)
+        self.assertEqual(diagnostics["reason"], "admission_gap_uncertain")
