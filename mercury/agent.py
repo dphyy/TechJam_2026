@@ -283,17 +283,19 @@ class Agent:
         return candidates, routes, weights
 
     def _slate_page(self, session_id: str, ordered: list[str], turn: int, limit: int) -> int:
-        """Advance past an unchanged slate; any ranking change returns to the top.
+        """Advance when base-slate membership is stable; otherwise return to top.
 
         Re-serving an identical slate cannot score, because the session would
-        already have ended had the wanted product been in it. Paging waits until
-        no intent override can still be pending, so a shown-but-not-yet-scorable
-        product is never discarded.
+        already have ended had the wanted product been in it. Rank swaps inside
+        that slate and tail-only changes do not make its products new. A changed
+        base-slate member resets paging so newly relevant head items are shown.
         """
         first_turn = self.config.slate_paging_first_turn
         previous = self._last_ranked.get(session_id)
         page = self._pages.get(session_id, 0)
-        if previous is not None and ordered == previous:
+        stable_head = bool(limit and previous is not None
+                           and set(ordered[:limit]) == set(previous[:limit]))
+        if stable_head:
             if first_turn and turn >= first_turn:
                 page += 1
         else:

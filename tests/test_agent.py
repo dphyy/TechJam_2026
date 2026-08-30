@@ -1155,6 +1155,19 @@ class AgentTest(unittest.TestCase):
         finally:
             agent.close()
 
+    def test_paging_compares_top_membership_not_order_or_tail(self):
+        agent = Agent(self.paging_catalog(), Config(slate_paging_first_turn=2))
+        try:
+            ordered = [f"P{index:03d}" for index in range(30)]
+            self.assertEqual(agent._slate_page("set", ordered, 1, 10), 0)
+            reordered = list(reversed(ordered[:10])) + ordered[20:] + ordered[10:20]
+            self.assertEqual(agent._slate_page("set", reordered, 2, 10), 1)
+
+            changed_head = ["P010", *reordered[1:10], reordered[0], *reordered[11:]]
+            self.assertEqual(agent._slate_page("set", changed_head, 3, 10), 0)
+        finally:
+            agent.close()
+
     def test_paging_holds_at_the_last_page_rather_than_showing_nothing(self):
         path = Path(self.temp.name) / "small.jsonl"
         rows = [{"parent_asin": f"S{index:03d}", "title": "Blue cotton shirt",
