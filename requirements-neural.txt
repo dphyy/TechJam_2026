@@ -1,0 +1,8 @@
+# Optional local neural retrieval and reranking. The sparse agent is standard-library only.
+numpy==2.2.6
+scipy==1.16.3
+scikit-learn==1.7.2
+torch==2.8.0
+transformers==4.57.6
+sentence-transformers==5.1.2
+huggingface-hub==0.36.0

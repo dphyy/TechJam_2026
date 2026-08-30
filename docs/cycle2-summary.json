@@ -1,0 +1,2427 @@
+{
+  "schema": "cycle2-final-aggregate-v1",
+  "scope": "Final fixed-source development v2 and one-shot validation. Aggregate evidence only; raw target traces and authored packs remain local.",
+  "selection_receipt": "cycle2-selection.json",
+  "selected_mode": "grouped",
+  "measured_source_commit": "8964157d701c5cd9d3c642246d38f38db91248a0",
+  "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+  "source_file_count": 60,
+  "provenance": {
+    "artifact_sha256": {
+      "artifacts/cycle2/check_gates.py": "a02cfd3e50478032ba9df9b795640316aa09baed571ccd580cf6c4889b9aade2",
+      "artifacts/cycle2/control-parity-v2.json": "32fd68baea52917c7accb8b05fb687758bd18f9fed1c644ad95383626d1102fa",
+      "artifacts/cycle2/development-summary-v2.json": "5ec6ad58322ece129efbc25c07045a20c282d8786a3ef0c735eae65bfb6c4bd9",
+      "artifacts/cycle2/prevalidation-readiness.json": "7b55f8f85769ea82f8a64bc859771dd0700c66606f917b1fa137d7e5ad765f9f",
+      "artifacts/cycle2/summarize_final.py": "09d7cea4e10fa54406a3b85c7f1db4841b3c40dccc6167dd466ed41f23733ecd",
+      "artifacts/cycle2/validation-summary.json": "4c922a773d0a925fa1f7a8af1a10dd28a788520d5314e1104c5debff0ec34ebc"
+    },
+    "configs": {
+      "frozen": {
+        "config": {
+          "alternatives_mode": "off",
+          "artifact_dir": "artifacts",
+          "candidate_limit": 120,
+          "contrast": false,
+          "contrast_weight": 0.12,
+          "dense": false,
+          "dense_limit": 100,
+          "dense_weight": 0.35,
+          "device": "cpu",
+          "evidence_ranking": false,
+          "max_sessions": 256,
+          "neural_rerank": true,
+          "neural_weight": 0.75,
+          "other_question_limit": 4,
+          "question_policy": "other",
+          "rerank_limit": 30,
+          "slate_policy": "fixed",
+          "slate_size": 10,
+          "sparse_limit": 180,
+          "state_mode": "ledger",
+          "threads": 4
+        },
+        "path": "configs/cycle2_frozen.json",
+        "sha256": "1e7e739cc3e4779df819ad1bbfd7ad16f2c122f5ee649d73b034e882be196ff3"
+      },
+      "grouped": {
+        "config": {
+          "alternatives_mode": "grouped",
+          "artifact_dir": "artifacts",
+          "candidate_limit": 120,
+          "contrast": false,
+          "contrast_weight": 0.12,
+          "dense": false,
+          "dense_limit": 100,
+          "dense_weight": 0.35,
+          "device": "cpu",
+          "evidence_ranking": false,
+          "max_sessions": 256,
+          "neural_rerank": true,
+          "neural_weight": 0.75,
+          "other_question_limit": 4,
+          "question_policy": "other",
+          "rerank_limit": 30,
+          "slate_policy": "fixed",
+          "slate_size": 10,
+          "sparse_limit": 180,
+          "state_mode": "ledger",
+          "threads": 4
+        },
+        "path": "configs/cycle2_grouped.json",
+        "sha256": "9fda091879cc4f5e4b8709dce1f9fea8eb3f540d939481ca2e96edf58a30baf3"
+      },
+      "parse": {
+        "config": {
+          "alternatives_mode": "parse",
+          "artifact_dir": "artifacts",
+          "candidate_limit": 120,
+          "contrast": false,
+          "contrast_weight": 0.12,
+          "dense": false,
+          "dense_limit": 100,
+          "dense_weight": 0.35,
+          "device": "cpu",
+          "evidence_ranking": false,
+          "max_sessions": 256,
+          "neural_rerank": true,
+          "neural_weight": 0.75,
+          "other_question_limit": 4,
+          "question_policy": "other",
+          "rerank_limit": 30,
+          "slate_policy": "fixed",
+          "slate_size": 10,
+          "sparse_limit": 180,
+          "state_mode": "ledger",
+          "threads": 4
+        },
+        "path": "configs/cycle2_parse.json",
+        "sha256": "76a11d94f61152c6a23fd5918c800eb5e2535e8bac462227b47982a6b5e57d2d"
+      }
+    },
+    "frozen_at_utc": "2026-08-26T13:14:17.214377+00:00",
+    "inputs": {
+      "alternatives_protocol": {
+        "path": "docs/CYCLE2_ALTERNATIVES_PROTOCOL.md",
+        "sha256": "05cf62ccc4fe4a75583ffedc5128e53ee4e01b15d59e5f39a537172bb016c174"
+      },
+      "capability_development": {
+        "path": "artifacts/cycle2/capability-development.json",
+        "sha256": "806308f3696bfe0519aede5ba4b8d4234064d7f8fbd25140886354e9a008794c"
+      },
+      "capability_manifest": {
+        "path": "artifacts/cycle2/capability-manifest.json",
+        "sha256": "d18551f04af6d3728725969faaf974510965e6a1576794baf7c63e863b383097"
+      },
+      "capability_validation": {
+        "path": "artifacts/cycle2/capability-validation.json",
+        "sha256": "d2f874d032737ab76d8900abb297e2e566beb4db8066c3909033e724553f139c"
+      },
+      "catalog": {
+        "path": "data/catalog.jsonl",
+        "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+      },
+      "original_generator": {
+        "path": "artifacts/cycle2/provenance/cycle2_prepare-original.py",
+        "sha256": "8629dee510817397bb682f91a8626d3a2ab9ddbda08c427e6b1dcd23cea12eaa"
+      },
+      "protocol": {
+        "path": "docs/CYCLE2_EXPERIMENT_PROTOCOL.md",
+        "sha256": "7d1dec876017e023020e1c62377b2080416fe92ee1d8e28bba6a4fdbfc6ea56a"
+      },
+      "public_development": {
+        "path": "data/public_set.jsonl",
+        "sha256": "857259f7a438e6188ac63e18995b6ff4489bfcfc4a716a798b9a2aa0ee8f7579"
+      },
+      "selected_config": {
+        "path": "configs/selected.json",
+        "sha256": "b9ab2b6175275c2043094ec08c5a4a7b857fae0e090cca559cc1769f3d248ca6"
+      },
+      "target_development": {
+        "path": "artifacts/cycle2/synthetic-targets/development.jsonl",
+        "sha256": "44363e58a1937687e5f75405dca3ec671fe11d8e97afed1d6d9af7f453d3c34a"
+      },
+      "target_manifest": {
+        "path": "artifacts/cycle2/synthetic-targets/manifest.json",
+        "sha256": "d877d2c7800a00b680789bf77ffe0694896862ecf3b02884fdc2d9b1727ab20d"
+      },
+      "target_validation": {
+        "path": "artifacts/cycle2/synthetic-targets/validation.jsonl",
+        "sha256": "1eab92111d27441d8d6facd1769d6ad508192b602f91cc8a8ff70c5d9c2f811f"
+      }
+    }
+  },
+  "model": {
+    "name": "cross-encoder/ms-marco-MiniLM-L6-v2",
+    "revision": "233902d25c440f23af6f7d6e94d2946bac0bee0a",
+    "required_asset_bytes": 91820224,
+    "catalog_bytes": 60546327,
+    "model_plus_catalog_bytes": 152366551
+  },
+  "development": {
+    "targets": {
+      "new": {
+        "paired": {
+          "grouped": {
+            "bootstrap_resamples": 10000,
+            "bootstrap_seed": 20260826,
+            "hit_loss_within_limit": true,
+            "hit_rate_delta": 0,
+            "note": "Paired observed new sessions, 10000 resamples; not population equivalence or organizer hidden-test performance.",
+            "practical_gain": false,
+            "sample_count": 32,
+            "technical_score_95pct_ci": [
+              0,
+              0
+            ],
+            "technical_score_delta": 0
+          },
+          "parse": {
+            "bootstrap_resamples": 10000,
+            "bootstrap_seed": 20260826,
+            "hit_loss_within_limit": true,
+            "hit_rate_delta": 0,
+            "note": "Paired observed new sessions, 10000 resamples; not population equivalence or organizer hidden-test performance.",
+            "practical_gain": false,
+            "sample_count": 32,
+            "technical_score_95pct_ci": [
+              0,
+              0
+            ],
+            "technical_score_delta": 0
+          }
+        },
+        "runs": {
+          "frozen": {
+            "active_or_turns": 0,
+            "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+            "dataset_sha256": "44363e58a1937687e5f75405dca3ec671fe11d8e97afed1d6d9af7f453d3c34a",
+            "diagnostics": {
+              "cached_turns": 35,
+              "ever_ranked_recall": {
+                "10": 0.875,
+                "30": 0.875,
+                "60": 0.90625,
+                "120": 0.96875,
+                "300": 0.96875
+              },
+              "ever_route_recall": {
+                "scoped": 0.59375,
+                "sparse": 0.96875
+              },
+              "failure_diagnostics": {
+                "agent_error_turns": 0,
+                "not_retrieved": 1,
+                "ranking_or_policy": 4
+              },
+              "fallback_turns": 0,
+              "max_seconds": 0.43697125000107917,
+              "p50_seconds": 0.2557145419996232,
+              "p95_seconds": 0.35580929199932143,
+              "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark.",
+              "turn_count": 109
+            },
+            "file_sha256": {
+              "diagnostics.json": "1fe9b50721da46715a7bce10d920cdea99e7e65a38ea1270054253a398e551a9",
+              "manifest.json": "0af3abd19515d433c0b0095b8464c7fd96b4c53dd6bcdd3b2e09a67c4b4e3356",
+              "result.json": "bc53e7bbdaeb21b976f6c673b6cc30d47577f75d3ba75f567ebc74c36442d45d",
+              "traces.json": "d769ff03040f94b202ec01b9d9d58cd5e30fa65608fcae91b29e1756cf4b87a7"
+            },
+            "metrics": {
+              "efficiency": 0.74375,
+              "hit_rate_at_10": 0.84375,
+              "mrr": 0.601426,
+              "mttc": 3.5625,
+              "recommended_technical_score": 0.751053,
+              "reported_token_usage": {
+                "completion_tokens": 0,
+                "prompt_tokens": 373228,
+                "total_tokens": 373228
+              },
+              "sample_count": 32,
+              "scenario_metrics": {
+                "boundary": {
+                  "hit_rate_at_10": 0.5,
+                  "mrr": 0.5,
+                  "mttc": 7.5,
+                  "sample_count": 2
+                },
+                "browsing": {
+                  "hit_rate_at_10": 0.916667,
+                  "mrr": 0.556349,
+                  "mttc": 2.75,
+                  "sample_count": 12
+                },
+                "buying": {
+                  "hit_rate_at_10": 0.916667,
+                  "mrr": 0.630787,
+                  "mttc": 2.416667,
+                  "sample_count": 12
+                },
+                "intent_override": {
+                  "hit_rate_at_10": 0.666667,
+                  "mrr": 0.666667,
+                  "mttc": 6.166667,
+                  "sample_count": 6
+                }
+              }
+            },
+            "resources": {
+              "cold_start_seconds": 17.819057917000464,
+              "evaluation_seconds": 20.364891959001397,
+              "max_rss_bytes": 1128169472,
+              "paid_cost_usd": 0,
+              "startup_fallbacks": {}
+            },
+            "run": "runs/cycle2-frozen-new-development-v2",
+            "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+            "unsupported_expression_turns": 0
+          },
+          "grouped": {
+            "active_or_turns": 0,
+            "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+            "dataset_sha256": "44363e58a1937687e5f75405dca3ec671fe11d8e97afed1d6d9af7f453d3c34a",
+            "diagnostics": {
+              "cached_turns": 35,
+              "ever_ranked_recall": {
+                "10": 0.875,
+                "30": 0.875,
+                "60": 0.90625,
+                "120": 0.96875,
+                "300": 0.96875
+              },
+              "ever_route_recall": {
+                "scoped": 0.59375,
+                "sparse": 0.96875
+              },
+              "failure_diagnostics": {
+                "agent_error_turns": 0,
+                "not_retrieved": 1,
+                "ranking_or_policy": 4
+              },
+              "fallback_turns": 0,
+              "max_seconds": 0.3697134169997298,
+              "p50_seconds": 0.24935158299922477,
+              "p95_seconds": 0.32969733299978543,
+              "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark.",
+              "turn_count": 109
+            },
+            "file_sha256": {
+              "diagnostics.json": "0b36b0138db9aeb4650fd25ec80d2a62b84c02aad1c71805d6c7e518d4844013",
+              "manifest.json": "2bb5db4800d25686d2234eee358b35a23e301fd7696b1e73a6e6d248e60f98e1",
+              "result.json": "bc53e7bbdaeb21b976f6c673b6cc30d47577f75d3ba75f567ebc74c36442d45d",
+              "traces.json": "e17bd9c65b87c038f9132c07657b5decd369f6d89aa2c1a2fb333dcfbd8d71f3"
+            },
+            "metrics": {
+              "efficiency": 0.74375,
+              "hit_rate_at_10": 0.84375,
+              "mrr": 0.601426,
+              "mttc": 3.5625,
+              "recommended_technical_score": 0.751053,
+              "reported_token_usage": {
+                "completion_tokens": 0,
+                "prompt_tokens": 373228,
+                "total_tokens": 373228
+              },
+              "sample_count": 32,
+              "scenario_metrics": {
+                "boundary": {
+                  "hit_rate_at_10": 0.5,
+                  "mrr": 0.5,
+                  "mttc": 7.5,
+                  "sample_count": 2
+                },
+                "browsing": {
+                  "hit_rate_at_10": 0.916667,
+                  "mrr": 0.556349,
+                  "mttc": 2.75,
+                  "sample_count": 12
+                },
+                "buying": {
+                  "hit_rate_at_10": 0.916667,
+                  "mrr": 0.630787,
+                  "mttc": 2.416667,
+                  "sample_count": 12
+                },
+                "intent_override": {
+                  "hit_rate_at_10": 0.666667,
+                  "mrr": 0.666667,
+                  "mttc": 6.166667,
+                  "sample_count": 6
+                }
+              }
+            },
+            "resources": {
+              "cold_start_seconds": 16.76806574999864,
+              "evaluation_seconds": 19.607004000001325,
+              "max_rss_bytes": 1163821056,
+              "paid_cost_usd": 0,
+              "startup_fallbacks": {}
+            },
+            "run": "runs/cycle2-grouped-new-development-v2",
+            "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+            "unsupported_expression_turns": 1
+          },
+          "parse": {
+            "active_or_turns": 0,
+            "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+            "dataset_sha256": "44363e58a1937687e5f75405dca3ec671fe11d8e97afed1d6d9af7f453d3c34a",
+            "diagnostics": {
+              "cached_turns": 35,
+              "ever_ranked_recall": {
+                "10": 0.875,
+                "30": 0.875,
+                "60": 0.90625,
+                "120": 0.96875,
+                "300": 0.96875
+              },
+              "ever_route_recall": {
+                "scoped": 0.59375,
+                "sparse": 0.96875
+              },
+              "failure_diagnostics": {
+                "agent_error_turns": 0,
+                "not_retrieved": 1,
+                "ranking_or_policy": 4
+              },
+              "fallback_turns": 0,
+              "max_seconds": 0.7101791659988521,
+              "p50_seconds": 0.2693483330003801,
+              "p95_seconds": 0.3999293749984645,
+              "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark.",
+              "turn_count": 109
+            },
+            "file_sha256": {
+              "diagnostics.json": "d80373ca56ae61a3a378b173967fcc4a80489dba0c4664c8bdf8e088b19aef7b",
+              "manifest.json": "b811087698be3f491bf0ab8296b1aeadd17246b67fb2d02d780724ceace64ca9",
+              "result.json": "bc53e7bbdaeb21b976f6c673b6cc30d47577f75d3ba75f567ebc74c36442d45d",
+              "traces.json": "029f369d6e7aa9048570b5953670f2978887aea937add2f3e6e22c6d628ab136"
+            },
+            "metrics": {
+              "efficiency": 0.74375,
+              "hit_rate_at_10": 0.84375,
+              "mrr": 0.601426,
+              "mttc": 3.5625,
+              "recommended_technical_score": 0.751053,
+              "reported_token_usage": {
+                "completion_tokens": 0,
+                "prompt_tokens": 373228,
+                "total_tokens": 373228
+              },
+              "sample_count": 32,
+              "scenario_metrics": {
+                "boundary": {
+                  "hit_rate_at_10": 0.5,
+                  "mrr": 0.5,
+                  "mttc": 7.5,
+                  "sample_count": 2
+                },
+                "browsing": {
+                  "hit_rate_at_10": 0.916667,
+                  "mrr": 0.556349,
+                  "mttc": 2.75,
+                  "sample_count": 12
+                },
+                "buying": {
+                  "hit_rate_at_10": 0.916667,
+                  "mrr": 0.630787,
+                  "mttc": 2.416667,
+                  "sample_count": 12
+                },
+                "intent_override": {
+                  "hit_rate_at_10": 0.666667,
+                  "mrr": 0.666667,
+                  "mttc": 6.166667,
+                  "sample_count": 6
+                }
+              }
+            },
+            "resources": {
+              "cold_start_seconds": 17.95024554200063,
+              "evaluation_seconds": 22.410549082997022,
+              "max_rss_bytes": 878411776,
+              "paid_cost_usd": 0,
+              "startup_fallbacks": {}
+            },
+            "run": "runs/cycle2-parse-new-development-v2",
+            "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+            "unsupported_expression_turns": 1
+          }
+        }
+      },
+      "public": {
+        "paired": {
+          "grouped": {
+            "bootstrap_resamples": 10000,
+            "bootstrap_seed": 20260826,
+            "hit_loss_within_limit": true,
+            "hit_rate_delta": 0,
+            "note": "Paired observed public sessions, 10000 resamples; not population equivalence or organizer hidden-test performance.",
+            "practical_gain": false,
+            "sample_count": 200,
+            "technical_score_95pct_ci": [
+              0,
+              0
+            ],
+            "technical_score_delta": 0
+          },
+          "parse": {
+            "bootstrap_resamples": 10000,
+            "bootstrap_seed": 20260826,
+            "hit_loss_within_limit": true,
+            "hit_rate_delta": 0,
+            "note": "Paired observed public sessions, 10000 resamples; not population equivalence or organizer hidden-test performance.",
+            "practical_gain": false,
+            "sample_count": 200,
+            "technical_score_95pct_ci": [
+              0,
+              0
+            ],
+            "technical_score_delta": 0
+          }
+        },
+        "runs": {
+          "frozen": {
+            "active_or_turns": 0,
+            "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+            "dataset_sha256": "857259f7a438e6188ac63e18995b6ff4489bfcfc4a716a798b9a2aa0ee8f7579",
+            "diagnostics": {
+              "cached_turns": 170,
+              "ever_ranked_recall": {
+                "10": 0.895,
+                "30": 0.915,
+                "60": 0.97,
+                "120": 1,
+                "300": 1
+              },
+              "ever_route_recall": {
+                "scoped": 0.735,
+                "sparse": 1
+              },
+              "failure_diagnostics": {
+                "agent_error_turns": 0,
+                "not_retrieved": 0,
+                "ranking_or_policy": 21
+              },
+              "fallback_turns": 0,
+              "max_seconds": 0.6368364170011773,
+              "p50_seconds": 0.272781395500715,
+              "p95_seconds": 0.3712308750000375,
+              "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark.",
+              "turn_count": 628
+            },
+            "file_sha256": {
+              "diagnostics.json": "0d7d104730d484fe152648fd1b41b7b60a912957b1c5556c2e43741e5a6e9620",
+              "manifest.json": "9d531bdb5dea56779d2f15eb87c710936b993d743ab655eee364c62898156893",
+              "result.json": "eeba444682d430d42bd34e87f58668187f82c21486b4dd791890c6176d85ec5e",
+              "traces.json": "7ba1de2cb073634f7f16fd5a1b39d13b9a3734db2727fe2f788e648b8caa5252"
+            },
+            "metrics": {
+              "efficiency": 0.7755,
+              "hit_rate_at_10": 0.895,
+              "mrr": 0.613746,
+              "mttc": 3.245,
+              "recommended_technical_score": 0.786724,
+              "reported_token_usage": {
+                "completion_tokens": 0,
+                "prompt_tokens": 2375727,
+                "total_tokens": 2375727
+              },
+              "sample_count": 200,
+              "scenario_metrics": {
+                "boundary": {
+                  "hit_rate_at_10": 1,
+                  "mrr": 0.686111,
+                  "mttc": 4.8,
+                  "sample_count": 10
+                },
+                "browsing": {
+                  "hit_rate_at_10": 0.9125,
+                  "mrr": 0.611607,
+                  "mttc": 2.9125,
+                  "sample_count": 80
+                },
+                "buying": {
+                  "hit_rate_at_10": 0.875,
+                  "mrr": 0.562515,
+                  "mttc": 2.875,
+                  "sample_count": 80
+                },
+                "intent_override": {
+                  "hit_rate_at_10": 0.866667,
+                  "mrr": 0.731944,
+                  "mttc": 4.6,
+                  "sample_count": 30
+                }
+              }
+            },
+            "resources": {
+              "cold_start_seconds": 17.533067042000766,
+              "evaluation_seconds": 131.00860029199976,
+              "max_rss_bytes": 1038712832,
+              "paid_cost_usd": 0,
+              "startup_fallbacks": {}
+            },
+            "run": "runs/cycle2-frozen-public-development-v2",
+            "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+            "unsupported_expression_turns": 0
+          },
+          "grouped": {
+            "active_or_turns": 0,
+            "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+            "dataset_sha256": "857259f7a438e6188ac63e18995b6ff4489bfcfc4a716a798b9a2aa0ee8f7579",
+            "diagnostics": {
+              "cached_turns": 170,
+              "ever_ranked_recall": {
+                "10": 0.895,
+                "30": 0.915,
+                "60": 0.97,
+                "120": 1,
+                "300": 1
+              },
+              "ever_route_recall": {
+                "scoped": 0.735,
+                "sparse": 1
+              },
+              "failure_diagnostics": {
+                "agent_error_turns": 0,
+                "not_retrieved": 0,
+                "ranking_or_policy": 21
+              },
+              "fallback_turns": 0,
+              "max_seconds": 0.745433416999731,
+              "p50_seconds": 0.27339070800007903,
+              "p95_seconds": 0.39919287499651546,
+              "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark.",
+              "turn_count": 628
+            },
+            "file_sha256": {
+              "diagnostics.json": "38911716bc068e9ba52a12af4e90bb2ffe63e6c9f0649a6f88507c0cedd14666",
+              "manifest.json": "5955bc9d5957730fde7a625ca1170b2c65aa516e4cca2e1f43b7413922c9af93",
+              "result.json": "eeba444682d430d42bd34e87f58668187f82c21486b4dd791890c6176d85ec5e",
+              "traces.json": "e39b485560a623212bcb1a7ccb20f5cd813662343175c293d3a674c02a5b8626"
+            },
+            "metrics": {
+              "efficiency": 0.7755,
+              "hit_rate_at_10": 0.895,
+              "mrr": 0.613746,
+              "mttc": 3.245,
+              "recommended_technical_score": 0.786724,
+              "reported_token_usage": {
+                "completion_tokens": 0,
+                "prompt_tokens": 2375727,
+                "total_tokens": 2375727
+              },
+              "sample_count": 200,
+              "scenario_metrics": {
+                "boundary": {
+                  "hit_rate_at_10": 1,
+                  "mrr": 0.686111,
+                  "mttc": 4.8,
+                  "sample_count": 10
+                },
+                "browsing": {
+                  "hit_rate_at_10": 0.9125,
+                  "mrr": 0.611607,
+                  "mttc": 2.9125,
+                  "sample_count": 80
+                },
+                "buying": {
+                  "hit_rate_at_10": 0.875,
+                  "mrr": 0.562515,
+                  "mttc": 2.875,
+                  "sample_count": 80
+                },
+                "intent_override": {
+                  "hit_rate_at_10": 0.866667,
+                  "mrr": 0.731944,
+                  "mttc": 4.6,
+                  "sample_count": 30
+                }
+              }
+            },
+            "resources": {
+              "cold_start_seconds": 17.779128541998944,
+              "evaluation_seconds": 134.9803092080001,
+              "max_rss_bytes": 1027162112,
+              "paid_cost_usd": 0,
+              "startup_fallbacks": {}
+            },
+            "run": "runs/cycle2-grouped-public-development-v2",
+            "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+            "unsupported_expression_turns": 4
+          },
+          "parse": {
+            "active_or_turns": 0,
+            "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+            "dataset_sha256": "857259f7a438e6188ac63e18995b6ff4489bfcfc4a716a798b9a2aa0ee8f7579",
+            "diagnostics": {
+              "cached_turns": 170,
+              "ever_ranked_recall": {
+                "10": 0.895,
+                "30": 0.915,
+                "60": 0.97,
+                "120": 1,
+                "300": 1
+              },
+              "ever_route_recall": {
+                "scoped": 0.735,
+                "sparse": 1
+              },
+              "failure_diagnostics": {
+                "agent_error_turns": 0,
+                "not_retrieved": 0,
+                "ranking_or_policy": 21
+              },
+              "fallback_turns": 0,
+              "max_seconds": 0.6951256249994913,
+              "p50_seconds": 0.272643791999144,
+              "p95_seconds": 0.40584183299870347,
+              "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark.",
+              "turn_count": 628
+            },
+            "file_sha256": {
+              "diagnostics.json": "2e16cd52e343ab6ebe8ca21974850a154605b378da77e22feff7bff5e8ff1f7e",
+              "manifest.json": "b23e88ca5f637c405025ce447c3b6d7355e53d74ee939faabde4ffd6c5b84905",
+              "result.json": "eeba444682d430d42bd34e87f58668187f82c21486b4dd791890c6176d85ec5e",
+              "traces.json": "9b55374b8cf859f955e016893e267cc8694c976a2f5e75d278aaf8e5413a170b"
+            },
+            "metrics": {
+              "efficiency": 0.7755,
+              "hit_rate_at_10": 0.895,
+              "mrr": 0.613746,
+              "mttc": 3.245,
+              "recommended_technical_score": 0.786724,
+              "reported_token_usage": {
+                "completion_tokens": 0,
+                "prompt_tokens": 2375727,
+                "total_tokens": 2375727
+              },
+              "sample_count": 200,
+              "scenario_metrics": {
+                "boundary": {
+                  "hit_rate_at_10": 1,
+                  "mrr": 0.686111,
+                  "mttc": 4.8,
+                  "sample_count": 10
+                },
+                "browsing": {
+                  "hit_rate_at_10": 0.9125,
+                  "mrr": 0.611607,
+                  "mttc": 2.9125,
+                  "sample_count": 80
+                },
+                "buying": {
+                  "hit_rate_at_10": 0.875,
+                  "mrr": 0.562515,
+                  "mttc": 2.875,
+                  "sample_count": 80
+                },
+                "intent_override": {
+                  "hit_rate_at_10": 0.866667,
+                  "mrr": 0.731944,
+                  "mttc": 4.6,
+                  "sample_count": 30
+                }
+              }
+            },
+            "resources": {
+              "cold_start_seconds": 16.997560415999033,
+              "evaluation_seconds": 134.5213412919984,
+              "max_rss_bytes": 1095860224,
+              "paid_cost_usd": 0,
+              "startup_fallbacks": {}
+            },
+            "run": "runs/cycle2-parse-public-development-v2",
+            "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+            "unsupported_expression_turns": 4
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "frozen": {
+        "active_or_turns": 0,
+        "close_errors": 0,
+        "file_sha256": {
+          "manifest.json": "1a298debc887c65ebcf9789e00fba591491f0eecf13b308c3b6d9fcf99b33ab9",
+          "result.json": "dcc880bc1fef793d2be8c6dda0183b3a8937a9f8b3467b71e850f7dc7966233c"
+        },
+        "groups": {
+          "alternatives_and_conjunction": {
+            "assertions": {
+              "failed": 2,
+              "passed": 2,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 0
+          },
+          "body_vs_component": {
+            "assertions": {
+              "failed": 0,
+              "passed": 1,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "correction": {
+            "assertions": {
+              "failed": 0,
+              "passed": 3,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "explicit_negation": {
+            "assertions": {
+              "failed": 0,
+              "passed": 1,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "no_preference": {
+            "assertions": {
+              "failed": 0,
+              "passed": 2,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "object_vs_accessory": {
+            "assertions": {
+              "failed": 0,
+              "passed": 1,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "ordinary_queries": {
+            "assertions": {
+              "failed": 1,
+              "passed": 0,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 0
+          },
+          "unknown_metadata": {
+            "assertions": {
+              "failed": 0,
+              "passed": 2,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          }
+        },
+        "hard_or_turns": 0,
+        "passed_cases": 6,
+        "run": "runs/cycle2-capabilities-development-frozen-v2",
+        "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+        "summary": {
+          "all_passed": false,
+          "api_error_turns": 0,
+          "assertion_counts": {
+            "failed": 3,
+            "passed": 12,
+            "unverified": 0
+          },
+          "case_count": 8,
+          "config_sha256": "1e7e739cc3e4779df819ad1bbfd7ad16f2c122f5ee649d73b034e882be196ff3",
+          "dataset_sha256": "806308f3696bfe0519aede5ba4b8d4234064d7f8fbd25140886354e9a008794c",
+          "fallback_turns": 0,
+          "health_unverified_turns": 0,
+          "max_rss_bytes": 625819648,
+          "max_seconds": 0.018127791001461446,
+          "p50_seconds": 0.006706478998239618,
+          "p95_seconds": 0.018127791001461446,
+          "paid_cost_usd": 0,
+          "resource_note": "Tiny authored catalogs; cold starts reload the declared model per case. Not 50000-product latency evidence.",
+          "schema": "cycle2-capability-results-v1",
+          "split": "development",
+          "turn_count": 10,
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 415
+          }
+        },
+        "cold_start_seconds_by_case": [
+          2.4419274579995545,
+          0.08910037500027101,
+          0.08690899999783142,
+          0.08704020799996215,
+          0.10395649999918533,
+          0.08869170899924939,
+          0.0884114589971432,
+          0.08909787499942468
+        ],
+        "failed_assertion_breakdown": [
+          {
+            "case_id": "d07",
+            "group": "alternatives_and_conjunction",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "active_preference",
+            "reason": "Matching active preference present: False"
+          },
+          {
+            "case_id": "d07",
+            "group": "alternatives_and_conjunction",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "active_preference",
+            "reason": "Matching active preference present: False"
+          },
+          {
+            "case_id": "d08",
+            "group": "ordinary_queries",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Ranking comparison requires both candidates; at least one was not retrieved/retained"
+          }
+        ]
+      },
+      "grouped": {
+        "active_or_turns": 1,
+        "close_errors": 0,
+        "file_sha256": {
+          "manifest.json": "faa2814c95e67a049dbe5d32abcb1768fb43971f797149b6aab7a2747aa5d64b",
+          "result.json": "9d01a1ac516f62e705747909d94372a6ee71bdbf45ca3ec5aa49772fb420f888"
+        },
+        "groups": {
+          "alternatives_and_conjunction": {
+            "assertions": {
+              "failed": 0,
+              "passed": 4,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "body_vs_component": {
+            "assertions": {
+              "failed": 0,
+              "passed": 1,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "correction": {
+            "assertions": {
+              "failed": 0,
+              "passed": 3,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "explicit_negation": {
+            "assertions": {
+              "failed": 0,
+              "passed": 1,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "no_preference": {
+            "assertions": {
+              "failed": 0,
+              "passed": 2,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "object_vs_accessory": {
+            "assertions": {
+              "failed": 0,
+              "passed": 1,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "ordinary_queries": {
+            "assertions": {
+              "failed": 1,
+              "passed": 0,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 0
+          },
+          "unknown_metadata": {
+            "assertions": {
+              "failed": 0,
+              "passed": 2,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          }
+        },
+        "hard_or_turns": 0,
+        "passed_cases": 7,
+        "run": "runs/cycle2-capabilities-development-grouped-v2",
+        "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+        "summary": {
+          "all_passed": false,
+          "api_error_turns": 0,
+          "assertion_counts": {
+            "failed": 1,
+            "passed": 14,
+            "unverified": 0
+          },
+          "case_count": 8,
+          "config_sha256": "9fda091879cc4f5e4b8709dce1f9fea8eb3f540d939481ca2e96edf58a30baf3",
+          "dataset_sha256": "806308f3696bfe0519aede5ba4b8d4234064d7f8fbd25140886354e9a008794c",
+          "fallback_turns": 0,
+          "health_unverified_turns": 0,
+          "max_rss_bytes": 623230976,
+          "max_seconds": 0.018054124997433973,
+          "p50_seconds": 0.006541666498378618,
+          "p95_seconds": 0.018054124997433973,
+          "paid_cost_usd": 0,
+          "resource_note": "Tiny authored catalogs; cold starts reload the declared model per case. Not 50000-product latency evidence.",
+          "schema": "cycle2-capability-results-v1",
+          "split": "development",
+          "turn_count": 10,
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 411
+          }
+        },
+        "cold_start_seconds_by_case": [
+          2.4610352920026344,
+          0.08911333300056867,
+          0.08771554199847742,
+          0.08664112499900511,
+          0.08877941600076156,
+          0.08643658299843082,
+          0.08671816599962767,
+          0.0889605419979489
+        ],
+        "failed_assertion_breakdown": [
+          {
+            "case_id": "d08",
+            "group": "ordinary_queries",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Ranking comparison requires both candidates; at least one was not retrieved/retained"
+          }
+        ]
+      },
+      "parse": {
+        "active_or_turns": 0,
+        "close_errors": 0,
+        "file_sha256": {
+          "manifest.json": "1bc0a11079fd82976aa7e4967e3301ea576d0a5629afb136c5425d8e5e92b4d2",
+          "result.json": "55bf2d6e91e616b5b9f61fd8e1d2dc90b3f837980ebf5abace605632b9883b8b"
+        },
+        "groups": {
+          "alternatives_and_conjunction": {
+            "assertions": {
+              "failed": 0,
+              "passed": 4,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "body_vs_component": {
+            "assertions": {
+              "failed": 0,
+              "passed": 1,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "correction": {
+            "assertions": {
+              "failed": 0,
+              "passed": 3,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "explicit_negation": {
+            "assertions": {
+              "failed": 0,
+              "passed": 1,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "no_preference": {
+            "assertions": {
+              "failed": 0,
+              "passed": 2,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "object_vs_accessory": {
+            "assertions": {
+              "failed": 0,
+              "passed": 1,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          },
+          "ordinary_queries": {
+            "assertions": {
+              "failed": 1,
+              "passed": 0,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 0
+          },
+          "unknown_metadata": {
+            "assertions": {
+              "failed": 0,
+              "passed": 2,
+              "unverified": 0
+            },
+            "cases": 1,
+            "passed_cases": 1
+          }
+        },
+        "hard_or_turns": 0,
+        "passed_cases": 7,
+        "run": "runs/cycle2-capabilities-development-parse-v2",
+        "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+        "summary": {
+          "all_passed": false,
+          "api_error_turns": 0,
+          "assertion_counts": {
+            "failed": 1,
+            "passed": 14,
+            "unverified": 0
+          },
+          "case_count": 8,
+          "config_sha256": "76a11d94f61152c6a23fd5918c800eb5e2535e8bac462227b47982a6b5e57d2d",
+          "dataset_sha256": "806308f3696bfe0519aede5ba4b8d4234064d7f8fbd25140886354e9a008794c",
+          "fallback_turns": 0,
+          "health_unverified_turns": 0,
+          "max_rss_bytes": 575111168,
+          "max_seconds": 0.01980604199707159,
+          "p50_seconds": 0.0068362289985088864,
+          "p95_seconds": 0.01980604199707159,
+          "paid_cost_usd": 0,
+          "resource_note": "Tiny authored catalogs; cold starts reload the declared model per case. Not 50000-product latency evidence.",
+          "schema": "cycle2-capability-results-v1",
+          "split": "development",
+          "turn_count": 10,
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 411
+          }
+        },
+        "cold_start_seconds_by_case": [
+          2.5076189169994905,
+          0.09335270900191972,
+          0.08967412499987404,
+          0.09002695799790672,
+          0.09254808300102013,
+          0.08757650000188733,
+          0.08868737500233692,
+          0.09043008300068323
+        ],
+        "failed_assertion_breakdown": [
+          {
+            "case_id": "d08",
+            "group": "ordinary_queries",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Ranking comparison requires both candidates; at least one was not retrieved/retained"
+          }
+        ]
+      }
+    },
+    "capability_paired": {
+      "grouped": {
+        "assertion_count": 15,
+        "improved": [
+          {
+            "assertion_index": 0,
+            "candidate": "passed",
+            "case_id": "d07",
+            "control": "failed",
+            "turn": 1
+          },
+          {
+            "assertion_index": 1,
+            "candidate": "passed",
+            "case_id": "d07",
+            "control": "failed",
+            "turn": 1
+          }
+        ],
+        "newly_failed": [],
+        "no_lost_passes": true,
+        "note": "Paired authored assertions, not independent shopper or organizer-test performance.",
+        "regressed": []
+      },
+      "parse": {
+        "assertion_count": 15,
+        "improved": [
+          {
+            "assertion_index": 0,
+            "candidate": "passed",
+            "case_id": "d07",
+            "control": "failed",
+            "turn": 1
+          },
+          {
+            "assertion_index": 1,
+            "candidate": "passed",
+            "case_id": "d07",
+            "control": "failed",
+            "turn": 1
+          }
+        ],
+        "newly_failed": [],
+        "no_lost_passes": true,
+        "note": "Paired authored assertions, not independent shopper or organizer-test performance.",
+        "regressed": []
+      }
+    }
+  },
+  "validation": {
+    "targets": {
+      "validation": {
+        "paired": {
+          "grouped": {
+            "bootstrap_resamples": 10000,
+            "bootstrap_seed": 20260826,
+            "hit_loss_within_limit": true,
+            "hit_rate_delta": 0,
+            "note": "Paired observed validation sessions, 10000 resamples; not population equivalence or organizer hidden-test performance.",
+            "practical_gain": false,
+            "sample_count": 32,
+            "technical_score_95pct_ci": [
+              0,
+              0
+            ],
+            "technical_score_delta": 0
+          },
+          "parse": {
+            "bootstrap_resamples": 10000,
+            "bootstrap_seed": 20260826,
+            "hit_loss_within_limit": true,
+            "hit_rate_delta": 0,
+            "note": "Paired observed validation sessions, 10000 resamples; not population equivalence or organizer hidden-test performance.",
+            "practical_gain": false,
+            "sample_count": 32,
+            "technical_score_95pct_ci": [
+              0,
+              0
+            ],
+            "technical_score_delta": 0
+          }
+        },
+        "runs": {
+          "frozen": {
+            "active_or_turns": 0,
+            "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+            "dataset_sha256": "1eab92111d27441d8d6facd1769d6ad508192b602f91cc8a8ff70c5d9c2f811f",
+            "diagnostics": {
+              "cached_turns": 15,
+              "ever_ranked_recall": {
+                "10": 0.96875,
+                "30": 0.96875,
+                "60": 0.96875,
+                "120": 1,
+                "300": 1
+              },
+              "ever_route_recall": {
+                "scoped": 0.78125,
+                "sparse": 1
+              },
+              "failure_diagnostics": {
+                "agent_error_turns": 0,
+                "not_retrieved": 0,
+                "ranking_or_policy": 1
+              },
+              "fallback_turns": 0,
+              "max_seconds": 0.6960744159987371,
+              "p50_seconds": 0.27892789550060115,
+              "p95_seconds": 0.4698852919973433,
+              "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark.",
+              "turn_count": 92
+            },
+            "file_sha256": {
+              "diagnostics.json": "91768bb7a4a4463e99e5d18a813ffad1ae09c0afa2bc4bb6b35b5d8ddb377e50",
+              "manifest.json": "d7117e56accc357252abab8df508f2e506c7c70501f8b52d54bf8b91398a7ac4",
+              "result.json": "42a870b0014e94948e7f28bbeab190ef4f92e598b42bedb911fd88a15b52c0b1",
+              "traces.json": "741168b270ad892482864c4efb720874e091026aaf16909d5291c62ee1884fa7"
+            },
+            "metrics": {
+              "efficiency": 0.809375,
+              "hit_rate_at_10": 0.96875,
+              "mrr": 0.639273,
+              "mttc": 2.90625,
+              "recommended_technical_score": 0.838032,
+              "reported_token_usage": {
+                "completion_tokens": 0,
+                "prompt_tokens": 388332,
+                "total_tokens": 388332
+              },
+              "sample_count": 32,
+              "scenario_metrics": {
+                "boundary": {
+                  "hit_rate_at_10": 1,
+                  "mrr": 0.305556,
+                  "mttc": 7,
+                  "sample_count": 2
+                },
+                "browsing": {
+                  "hit_rate_at_10": 0.916667,
+                  "mrr": 0.636806,
+                  "mttc": 2.916667,
+                  "sample_count": 12
+                },
+                "buying": {
+                  "hit_rate_at_10": 1,
+                  "mrr": 0.516997,
+                  "mttc": 1.666667,
+                  "sample_count": 12
+                },
+                "intent_override": {
+                  "hit_rate_at_10": 1,
+                  "mrr": 1,
+                  "mttc": 4,
+                  "sample_count": 6
+                }
+              }
+            },
+            "resources": {
+              "cold_start_seconds": 17.534897166999144,
+              "evaluation_seconds": 23.376881083000626,
+              "max_rss_bytes": 1113505792,
+              "paid_cost_usd": 0,
+              "startup_fallbacks": {}
+            },
+            "run": "runs/cycle2-validation-targets-frozen",
+            "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+            "unsupported_expression_turns": 0
+          },
+          "grouped": {
+            "active_or_turns": 0,
+            "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+            "dataset_sha256": "1eab92111d27441d8d6facd1769d6ad508192b602f91cc8a8ff70c5d9c2f811f",
+            "diagnostics": {
+              "cached_turns": 15,
+              "ever_ranked_recall": {
+                "10": 0.96875,
+                "30": 0.96875,
+                "60": 0.96875,
+                "120": 1,
+                "300": 1
+              },
+              "ever_route_recall": {
+                "scoped": 0.78125,
+                "sparse": 1
+              },
+              "failure_diagnostics": {
+                "agent_error_turns": 0,
+                "not_retrieved": 0,
+                "ranking_or_policy": 1
+              },
+              "fallback_turns": 0,
+              "max_seconds": 0.6799211659999855,
+              "p50_seconds": 0.2842497080000612,
+              "p95_seconds": 0.4199857920029899,
+              "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark.",
+              "turn_count": 92
+            },
+            "file_sha256": {
+              "diagnostics.json": "2c4a451ebcd5191d2efd29dedf2ecb81dfd23dc8b7a281ec19ed01576898d8a8",
+              "manifest.json": "b5b9e84b8e4716ec829acec6bdc9d29bafcd5ad70a65380aeaed887845204687",
+              "result.json": "42a870b0014e94948e7f28bbeab190ef4f92e598b42bedb911fd88a15b52c0b1",
+              "traces.json": "1d123f8a2f148087160de0ddc791b956d5ab824b551c40100f7ca9415d598922"
+            },
+            "metrics": {
+              "efficiency": 0.809375,
+              "hit_rate_at_10": 0.96875,
+              "mrr": 0.639273,
+              "mttc": 2.90625,
+              "recommended_technical_score": 0.838032,
+              "reported_token_usage": {
+                "completion_tokens": 0,
+                "prompt_tokens": 388332,
+                "total_tokens": 388332
+              },
+              "sample_count": 32,
+              "scenario_metrics": {
+                "boundary": {
+                  "hit_rate_at_10": 1,
+                  "mrr": 0.305556,
+                  "mttc": 7,
+                  "sample_count": 2
+                },
+                "browsing": {
+                  "hit_rate_at_10": 0.916667,
+                  "mrr": 0.636806,
+                  "mttc": 2.916667,
+                  "sample_count": 12
+                },
+                "buying": {
+                  "hit_rate_at_10": 1,
+                  "mrr": 0.516997,
+                  "mttc": 1.666667,
+                  "sample_count": 12
+                },
+                "intent_override": {
+                  "hit_rate_at_10": 1,
+                  "mrr": 1,
+                  "mttc": 4,
+                  "sample_count": 6
+                }
+              }
+            },
+            "resources": {
+              "cold_start_seconds": 19.18805454199901,
+              "evaluation_seconds": 23.64140162500189,
+              "max_rss_bytes": 1060585472,
+              "paid_cost_usd": 0,
+              "startup_fallbacks": {}
+            },
+            "run": "runs/cycle2-validation-targets-grouped",
+            "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+            "unsupported_expression_turns": 0
+          },
+          "parse": {
+            "active_or_turns": 0,
+            "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+            "dataset_sha256": "1eab92111d27441d8d6facd1769d6ad508192b602f91cc8a8ff70c5d9c2f811f",
+            "diagnostics": {
+              "cached_turns": 15,
+              "ever_ranked_recall": {
+                "10": 0.96875,
+                "30": 0.96875,
+                "60": 0.96875,
+                "120": 1,
+                "300": 1
+              },
+              "ever_route_recall": {
+                "scoped": 0.78125,
+                "sparse": 1
+              },
+              "failure_diagnostics": {
+                "agent_error_turns": 0,
+                "not_retrieved": 0,
+                "ranking_or_policy": 1
+              },
+              "fallback_turns": 0,
+              "max_seconds": 1.1888621250000142,
+              "p50_seconds": 0.30272968799908995,
+              "p95_seconds": 0.5334110839976347,
+              "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark.",
+              "turn_count": 92
+            },
+            "file_sha256": {
+              "diagnostics.json": "4310d869140d7c038b60e3a9953640da06b7e6907d3ecb6aec0bf13756d0a54c",
+              "manifest.json": "5f16e2d1f46811037fb920b9cbb03481916c537fe38bcbaea833b7a169ba73cc",
+              "result.json": "42a870b0014e94948e7f28bbeab190ef4f92e598b42bedb911fd88a15b52c0b1",
+              "traces.json": "c5a946c4149d17cb0c7d35e4d356e793ae1725fc4ca28aec0f9e5b763635c02d"
+            },
+            "metrics": {
+              "efficiency": 0.809375,
+              "hit_rate_at_10": 0.96875,
+              "mrr": 0.639273,
+              "mttc": 2.90625,
+              "recommended_technical_score": 0.838032,
+              "reported_token_usage": {
+                "completion_tokens": 0,
+                "prompt_tokens": 388332,
+                "total_tokens": 388332
+              },
+              "sample_count": 32,
+              "scenario_metrics": {
+                "boundary": {
+                  "hit_rate_at_10": 1,
+                  "mrr": 0.305556,
+                  "mttc": 7,
+                  "sample_count": 2
+                },
+                "browsing": {
+                  "hit_rate_at_10": 0.916667,
+                  "mrr": 0.636806,
+                  "mttc": 2.916667,
+                  "sample_count": 12
+                },
+                "buying": {
+                  "hit_rate_at_10": 1,
+                  "mrr": 0.516997,
+                  "mttc": 1.666667,
+                  "sample_count": 12
+                },
+                "intent_override": {
+                  "hit_rate_at_10": 1,
+                  "mrr": 1,
+                  "mttc": 4,
+                  "sample_count": 6
+                }
+              }
+            },
+            "resources": {
+              "cold_start_seconds": 17.62600562499938,
+              "evaluation_seconds": 26.31414500000028,
+              "max_rss_bytes": 1077510144,
+              "paid_cost_usd": 0,
+              "startup_fallbacks": {}
+            },
+            "run": "runs/cycle2-validation-targets-parse",
+            "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+            "unsupported_expression_turns": 0
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "frozen": {
+        "active_or_turns": 0,
+        "close_errors": 0,
+        "file_sha256": {
+          "manifest.json": "fd2168512b574b02a2e5ec9ed9206d633ad59f2c2201439f53c331edafeb4f9d",
+          "result.json": "e03d122e3a571d15f99ec4e5bd117b55aa7e6ab1e57e79bd9a0fd3fd222e5be3"
+        },
+        "groups": {
+          "alternatives_and_conjunction": {
+            "assertions": {
+              "failed": 0,
+              "passed": 10,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "body_vs_component": {
+            "assertions": {
+              "failed": 2,
+              "passed": 1,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 1
+          },
+          "correction": {
+            "assertions": {
+              "failed": 0,
+              "passed": 11,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "explicit_negation": {
+            "assertions": {
+              "failed": 0,
+              "passed": 4,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "no_preference": {
+            "assertions": {
+              "failed": 0,
+              "passed": 9,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "object_vs_accessory": {
+            "assertions": {
+              "failed": 0,
+              "passed": 4,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "ordinary_queries": {
+            "assertions": {
+              "failed": 3,
+              "passed": 0,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 0
+          },
+          "unknown_metadata": {
+            "assertions": {
+              "failed": 0,
+              "passed": 7,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          }
+        },
+        "hard_or_turns": 0,
+        "passed_cases": 19,
+        "run": "runs/cycle2-validation-capabilities-frozen",
+        "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+        "summary": {
+          "all_passed": false,
+          "api_error_turns": 0,
+          "assertion_counts": {
+            "failed": 5,
+            "passed": 46,
+            "unverified": 0
+          },
+          "case_count": 24,
+          "config_sha256": "1e7e739cc3e4779df819ad1bbfd7ad16f2c122f5ee649d73b034e882be196ff3",
+          "dataset_sha256": "d2f874d032737ab76d8900abb297e2e566beb4db8066c3909033e724553f139c",
+          "fallback_turns": 0,
+          "health_unverified_turns": 0,
+          "max_rss_bytes": 766083072,
+          "max_seconds": 0.025040083997737383,
+          "p50_seconds": 0.007840208500056178,
+          "p95_seconds": 0.013531791999412235,
+          "paid_cost_usd": 0,
+          "resource_note": "Tiny authored catalogs; cold starts reload the declared model per case. Not 50000-product latency evidence.",
+          "schema": "cycle2-capability-results-v1",
+          "split": "validation",
+          "turn_count": 30,
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 1658
+          }
+        },
+        "cold_start_seconds_by_case": [
+          3.047684332999779,
+          0.10118391700234497,
+          0.10489441699974122,
+          0.1095023339985346,
+          0.18224287500197534,
+          0.09030245899703004,
+          0.08961583400014206,
+          0.09226645799935795,
+          0.08961849999832339,
+          0.09052900000096997,
+          0.09885862499868381,
+          0.09715350000260514,
+          0.09620995899967966,
+          0.09777737500189687,
+          0.09777595800187555,
+          0.10465333300089696,
+          0.09741241699884995,
+          0.09084112499840558,
+          0.08962541599976248,
+          0.09153299999888986,
+          0.09161362500162795,
+          0.08857324999917182,
+          0.08691533399905893,
+          0.08895191600095131
+        ],
+        "failed_assertion_breakdown": [
+          {
+            "case_id": "v05",
+            "group": "body_vs_component",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Compared both candidates in the full ranked list"
+          },
+          {
+            "case_id": "v06",
+            "group": "body_vs_component",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Compared both candidates in the full ranked list"
+          },
+          {
+            "case_id": "v22",
+            "group": "ordinary_queries",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Ranking comparison requires both candidates; at least one was not retrieved/retained"
+          },
+          {
+            "case_id": "v23",
+            "group": "ordinary_queries",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Ranking comparison requires both candidates; at least one was not retrieved/retained"
+          },
+          {
+            "case_id": "v24",
+            "group": "ordinary_queries",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Ranking comparison requires both candidates; at least one was not retrieved/retained"
+          }
+        ]
+      },
+      "grouped": {
+        "active_or_turns": 2,
+        "close_errors": 0,
+        "file_sha256": {
+          "manifest.json": "2b16d9e3363e36422ac14a2c8c24d72227cbd7162121fd8e7d3e8973c7747a90",
+          "result.json": "dc6cd49548efeddded1c68040715dffdcac2b2e816e25c7d683347efa627dee0"
+        },
+        "groups": {
+          "alternatives_and_conjunction": {
+            "assertions": {
+              "failed": 0,
+              "passed": 10,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "body_vs_component": {
+            "assertions": {
+              "failed": 2,
+              "passed": 1,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 1
+          },
+          "correction": {
+            "assertions": {
+              "failed": 0,
+              "passed": 11,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "explicit_negation": {
+            "assertions": {
+              "failed": 0,
+              "passed": 4,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "no_preference": {
+            "assertions": {
+              "failed": 0,
+              "passed": 9,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "object_vs_accessory": {
+            "assertions": {
+              "failed": 0,
+              "passed": 4,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "ordinary_queries": {
+            "assertions": {
+              "failed": 3,
+              "passed": 0,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 0
+          },
+          "unknown_metadata": {
+            "assertions": {
+              "failed": 0,
+              "passed": 7,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          }
+        },
+        "hard_or_turns": 1,
+        "passed_cases": 19,
+        "run": "runs/cycle2-validation-capabilities-grouped",
+        "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+        "summary": {
+          "all_passed": false,
+          "api_error_turns": 0,
+          "assertion_counts": {
+            "failed": 5,
+            "passed": 46,
+            "unverified": 0
+          },
+          "case_count": 24,
+          "config_sha256": "9fda091879cc4f5e4b8709dce1f9fea8eb3f540d939481ca2e96edf58a30baf3",
+          "dataset_sha256": "d2f874d032737ab76d8900abb297e2e566beb4db8066c3909033e724553f139c",
+          "fallback_turns": 0,
+          "health_unverified_turns": 0,
+          "max_rss_bytes": 824508416,
+          "max_seconds": 0.020547041996906046,
+          "p50_seconds": 0.0070806879994052,
+          "p95_seconds": 0.009051417000591755,
+          "paid_cost_usd": 0,
+          "resource_note": "Tiny authored catalogs; cold starts reload the declared model per case. Not 50000-product latency evidence.",
+          "schema": "cycle2-capability-results-v1",
+          "split": "validation",
+          "turn_count": 30,
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 1658
+          }
+        },
+        "cold_start_seconds_by_case": [
+          2.5206886660016607,
+          0.0923392500008049,
+          0.08697454199864296,
+          0.0892330420028884,
+          0.08661883300010231,
+          0.08694054199804668,
+          0.09016524999969988,
+          0.08978299999944284,
+          0.08633445799932815,
+          0.09021541599940974,
+          0.08826958400095464,
+          0.08620404199973564,
+          0.0872771249996731,
+          0.08841458399911062,
+          0.08678545899965684,
+          0.08679783299885457,
+          0.0892782500013709,
+          0.08616087500195135,
+          0.09460550000221701,
+          0.08748500000001513,
+          0.08971095800006879,
+          0.0906927079995512,
+          0.08728695800164132,
+          0.08990408300087438
+        ],
+        "failed_assertion_breakdown": [
+          {
+            "case_id": "v05",
+            "group": "body_vs_component",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Compared both candidates in the full ranked list"
+          },
+          {
+            "case_id": "v06",
+            "group": "body_vs_component",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Compared both candidates in the full ranked list"
+          },
+          {
+            "case_id": "v22",
+            "group": "ordinary_queries",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Ranking comparison requires both candidates; at least one was not retrieved/retained"
+          },
+          {
+            "case_id": "v23",
+            "group": "ordinary_queries",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Ranking comparison requires both candidates; at least one was not retrieved/retained"
+          },
+          {
+            "case_id": "v24",
+            "group": "ordinary_queries",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Ranking comparison requires both candidates; at least one was not retrieved/retained"
+          }
+        ]
+      },
+      "parse": {
+        "active_or_turns": 0,
+        "close_errors": 0,
+        "file_sha256": {
+          "manifest.json": "f9108a8dacce3e65d2d9726a8df696d0cd0171705b2e8811000ed86aa586b061",
+          "result.json": "f849359367a1ca3f0a48aecc9cb79207667799fc908847258424d135ebacb00c"
+        },
+        "groups": {
+          "alternatives_and_conjunction": {
+            "assertions": {
+              "failed": 0,
+              "passed": 10,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "body_vs_component": {
+            "assertions": {
+              "failed": 2,
+              "passed": 1,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 1
+          },
+          "correction": {
+            "assertions": {
+              "failed": 0,
+              "passed": 11,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "explicit_negation": {
+            "assertions": {
+              "failed": 0,
+              "passed": 4,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "no_preference": {
+            "assertions": {
+              "failed": 0,
+              "passed": 9,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "object_vs_accessory": {
+            "assertions": {
+              "failed": 0,
+              "passed": 4,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          },
+          "ordinary_queries": {
+            "assertions": {
+              "failed": 3,
+              "passed": 0,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 0
+          },
+          "unknown_metadata": {
+            "assertions": {
+              "failed": 0,
+              "passed": 7,
+              "unverified": 0
+            },
+            "cases": 3,
+            "passed_cases": 3
+          }
+        },
+        "hard_or_turns": 0,
+        "passed_cases": 19,
+        "run": "runs/cycle2-validation-capabilities-parse",
+        "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+        "summary": {
+          "all_passed": false,
+          "api_error_turns": 0,
+          "assertion_counts": {
+            "failed": 5,
+            "passed": 46,
+            "unverified": 0
+          },
+          "case_count": 24,
+          "config_sha256": "76a11d94f61152c6a23fd5918c800eb5e2535e8bac462227b47982a6b5e57d2d",
+          "dataset_sha256": "d2f874d032737ab76d8900abb297e2e566beb4db8066c3909033e724553f139c",
+          "fallback_turns": 0,
+          "health_unverified_turns": 0,
+          "max_rss_bytes": 778305536,
+          "max_seconds": 0.021983208000165178,
+          "p50_seconds": 0.007224937500723172,
+          "p95_seconds": 0.008651749998534797,
+          "paid_cost_usd": 0,
+          "resource_note": "Tiny authored catalogs; cold starts reload the declared model per case. Not 50000-product latency evidence.",
+          "schema": "cycle2-capability-results-v1",
+          "split": "validation",
+          "turn_count": 30,
+          "usage": {
+            "completion_tokens": 0,
+            "prompt_tokens": 1658
+          }
+        },
+        "cold_start_seconds_by_case": [
+          2.6477872079994995,
+          0.09042216700254357,
+          0.08717650000107824,
+          0.08650816600129474,
+          0.08808604099976947,
+          0.08587320800143061,
+          0.08623433300090255,
+          0.08833195899933344,
+          0.08822850000069593,
+          0.09191258299688343,
+          0.09034929200061015,
+          0.08984050000071875,
+          0.08620845900077256,
+          0.08602970799984178,
+          0.08864691700000549,
+          0.1158619580019149,
+          0.0871634159993846,
+          0.08886383299977751,
+          0.09025025000300957,
+          0.1552134580015263,
+          0.08978979099993012,
+          0.08619495799939614,
+          0.08668191699689487,
+          0.08800633299688343
+        ],
+        "failed_assertion_breakdown": [
+          {
+            "case_id": "v05",
+            "group": "body_vs_component",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Compared both candidates in the full ranked list"
+          },
+          {
+            "case_id": "v06",
+            "group": "body_vs_component",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Compared both candidates in the full ranked list"
+          },
+          {
+            "case_id": "v22",
+            "group": "ordinary_queries",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Ranking comparison requires both candidates; at least one was not retrieved/retained"
+          },
+          {
+            "case_id": "v23",
+            "group": "ordinary_queries",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Ranking comparison requires both candidates; at least one was not retrieved/retained"
+          },
+          {
+            "case_id": "v24",
+            "group": "ordinary_queries",
+            "turn": 1,
+            "status": "failed",
+            "assertion_kind": "rank_before",
+            "reason": "Ranking comparison requires both candidates; at least one was not retrieved/retained"
+          }
+        ]
+      }
+    },
+    "capability_paired": {
+      "grouped": {
+        "assertion_count": 51,
+        "improved": [],
+        "newly_failed": [],
+        "no_lost_passes": true,
+        "note": "Paired authored assertions, not independent shopper or organizer-test performance.",
+        "regressed": []
+      },
+      "parse": {
+        "assertion_count": 51,
+        "improved": [],
+        "newly_failed": [],
+        "no_lost_passes": true,
+        "note": "Paired authored assertions, not independent shopper or organizer-test performance.",
+        "regressed": []
+      }
+    }
+  },
+  "gates": {
+    "development": {
+      "candidates": {
+        "grouped": {
+          "all_passed": true,
+          "checks": {
+            "capability_healthy": true,
+            "capability_no_lost_passes": true,
+            "capability_no_new_failed_assertions": true,
+            "capability_no_paid_inference": true,
+            "capability_no_unverified_assertions": true,
+            "capability_p95_at_most_twice_control": true,
+            "capability_p95_below_one_second": true,
+            "capability_peak_rss_below_two_gib": true,
+            "new_healthy": true,
+            "new_no_paid_inference": true,
+            "new_p95_at_most_twice_control": true,
+            "new_p95_below_one_second": true,
+            "new_peak_rss_below_two_gib": true,
+            "public_healthy": true,
+            "public_hit_floor": true,
+            "public_no_paid_inference": true,
+            "public_p95_at_most_twice_control": true,
+            "public_p95_below_one_second": true,
+            "public_peak_rss_below_two_gib": true,
+            "public_score_floor": true
+          },
+          "failed": []
+        },
+        "parse": {
+          "all_passed": true,
+          "checks": {
+            "capability_healthy": true,
+            "capability_no_lost_passes": true,
+            "capability_no_new_failed_assertions": true,
+            "capability_no_paid_inference": true,
+            "capability_no_unverified_assertions": true,
+            "capability_p95_at_most_twice_control": true,
+            "capability_p95_below_one_second": true,
+            "capability_peak_rss_below_two_gib": true,
+            "new_healthy": true,
+            "new_no_paid_inference": true,
+            "new_p95_at_most_twice_control": true,
+            "new_p95_below_one_second": true,
+            "new_peak_rss_below_two_gib": true,
+            "public_healthy": true,
+            "public_hit_floor": true,
+            "public_no_paid_inference": true,
+            "public_p95_at_most_twice_control": true,
+            "public_p95_below_one_second": true,
+            "public_peak_rss_below_two_gib": true,
+            "public_score_floor": true
+          },
+          "failed": []
+        }
+      },
+      "phase": "development",
+      "scope": "Recorded regression/resource gates only; developer correctness and review are separately required."
+    },
+    "validation": {
+      "candidates": {
+        "grouped": {
+          "all_passed": true,
+          "checks": {
+            "capability_healthy": true,
+            "capability_no_lost_passes": true,
+            "capability_no_new_failed_assertions": true,
+            "capability_no_paid_inference": true,
+            "capability_no_unverified_assertions": true,
+            "capability_p95_at_most_twice_control": true,
+            "capability_p95_below_one_second": true,
+            "capability_peak_rss_below_two_gib": true,
+            "validation_healthy": true,
+            "validation_hit_floor": true,
+            "validation_no_paid_inference": true,
+            "validation_p95_at_most_twice_control": true,
+            "validation_p95_below_one_second": true,
+            "validation_peak_rss_below_two_gib": true,
+            "validation_score_floor": true
+          },
+          "failed": []
+        },
+        "parse": {
+          "all_passed": true,
+          "checks": {
+            "capability_healthy": true,
+            "capability_no_lost_passes": true,
+            "capability_no_new_failed_assertions": true,
+            "capability_no_paid_inference": true,
+            "capability_no_unverified_assertions": true,
+            "capability_p95_at_most_twice_control": true,
+            "capability_p95_below_one_second": true,
+            "capability_peak_rss_below_two_gib": true,
+            "validation_healthy": true,
+            "validation_hit_floor": true,
+            "validation_no_paid_inference": true,
+            "validation_p95_at_most_twice_control": true,
+            "validation_p95_below_one_second": true,
+            "validation_peak_rss_below_two_gib": true,
+            "validation_score_floor": true
+          },
+          "failed": []
+        }
+      },
+      "phase": "validation",
+      "scope": "Recorded regression/resource gates only; developer correctness and review are separately required."
+    }
+  },
+  "off_mode_behavior_parity": {
+    "reference_commit": "99095211a1732eb750610bd59610f215dee3136f",
+    "candidate_commit": "8964157d701c5cd9d3c642246d38f38db91248a0",
+    "comparisons": {
+      "public": {
+        "reference": "runs/cycle2-frozen-public-development",
+        "candidate": "runs/cycle2-frozen-public-development-v2",
+        "reference_manifest_sha256": "14478dd6e6d760e5f2cca7891f93fd361559b240750d968b82887dec0fa3f638",
+        "candidate_manifest_sha256": "9d531bdb5dea56779d2f15eb87c710936b993d743ab655eee364c62898156893",
+        "matched": true,
+        "session_count": 200,
+        "turn_count": 628,
+        "mismatches": [],
+        "compared": [
+          "complete official results",
+          "messages",
+          "complete responses including usage",
+          "query",
+          "revision",
+          "cache_hit",
+          "preferences",
+          "routes",
+          "retrieved_ids",
+          "ranked_ids",
+          "fallbacks",
+          "policy"
+        ],
+        "excluded": [
+          "timing",
+          "new diagnostic fields absent from the original baseline"
+        ]
+      },
+      "new": {
+        "reference": "runs/cycle2-frozen-new-development",
+        "candidate": "runs/cycle2-frozen-new-development-v2",
+        "reference_manifest_sha256": "d72fc241650de29c47504a219b79da4760856081c8731864bc27b5076407ad2d",
+        "candidate_manifest_sha256": "0af3abd19515d433c0b0095b8464c7fd96b4c53dd6bcdd3b2e09a67c4b4e3356",
+        "matched": true,
+        "session_count": 32,
+        "turn_count": 109,
+        "mismatches": [],
+        "compared": [
+          "complete official results",
+          "messages",
+          "complete responses including usage",
+          "query",
+          "revision",
+          "cache_hit",
+          "preferences",
+          "routes",
+          "retrieved_ids",
+          "ranked_ids",
+          "fallbacks",
+          "policy"
+        ],
+        "excluded": [
+          "timing",
+          "new diagnostic fields absent from the original baseline"
+        ]
+      }
+    }
+  },
+  "offline": {
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "config_sha256": "9fda091879cc4f5e4b8709dce1f9fea8eb3f540d939481ca2e96edf58a30baf3",
+    "directory": "artifacts/cycle2/offline-final-EBQecJ",
+    "max_rss_bytes": 805289984,
+    "named_credentials_removed": 5,
+    "network": {
+      "denied": true,
+      "error": "PermissionError",
+      "probe": "loopback bind"
+    },
+    "probe_sha256": "7eae5d63f33194a934783bb07c662a233257930cd96d42b3639a5828a91b33fb",
+    "records": [
+      {
+        "cold_start_seconds": 17.628020000000106,
+        "completion_tokens": 0,
+        "contracts_passed": 2,
+        "correction_state_verified": true,
+        "kind": "healthy",
+        "model_loaded": true,
+        "prompt_tokens": 10359,
+        "recommendation_counts": [
+          10,
+          10
+        ],
+        "startup_fallbacks": {},
+        "turns": 2
+      },
+      {
+        "cold_start_seconds": 15.505005708000681,
+        "completion_tokens": 0,
+        "contracts_passed": 2,
+        "correction_state_verified": true,
+        "kind": "missing",
+        "model_loaded": false,
+        "prompt_tokens": 0,
+        "recommendation_counts": [
+          10,
+          10
+        ],
+        "startup_fallbacks": {
+          "neural_rerank": "FileNotFoundError: Missing offline reranker asset: model.safetensors"
+        },
+        "turns": 2
+      },
+      {
+        "cold_start_seconds": 14.153491040997324,
+        "completion_tokens": 0,
+        "contracts_passed": 2,
+        "correction_state_verified": true,
+        "kind": "invalid_weights",
+        "model_loaded": false,
+        "prompt_tokens": 0,
+        "recommendation_counts": [
+          10,
+          10
+        ],
+        "startup_fallbacks": {
+          "neural_rerank": "ValueError: Unexpected reranker weights checksum"
+        },
+        "turns": 2
+      }
+    ],
+    "result_sha256": "19dbc318d44f95c5c3c9fb43f1b0fd07d88954b876c5adf7074473dbe32f98f2",
+    "source_changed": false,
+    "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63"
+  },
+  "replay": {
+    "agents": [
+      {
+        "catalog_kind": "real",
+        "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+        "closed": true,
+        "cold_start_seconds": 18.01373537499967,
+        "mode": "frozen",
+        "product_count": 50000,
+        "startup_fallbacks": {}
+      },
+      {
+        "catalog_kind": "invented",
+        "catalog_sha256": "025468a229a1a990314d8165fa98d9bcb29110e7c89239bc061c8857f3fecf02",
+        "closed": true,
+        "cold_start_seconds": 0.08834804200159851,
+        "mode": "frozen",
+        "product_count": 3,
+        "startup_fallbacks": {}
+      },
+      {
+        "catalog_kind": "real",
+        "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+        "closed": true,
+        "cold_start_seconds": 14.681363290997979,
+        "mode": "parse",
+        "product_count": 50000,
+        "startup_fallbacks": {}
+      },
+      {
+        "catalog_kind": "invented",
+        "catalog_sha256": "025468a229a1a990314d8165fa98d9bcb29110e7c89239bc061c8857f3fecf02",
+        "closed": true,
+        "cold_start_seconds": 0.08732145800240687,
+        "mode": "parse",
+        "product_count": 3,
+        "startup_fallbacks": {}
+      },
+      {
+        "catalog_kind": "real",
+        "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+        "closed": true,
+        "cold_start_seconds": 14.875608459002251,
+        "mode": "grouped",
+        "product_count": 50000,
+        "startup_fallbacks": {}
+      },
+      {
+        "catalog_kind": "invented",
+        "catalog_sha256": "025468a229a1a990314d8165fa98d9bcb29110e7c89239bc061c8857f3fecf02",
+        "closed": true,
+        "cold_start_seconds": 0.08960799999840674,
+        "mode": "grouped",
+        "product_count": 3,
+        "startup_fallbacks": {}
+      }
+    ],
+    "created_at": "2026-08-26T13:12:40.904354+00:00",
+    "directory": "artifacts/cycle2/alternatives-demo-v2",
+    "invented_witness": {
+      "catalog_kind": "invented",
+      "group_evidence": "supported",
+      "grouped_penalty": 0,
+      "grouped_rank": 1,
+      "grouped_top10_rank": 1,
+      "parent_asin": "INVENTED_COTTON",
+      "parse_penalty": 1.0197772657450077,
+      "parse_rank": 2,
+      "parse_top10_rank": 2,
+      "probe_id": "three-state",
+      "query": "shirts cotton linen",
+      "turn": 1,
+      "option_evidence": [
+        {
+          "attribute": "material",
+          "value": "cotton",
+          "signal": 0.95
+        },
+        {
+          "attribute": "material",
+          "value": "linen",
+          "signal": -0.4
+        }
+      ],
+      "source": {
+        "title": "Everyday cotton shirt",
+        "features": "Cotton fabric. Linen-free.",
+        "details": "Fabric type cotton"
+      }
+    },
+    "manifest_sha256": "1524c3739e1d0731c6b5e55bba0c5f5851d0ac7fcd446e0b2416cacdccf38c4a",
+    "note": "All fixed controls and probes retained; authored demonstrations are not shopper or score evidence.",
+    "output_is_video": false,
+    "output_sha256": {
+      "invented-catalog.jsonl": "025468a229a1a990314d8165fa98d9bcb29110e7c89239bc061c8857f3fecf02",
+      "replay.cast": "3b2e640fed693bc764a4069e1066bedd240ab4ecaa591f99142c8dcb690b95f7",
+      "responses.json": "258392d708bf1876463df62fd3d2b17ffceeae82eea795d29a7c23d4a16fb57d",
+      "transcript.txt": "2b7a37efb8a5e75ea3238ff9099c84cbbf4829cfa022bacbc6d659fc4328eec8"
+    },
+    "paid_calls": 0,
+    "presentation_duration_seconds": 180,
+    "real_witness": null,
+    "record_count": 24,
+    "schema": "cycle2-alternatives-replay-v1",
+    "source_config_catalog_models_unchanged": true,
+    "status": "completed"
+  },
+  "interpretation": {
+    "target_quality_gain_observed": false,
+    "locked_capability_gain_observed": false,
+    "real_catalog_grouped_intervention_observed": false,
+    "developer_false_contradiction_repair_verified": true,
+    "all_target_paired_score_deltas": 0,
+    "locked_capability_passed": 46,
+    "locked_capability_total": 51,
+    "held_out_data_consumed": true,
+    "retuned_after_validation": false,
+    "limitations": [
+      "No active OR turns occurred in any target-recovery comparison.",
+      "Grouped capability validation contained two active OR turns, one hard; none distinguished the guard from both controls.",
+      "Two body-versus-component ranking assertions and three missing-comparator assertions failed in all validation controls.",
+      "All registered regression/resource gates passed; this is not evidence of population equivalence or first-place novelty.",
+      "Selected validation p95 was below one second, but parse validation had a 1.189-second maximum turn; serial timing differences are not causal speedups.",
+      "The real-catalog replay did not exhibit a grouped-guard benefit; the rank-changing witness uses an explicitly invented catalog.",
+      "Offline inference was verified after installation; air-gapped dependency installation and organizer hardware remain unverified."
+    ]
+  }
+}

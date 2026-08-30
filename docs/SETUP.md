@@ -1,0 +1,96 @@
+# Backend setup
+
+Run commands from the repository root. Keep `README.md` empty until the owner approves the final project presentation; this file supplies the required reproducibility instructions meanwhile.
+
+## Python and dependencies
+
+The tested environment is CPython 3.12.12 on macOS arm64. Python must include SQLite FTS5. Other operating systems, architectures and organizer hardware require their own verification.
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt -r requirements-dev.txt
+python -m pip check
+```
+
+The dependency manifest includes the full neural lock. Installation uses the network but does not acquire model weights. A completely air-gapped installation needs preinstalled dependencies or a matching-platform wheelhouse; a fresh wheelhouse installation has not been verified.
+
+## Organizer catalog
+
+Obtain `catalog.jsonl.gz` and the published checksums from the organizer using [the data instructions](../data/README.md). Verify the archive before decompression. Place it in `data/` and keep the original archive:
+
+```bash
+gzip -dk data/catalog.jsonl.gz
+shasum -a 256 data/catalog.jsonl
+```
+
+The frozen 50,000-product decompressed catalog has SHA-256 `da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67`. Do not alter catalog rows or evaluation labels. Catalogs, raw traces, model files and virtual environments stay outside source control.
+
+## Local reranker
+
+Acquire the pinned reranker explicitly during preparation, then verify it without downloading:
+
+```bash
+python -m experiments.prepare_models --model reranker --download
+python -m experiments.prepare_models --model reranker
+```
+
+Required assets live in `artifacts/models/reranker/`. The selected model is `cross-encoder/ms-marco-MiniLM-L6-v2`, revision `233902d25c440f23af6f7d6e94d2946bac0bee0a`, Apache-2.0. Preserve its notices and file-hash manifest. Model loading is local-only, safetensors-only, disables remote code and requires no provider credentials. See [model details](MODELS.md).
+
+The selected configuration uses grouped explicit alternatives, four CPU threads, 120 retained candidates and a 30-candidate reranking prefix. Its bytes match the measured `configs/cycle2_grouped.json`; [the selection receipt](cycle2-selection.json) records the promotion. No dense index or contrast sidecar is required. Missing or invalid optional assets trigger a recorded sparse fallback; that is a degraded mode, not reproduction of the neural result. Do not silently report fallback measurements as neural measurements.
+
+## Interface and official harness
+
+Package [agent.py](../agent.py), its `mercury/` helper modules and [configs/selected.json](../configs/selected.json) together. The entrypoint resolves model paths relative to its own directory. Omitting the selected configuration activates different defaults and does not reproduce the selected build.
+
+```python
+from agent import Agent
+
+agent = Agent("data/catalog.jsonl")
+try:
+    agent.reset("example", {})
+    print(agent.respond("example", "I need a canvas bag.", 1, 10))
+    print(agent.respond("example", "Actually, blue please.", 2, 10))
+finally:
+    agent.close()
+```
+
+Use `reset` before the first response. Turns range from 1 to 10, and each response contains at most ten unique real catalog IDs. The official contract is [agent_api_contract.json](agent_api_contract.json). No target, scenario label or evaluation outcome is supplied to the agent.
+
+Run the unchanged organizer harness on the released public set:
+
+```bash
+python -m evaluator.local_evaluator --catalog data/catalog.jsonl --dataset data/public_set.jsonl --output results.json
+```
+
+The released 200 sessions have been used for development and are not an independent holdout. For a named, instrumented development run, choose an unused output name:
+
+```bash
+python -m experiments.run --name local-selected-repro --config configs/selected.json --dataset data/public_set.jsonl
+```
+
+Keep benchmarks serial and retain their manifests. The runner records source/configuration/data hashes, package versions, actual tokens, fallbacks, cold start, response latency and peak process memory. It does not charge or use a hosted inference API. Local compute still consumes time, electricity and storage.
+
+## Tests and recorded API replay
+
+```bash
+python -m unittest discover -s tests -q
+python -m ruff check .
+python -m demo.alternatives --catalog data/catalog.jsonl --selected-mode grouped --output artifacts/local-alternatives-replay
+```
+
+The alternatives replay executes all three fixed controls; `--selected-mode` chooses narration, not which controls run. It retains the three declared real-catalog probes and an explicitly invented three-product example. Use an unused output directory. Replay output is actual response evidence plus an asciicast, not a video. Presentation pacing is not a latency measurement. Record/export and approve a public three-minute video separately. No publication or competition submission follows from these commands. See [the demo guide](DEMO_SCRIPT.md).
+
+## Completed comparison and validation boundary
+
+The alternatives comparison is complete under [its registered protocol](CYCLE2_ALTERNATIVES_PROTOCOL.md). [The final report](CYCLE2_RESULTS.md) and [aggregate evidence](cycle2-summary.json) distinguish developer correctness, target recovery, capability failures and resources. Grouped passed the release gates but did not improve target scores or locked capability passes. The selected public score is 0.786724; the different 32-session validation set scores 0.838032 under every control. Do not interpret those two numbers as a gain.
+
+Reproduce a control on released development data with a fresh name:
+
+```bash
+python -m experiments.run --name local-frozen-repro --config configs/cycle2_frozen.json --dataset data/public_set.jsonl
+python -m experiments.run --name local-parse-repro --config configs/cycle2_parse.json --dataset data/public_set.jsonl
+python -m experiments.run --name local-grouped-repro --config configs/cycle2_grouped.json --dataset data/public_set.jsonl
+```
+
+The new target/capability inputs and raw artifacts remain local, not in Git; reproducing their exact results requires those preserved packs and manifests. All six registered validation jobs are already consumed. The freeze verifier deliberately rejects the promoted checkout because `configs/selected.json` now contains grouped rather than the pre-selection OFF baseline. The source snapshot, pre-promotion verification and selection receipt explain that intentional difference. Do not weaken the verifier, remove consumption markers, reopen validation to test installation, or claim a new output directory is a fresh holdout.

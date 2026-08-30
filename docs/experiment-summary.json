@@ -1,0 +1,4210 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-26T09:02:53.977362+00:00",
+  "note": "Aggregate-only evidence. No per-session labels, target IDs or dialogue traces. Public development is not private-test evidence. Full historical manifests and source snapshots remain local under runs/.",
+  "selected_config": {
+    "dense": false,
+    "neural_rerank": true,
+    "contrast": false,
+    "evidence_ranking": false,
+    "state_mode": "ledger",
+    "question_policy": "other",
+    "slate_policy": "fixed",
+    "slate_size": 10,
+    "other_question_limit": 4,
+    "candidate_limit": 120,
+    "sparse_limit": 180,
+    "dense_limit": 100,
+    "rerank_limit": 30,
+    "max_sessions": 256,
+    "dense_weight": 0.35,
+    "neural_weight": 0.75,
+    "contrast_weight": 0.12,
+    "artifact_dir": "artifacts",
+    "device": "cpu",
+    "threads": 4
+  },
+  "runs": [
+    {
+      "name": "official-starter-full-offline",
+      "baseline": true,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": true,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 2,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "data/public_set.jsonl",
+      "dataset_sha256": "857259f7a438e6188ac63e18995b6ff4489bfcfc4a716a798b9a2aa0ee8f7579",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T09:00:05.601075+00:00",
+      "finished_at_utc": "2026-08-26T09:00:22.243607+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 1.1659626249984285,
+      "evaluation_seconds": 15.050129917000959,
+      "max_rss_bytes": 360628224,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "48248c33a1b3a95bd1d9118e67ac649b76953fbd26a4bb3827949bf1ce1d9581",
+      "result_sha256": "6db17fe0a1e81b6acf97de6bf985f47c3885f7a9994285c809051d0ccb536547",
+      "source_digest": "280dd8e012365707198f8652e42b8b38ae67a7d54fcfefff2b32d1f25431ea6c",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/official-starter-full-offline",
+      "metrics": {
+        "sample_count": 200,
+        "hit_rate_at_10": 0.125,
+        "mrr": 0.068034,
+        "mttc": 9.81,
+        "efficiency": 0.119,
+        "recommended_technical_score": 0.10671,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 10,
+            "hit_rate_at_10": 0,
+            "mrr": 0,
+            "mttc": 11
+          },
+          "browsing": {
+            "sample_count": 80,
+            "hit_rate_at_10": 0.025,
+            "mrr": 0.004514,
+            "mttc": 10.75
+          },
+          "buying": {
+            "sample_count": 80,
+            "hit_rate_at_10": 0.2375,
+            "mrr": 0.126508,
+            "mttc": 8.625
+          },
+          "intent_override": {
+            "sample_count": 30,
+            "hit_rate_at_10": 0.133333,
+            "mrr": 0.104167,
+            "mttc": 10.066667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 1787,
+        "p50_seconds": 0.008204875000956235,
+        "p95_seconds": 0.011145665999720222,
+        "max_seconds": 0.04567379199943389,
+        "fallback_turns": 0,
+        "cached_turns": 0,
+        "ever_ranked_recall": null,
+        "ever_route_recall": null,
+        "failure_diagnostics": {
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "reserved-final_neural75",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 4,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.75,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/reserved.jsonl",
+      "dataset_sha256": "6a244252e21a44dc8ef1a9682fbaae8c6ab03ddeb956dcb5e084ef48accfbd81",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": true,
+      "started_at_utc": "2026-08-26T08:54:43.846951+00:00",
+      "finished_at_utc": "2026-08-26T08:55:30.893793+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 18.715635417000158,
+      "evaluation_seconds": 27.673110125000676,
+      "max_rss_bytes": 940900352,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "624e2d0c707e884a2c5cb47afbf591cb8086315d0cda1070a842a16852db5254",
+      "result_sha256": "d138d925fee81230e1614b800ac3585fd8c206a3f430a71917795814547da618",
+      "source_digest": "280dd8e012365707198f8652e42b8b38ae67a7d54fcfefff2b32d1f25431ea6c",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/reserved-final_neural75",
+      "metrics": {
+        "sample_count": 40,
+        "hit_rate_at_10": 0.925,
+        "mrr": 0.708819,
+        "mttc": 3.1,
+        "efficiency": 0.79,
+        "recommended_technical_score": 0.833146,
+        "reported_token_usage": {
+          "prompt_tokens": 481197,
+          "completion_tokens": 0,
+          "total_tokens": 481197
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 2,
+            "hit_rate_at_10": 1,
+            "mrr": 1,
+            "mttc": 7
+          },
+          "browsing": {
+            "sample_count": 16,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.69375,
+            "mttc": 3.0625
+          },
+          "buying": {
+            "sample_count": 16,
+            "hit_rate_at_10": 0.9375,
+            "mrr": 0.651215,
+            "mttc": 2.375
+          },
+          "intent_override": {
+            "sample_count": 6,
+            "hit_rate_at_10": 1,
+            "mrr": 0.805556,
+            "mttc": 3.833333
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 121,
+        "p50_seconds": 0.27844208300120954,
+        "p95_seconds": 0.3877313339999091,
+        "max_seconds": 0.506128125000032,
+        "fallback_turns": 0,
+        "cached_turns": 30,
+        "ever_ranked_recall": {
+          "10": 0.925,
+          "30": 0.975,
+          "60": 1,
+          "120": 1,
+          "300": 1
+        },
+        "ever_route_recall": {
+          "sparse": 1,
+          "scoped": 0.7
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 0,
+          "ranking_or_policy": 3,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "reserved-final_neural75_60",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 4,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 60,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.75,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/reserved.jsonl",
+      "dataset_sha256": "6a244252e21a44dc8ef1a9682fbaae8c6ab03ddeb956dcb5e084ef48accfbd81",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": true,
+      "started_at_utc": "2026-08-26T08:55:31.605933+00:00",
+      "finished_at_utc": "2026-08-26T08:56:43.079340+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 17.42492429199956,
+      "evaluation_seconds": 53.5554871660006,
+      "max_rss_bytes": 1096269824,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "cc2ad2bd2b736f2d611c08a9c3a745e05a60d06ac9d6071e29c9a2aceda98b2b",
+      "result_sha256": "2c88685c1eb1c9f7c7bcf1d4c40cc3ca20140ac8c6db31cac36de793293f525e",
+      "source_digest": "280dd8e012365707198f8652e42b8b38ae67a7d54fcfefff2b32d1f25431ea6c",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/reserved-final_neural75_60",
+      "metrics": {
+        "sample_count": 40,
+        "hit_rate_at_10": 0.925,
+        "mrr": 0.709444,
+        "mttc": 3.125,
+        "efficiency": 0.7875,
+        "recommended_technical_score": 0.832833,
+        "reported_token_usage": {
+          "prompt_tokens": 998514,
+          "completion_tokens": 0,
+          "total_tokens": 998514
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 2,
+            "hit_rate_at_10": 1,
+            "mrr": 1,
+            "mttc": 7
+          },
+          "browsing": {
+            "sample_count": 16,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.69375,
+            "mttc": 3.0625
+          },
+          "buying": {
+            "sample_count": 16,
+            "hit_rate_at_10": 0.9375,
+            "mrr": 0.652778,
+            "mttc": 2.4375
+          },
+          "intent_override": {
+            "sample_count": 6,
+            "hit_rate_at_10": 1,
+            "mrr": 0.805556,
+            "mttc": 3.833333
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 122,
+        "p50_seconds": 0.5450342285002989,
+        "p95_seconds": 0.7105476659999113,
+        "max_seconds": 0.8049473329992907,
+        "fallback_turns": 0,
+        "cached_turns": 30,
+        "ever_ranked_recall": {
+          "10": 0.925,
+          "30": 1,
+          "60": 1,
+          "120": 1,
+          "300": 1
+        },
+        "ever_route_recall": {
+          "sparse": 1,
+          "scoped": 0.7
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 0,
+          "ranking_or_policy": 3,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "sparse-neural-v1",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": true,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": null,
+      "finished_at_utc": null,
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 17.050990499999898,
+      "evaluation_seconds": 229.34219183300047,
+      "max_rss_bytes": 1181089792,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": null,
+      "source_changed_during_run": false,
+      "manifest_sha256": "11719a27ac32d241e1f843bbb50bee06c2ad47c8b53eee35bcfcbe37de64c729",
+      "result_sha256": "f630cf75048f7f7256e2d2b39657ddc09bc76e7bd0688ed13888d72fa64bb8b5",
+      "source_digest": "7696ba14187323e85037e66acc2c40a5ed9de25951e23e0daa507f7e92112421",
+      "source_snapshot_available": false,
+      "local_run_directory": "runs/sparse-neural-v1",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.71875,
+        "mrr": 0.362076,
+        "mttc": 4.80625,
+        "efficiency": 0.619375,
+        "recommended_technical_score": 0.591873,
+        "reported_token_usage": {
+          "prompt_tokens": 4028932,
+          "completion_tokens": 0,
+          "total_tokens": 4028932
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.625,
+            "mrr": 0.214583,
+            "mttc": 7
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.84375,
+            "mrr": 0.391915,
+            "mttc": 3.703125
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.671875,
+            "mrr": 0.343223,
+            "mttc": 4.796875
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.541667,
+            "mrr": 0.381944,
+            "mttc": 7.041667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 724,
+        "p50_seconds": 0.3178766250002809,
+        "p95_seconds": 0.48323545799939893,
+        "max_seconds": 0.8544430000001739,
+        "fallback_turns": 0,
+        "cached_turns": 27,
+        "ever_ranked_recall": {
+          "10": 0.7375,
+          "30": 0.83125,
+          "60": 0.8875,
+          "120": 0.9375,
+          "300": 0.9375
+        },
+        "ever_route_recall": {
+          "scoped": 0.7375,
+          "sparse": 0.975
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 2,
+          "ranking_or_policy": 40,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "sparse-other-v1",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": true,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": null,
+      "finished_at_utc": null,
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 14.111596917000497,
+      "evaluation_seconds": 55.39531212499969,
+      "max_rss_bytes": 578928640,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": null,
+      "source_changed_during_run": false,
+      "manifest_sha256": "128a97702325fb00547f548bef765dff33bed5a7ed0dc6e86ff83f1756bae72f",
+      "result_sha256": "d59f204ecc4094d343ee59d16c6002c4f972b2e644f9f12d4acffaf0c1c4083e",
+      "source_digest": "7696ba14187323e85037e66acc2c40a5ed9de25951e23e0daa507f7e92112421",
+      "source_snapshot_available": false,
+      "local_run_directory": "runs/sparse-other-v1",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.68125,
+        "mrr": 0.306967,
+        "mttc": 5.10625,
+        "efficiency": 0.589375,
+        "recommended_technical_score": 0.55059,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.5,
+            "mrr": 0.179514,
+            "mttc": 7.25
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.765625,
+            "mrr": 0.351935,
+            "mttc": 4.375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.671875,
+            "mrr": 0.294866,
+            "mttc": 4.84375
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.541667,
+            "mrr": 0.261806,
+            "mttc": 7.041667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 766,
+        "p50_seconds": 0.05865141699996457,
+        "p95_seconds": 0.2375017080012185,
+        "max_seconds": 0.5923440839997056,
+        "fallback_turns": 0,
+        "cached_turns": 34,
+        "ever_ranked_recall": {
+          "10": 0.69375,
+          "30": 0.83125,
+          "60": 0.8875,
+          "120": 0.9375,
+          "300": 0.9375
+        },
+        "ever_route_recall": {
+          "scoped": 0.74375,
+          "sparse": 0.975
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 2,
+          "ranking_or_policy": 47,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "starter-dev",
+      "baseline": true,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": true,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": null,
+      "finished_at_utc": null,
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 1.1964646670003276,
+      "evaluation_seconds": 11.217819666999276,
+      "max_rss_bytes": 348520448,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": null,
+      "source_changed_during_run": null,
+      "manifest_sha256": "5f7d799e72828ef608d817a579be7e1ec1cdf46dcf6503c9a69abee98fbd7c02",
+      "result_sha256": "1bb84e3f64125851a831a4e92bb90bb5cc9afd19f8d694f9b8c22a2dd88b88b3",
+      "source_digest": "a16913995bffeaac1b79e77149fd3475ef226166dfbf52ceb52eeef267d0338e",
+      "source_snapshot_available": false,
+      "local_run_directory": "runs/starter-dev",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.13125,
+        "mrr": 0.074365,
+        "mttc": 9.74375,
+        "efficiency": 0.125625,
+        "recommended_technical_score": 0.113059,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0,
+            "mrr": 0,
+            "mttc": 11
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.03125,
+            "mrr": 0.005642,
+            "mttc": 10.6875
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.25,
+            "mrr": 0.133395,
+            "mttc": 8.5
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.125,
+            "mrr": 0.125,
+            "mttc": 10.125
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 1420,
+        "p50_seconds": 0.007873020999795699,
+        "p95_seconds": 0.008648208000522573,
+        "max_seconds": 0.02648991699970793,
+        "fallback_turns": 0,
+        "cached_turns": 0,
+        "ever_ranked_recall": {
+          "10": 0,
+          "30": 0,
+          "60": 0,
+          "120": 0,
+          "300": 0
+        },
+        "ever_route_recall": {},
+        "failure_diagnostics": {
+          "not_retrieved": 160,
+          "ranking_or_policy": 0,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-ablate_contrast",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": true,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:08:46.943580+00:00",
+      "finished_at_utc": "2026-08-26T08:09:10.788145+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 14.460903457998938,
+      "evaluation_seconds": 8.953230541999801,
+      "max_rss_bytes": 835108864,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "a1e0de2f7e25aa00d333e6d5eeaae8b85196479af96eaa133aa346279d5653be",
+      "result_sha256": "057feeb66358c905c565b91cbe75911312cda328ff3de8138878c01994990217",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-ablate_contrast",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.80625,
+        "mrr": 0.455816,
+        "mttc": 4.03125,
+        "efficiency": 0.696875,
+        "recommended_technical_score": 0.679245,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.575,
+            "mttc": 5.75
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.430543,
+            "mttc": 3.34375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.78125,
+            "mrr": 0.454247,
+            "mttc": 3.859375
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.708333,
+            "mrr": 0.487665,
+            "mttc": 5.75
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 614,
+        "p50_seconds": 0.00994283349973557,
+        "p95_seconds": 0.05023345799963863,
+        "max_seconds": 0.11828920900006779,
+        "fallback_turns": 0,
+        "cached_turns": 215,
+        "ever_ranked_recall": {
+          "10": 0.8125,
+          "30": 0.875,
+          "60": 0.9375,
+          "120": 0.99375,
+          "300": 0.99375
+        },
+        "ever_route_recall": {
+          "scoped": 0.74375,
+          "sparse": 0.99375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 29,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-ablate_entropy",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "entropy",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:07:53.558515+00:00",
+      "finished_at_utc": "2026-08-26T08:08:17.141396+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 14.75608554199971,
+      "evaluation_seconds": 8.479647166999712,
+      "max_rss_bytes": 574488576,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "82f9796319adcd55c5fd521cf5bfc87ffac42ffd53a6a31a2939099bd5453978",
+      "result_sha256": "8c7dd98d6f688bca82b3c5a8dfcae1937b18e3a7e3c2480fb2d8182ac8eeeeb5",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-ablate_entropy",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.8,
+        "mrr": 0.513209,
+        "mttc": 5.4125,
+        "efficiency": 0.55875,
+        "recommended_technical_score": 0.665713,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.572917,
+            "mttc": 6.75
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.859375,
+            "mrr": 0.509896,
+            "mttc": 5.09375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.463232,
+            "mttc": 5.421875
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.635417,
+            "mttc": 5.791667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 834,
+        "p50_seconds": 0.0021862915009478456,
+        "p95_seconds": 0.04224320899993472,
+        "max_seconds": 0.10440587499942922,
+        "fallback_turns": 0,
+        "cached_turns": 415,
+        "ever_ranked_recall": {
+          "10": 0.80625,
+          "30": 0.88125,
+          "60": 0.95,
+          "120": 0.99375,
+          "300": 0.99375
+        },
+        "ever_route_recall": {
+          "sparse": 1,
+          "scoped": 0.75
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 0,
+          "ranking_or_policy": 31,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-ablate_gap",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "gap",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:09:11.193166+00:00",
+      "finished_at_utc": "2026-08-26T08:09:34.367490+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 13.866843833999155,
+      "evaluation_seconds": 8.970439167000222,
+      "max_rss_bytes": 576077824,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "c95fed7e4ee6c2cf1ea2101dd68a103e43c9ee289175a39dd9d8497367b2f992",
+      "result_sha256": "981a30720aaa15726fcc72e5526dabfda0be4b8a2880abddd6de7ba5400befd4",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-ablate_gap",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.7875,
+        "mrr": 0.494955,
+        "mttc": 4.23125,
+        "efficiency": 0.676875,
+        "recommended_technical_score": 0.677612,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.65625,
+            "mttc": 6.5
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.859375,
+            "mrr": 0.463914,
+            "mttc": 3.484375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.483761,
+            "mttc": 4.125
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.708333,
+            "mrr": 0.553819,
+            "mttc": 5.75
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 643,
+        "p50_seconds": 0.008309667000503396,
+        "p95_seconds": 0.04894149999927322,
+        "max_seconds": 0.14982562500154017,
+        "fallback_turns": 0,
+        "cached_turns": 241,
+        "ever_ranked_recall": {
+          "10": 0.79375,
+          "30": 0.88125,
+          "60": 0.95,
+          "120": 0.99375,
+          "300": 0.99375
+        },
+        "ever_route_recall": {
+          "scoped": 0.74375,
+          "sparse": 0.99375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 32,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-ablate_history",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "history",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:07:06.149965+00:00",
+      "finished_at_utc": "2026-08-26T08:07:30.756055+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 15.366745666999122,
+      "evaluation_seconds": 8.822855874999732,
+      "max_rss_bytes": 536444928,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "1366594acf3c186b014f85ee61be99ee820dd0f27ebfb5821186f39caca451a1",
+      "result_sha256": "a1dc642705cd6614fc2afbcc0d2a8010a947827012ac36ba90eacb7e9a8af396",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-ablate_history",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.8,
+        "mrr": 0.50381,
+        "mttc": 4.1375,
+        "efficiency": 0.68625,
+        "recommended_technical_score": 0.688393,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.65625,
+            "mttc": 6.5
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.859375,
+            "mrr": 0.463914,
+            "mttc": 3.484375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.765625,
+            "mrr": 0.488969,
+            "mttc": 4
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.598958,
+            "mttc": 5.458333
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 630,
+        "p50_seconds": 0.008494813000652357,
+        "p95_seconds": 0.05217241699938313,
+        "max_seconds": 0.11363012499896286,
+        "fallback_turns": 0,
+        "cached_turns": 228,
+        "ever_ranked_recall": {
+          "10": 0.8,
+          "30": 0.88125,
+          "60": 0.95625,
+          "120": 0.99375,
+          "300": 0.99375
+        },
+        "ever_route_recall": {
+          "sparse": 0.99375,
+          "scoped": 0.74375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 31,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-ablate_latest",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "latest",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:06:39.055682+00:00",
+      "finished_at_utc": "2026-08-26T08:07:05.545011+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 15.48088216600081,
+      "evaluation_seconds": 10.498170332999507,
+      "max_rss_bytes": 544571392,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "fefde139151585c60d816d9269d99207616a4d59ca27cc9db5060f20847dc6cd",
+      "result_sha256": "90ef5b48d541f935eb496d585f9405055657a05798d788f69e0d308c7c3aee25",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-ablate_latest",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.63125,
+        "mrr": 0.41184,
+        "mttc": 5.5875,
+        "efficiency": 0.54125,
+        "recommended_technical_score": 0.547427,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.625,
+            "mrr": 0.625,
+            "mttc": 7.375
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.703125,
+            "mrr": 0.453894,
+            "mttc": 4.890625
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.625,
+            "mrr": 0.384952,
+            "mttc": 5.1875
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.458333,
+            "mrr": 0.300347,
+            "mttc": 7.916667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 835,
+        "p50_seconds": 0.0032030420006776694,
+        "p95_seconds": 0.05073224999978265,
+        "max_seconds": 0.17270524999912595,
+        "fallback_turns": 0,
+        "cached_turns": 414,
+        "ever_ranked_recall": {
+          "10": 0.65625,
+          "30": 0.775,
+          "60": 0.8875,
+          "120": 0.94375,
+          "300": 0.94375
+        },
+        "ever_route_recall": {
+          "sparse": 0.975,
+          "scoped": 0.73125
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 4,
+          "ranking_or_policy": 51,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-ablate_lookahead",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "lookahead",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:09:34.841939+00:00",
+      "finished_at_utc": "2026-08-26T08:10:00.027965+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 15.398282707999897,
+      "evaluation_seconds": 9.312629291000121,
+      "max_rss_bytes": 553648128,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "478694242c06efe3f978bc9179dc2788bd2d3eb04ecefebf30f5759ac93174af",
+      "result_sha256": "981a30720aaa15726fcc72e5526dabfda0be4b8a2880abddd6de7ba5400befd4",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-ablate_lookahead",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.7875,
+        "mrr": 0.494955,
+        "mttc": 4.23125,
+        "efficiency": 0.676875,
+        "recommended_technical_score": 0.677612,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.65625,
+            "mttc": 6.5
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.859375,
+            "mrr": 0.463914,
+            "mttc": 3.484375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.483761,
+            "mttc": 4.125
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.708333,
+            "mrr": 0.553819,
+            "mttc": 5.75
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 643,
+        "p50_seconds": 0.008616708999397815,
+        "p95_seconds": 0.052060374999200576,
+        "max_seconds": 0.16602625000086846,
+        "fallback_turns": 0,
+        "cached_turns": 241,
+        "ever_ranked_recall": {
+          "10": 0.79375,
+          "30": 0.88125,
+          "60": 0.95,
+          "120": 0.99375,
+          "300": 0.99375
+        },
+        "ever_route_recall": {
+          "scoped": 0.74375,
+          "sparse": 0.99375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 32,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-ablate_none",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "none",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:10:00.775608+00:00",
+      "finished_at_utc": "2026-08-26T08:10:18.099277+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 14.277851499999088,
+      "evaluation_seconds": 2.6642279170009715,
+      "max_rss_bytes": 574193664,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "6ba02275f44256248d1126c403b30915b46649dd4d92b19f3f869c1ac958e35e",
+      "result_sha256": "b973ce6b7c1b0d1a1c9bda9b6631e16de06d6d2ce1807441f92ace1b12027d39",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-ablate_none",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.19375,
+        "mrr": 0.112478,
+        "mttc": 9.275,
+        "efficiency": 0.1725,
+        "recommended_technical_score": 0.165118,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0,
+            "mrr": 0,
+            "mttc": 11
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.046875,
+            "mrr": 0.006027,
+            "mttc": 10.53125
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.234375,
+            "mrr": 0.111886,
+            "mttc": 8.65625
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.541667,
+            "mrr": 0.435417,
+            "mttc": 7
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 1355,
+        "p50_seconds": 0.00007624999852851033,
+        "p95_seconds": 0.012208665999423829,
+        "max_seconds": 0.061895542001366266,
+        "fallback_turns": 0,
+        "cached_turns": 1171,
+        "ever_ranked_recall": {
+          "10": 0.19375,
+          "30": 0.31875,
+          "60": 0.4,
+          "120": 0.5875,
+          "300": 0.5875
+        },
+        "ever_route_recall": {
+          "scoped": 0.43125,
+          "sparse": 0.6375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 56,
+          "ranking_or_policy": 73,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-ablate_rank_value",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "rank_value",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:08:17.555161+00:00",
+      "finished_at_utc": "2026-08-26T08:08:46.403419+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 13.97191925000152,
+      "evaluation_seconds": 14.513242040999103,
+      "max_rss_bytes": 580796416,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "184a8314401664f92d1c7087d16925ed7b1f4fd669b403bbc16017ddc93731e1",
+      "result_sha256": "ccc6ba79f615b1ab3409f7f5968d8df9f3da62cf6196c703fad4737cfa0f0574",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-ablate_rank_value",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.80625,
+        "mrr": 0.517688,
+        "mttc": 5.2375,
+        "efficiency": 0.57625,
+        "recommended_technical_score": 0.673681,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.677083,
+            "mttc": 6.625
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.859375,
+            "mrr": 0.501563,
+            "mttc": 4.703125
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.465836,
+            "mttc": 5.390625
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.791667,
+            "mrr": 0.645833,
+            "mttc": 5.791667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 807,
+        "p50_seconds": 0.014435042001423426,
+        "p95_seconds": 0.050861624999015476,
+        "max_seconds": 0.15649429199947917,
+        "fallback_turns": 0,
+        "cached_turns": 384,
+        "ever_ranked_recall": {
+          "10": 0.80625,
+          "30": 0.88125,
+          "60": 0.95,
+          "120": 1,
+          "300": 1
+        },
+        "ever_route_recall": {
+          "sparse": 1,
+          "scoped": 0.75
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 0,
+          "ranking_or_policy": 31,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-ablate_schedule",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "schedule",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:07:31.145991+00:00",
+      "finished_at_utc": "2026-08-26T08:07:53.166836+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 13.854366625000694,
+      "evaluation_seconds": 7.831920582999373,
+      "max_rss_bytes": 589430784,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "740d49e256e1db4ae9889b906c90028d470b245fb6d347be66feaedb7498c865",
+      "result_sha256": "93dd4e01190647fa57f432ad5b6a8f7831109352c23eff9e4fd52036fc1597cb",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-ablate_schedule",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.79375,
+        "mrr": 0.494921,
+        "mttc": 6.14375,
+        "efficiency": 0.485625,
+        "recommended_technical_score": 0.642476,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.4375,
+            "mttc": 8.375
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.859375,
+            "mrr": 0.503237,
+            "mttc": 5.75
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.45607,
+            "mttc": 6.390625
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.595486,
+            "mttc": 5.791667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 950,
+        "p50_seconds": 0.00003752049997274298,
+        "p95_seconds": 0.03651979200003552,
+        "max_seconds": 0.0807254589999502,
+        "fallback_turns": 0,
+        "cached_turns": 536,
+        "ever_ranked_recall": {
+          "10": 0.8,
+          "30": 0.88125,
+          "60": 0.94375,
+          "120": 0.99375,
+          "300": 0.99375
+        },
+        "ever_route_recall": {
+          "sparse": 0.99375,
+          "scoped": 0.74375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 31,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-hybrid_neural_no_evidence",
+      "baseline": false,
+      "config": {
+        "dense": true,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:03:26.503283+00:00",
+      "finished_at_utc": "2026-08-26T08:05:52.262201+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 16.78313249999883,
+      "evaluation_seconds": 128.4710853329998,
+      "max_rss_bytes": 1260322816,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "ca477c6d37c5d4a6a094e1555e0c0bb2bbfbb980fe9784016906aa106cabcc7f",
+      "result_sha256": "3169a8875e28b90c5c948dae4e37d13679b1f5233dc6fe61d3499c09fba21f43",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-hybrid_neural_no_evidence",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.8,
+        "mrr": 0.484945,
+        "mttc": 4.0125,
+        "efficiency": 0.69875,
+        "recommended_technical_score": 0.685234,
+        "reported_token_usage": {
+          "prompt_tokens": 2225255,
+          "completion_tokens": 0,
+          "total_tokens": 2225255
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.432292,
+            "mttc": 3.5
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.84375,
+            "mrr": 0.522656,
+            "mttc": 3.609375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.765625,
+            "mrr": 0.429421,
+            "mttc": 3.9375
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.55,
+            "mttc": 5.458333
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 610,
+        "p50_seconds": 0.28609133299960376,
+        "p95_seconds": 0.430841875000624,
+        "max_seconds": 1.1163144579986692,
+        "fallback_turns": 0,
+        "cached_turns": 219,
+        "ever_ranked_recall": {
+          "10": 0.8,
+          "30": 0.8875,
+          "60": 0.95625,
+          "120": 0.98125,
+          "300": 0.98125
+        },
+        "ever_route_recall": {
+          "sparse": 0.99375,
+          "dense": 0.75625,
+          "scoped": 0.74375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 31,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-hybrid_no_evidence",
+      "baseline": false,
+      "config": {
+        "dense": true,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:00:47.628901+00:00",
+      "finished_at_utc": "2026-08-26T08:01:17.500370+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 17.014855790999718,
+      "evaluation_seconds": 12.365742832998876,
+      "max_rss_bytes": 1092354048,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "d4974ae871eb8feeecd864cfb3c787facf46503f9298fd44e9e80847dc989543",
+      "result_sha256": "194b4680dfef1d554766bf386691e155abffaf018be26d3f3f8e95d4240fa84c",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-hybrid_no_evidence",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.76875,
+        "mrr": 0.426749,
+        "mttc": 4.35,
+        "efficiency": 0.665,
+        "recommended_technical_score": 0.6454,
+        "reported_token_usage": {
+          "prompt_tokens": 8487,
+          "completion_tokens": 0,
+          "total_tokens": 8487
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.383631,
+            "mttc": 4.25
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.8125,
+            "mrr": 0.461316,
+            "mttc": 3.875
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.734375,
+            "mrr": 0.384772,
+            "mttc": 4.21875
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.708333,
+            "mrr": 0.46088,
+            "mttc": 6
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 659,
+        "p50_seconds": 0.01719766699898173,
+        "p95_seconds": 0.056233291999888024,
+        "max_seconds": 0.11472349999894504,
+        "fallback_turns": 0,
+        "cached_turns": 263,
+        "ever_ranked_recall": {
+          "10": 0.76875,
+          "30": 0.8875,
+          "60": 0.95625,
+          "120": 0.98125,
+          "300": 0.98125
+        },
+        "ever_route_recall": {
+          "sparse": 0.99375,
+          "scoped": 0.74375,
+          "dense": 0.7625
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 36,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-sparse_neural_no_evidence",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:01:18.145849+00:00",
+      "finished_at_utc": "2026-08-26T08:03:25.840564+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 15.892157416999908,
+      "evaluation_seconds": 111.30541862499922,
+      "max_rss_bytes": 1164722176,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "6567e73bbdea4b6e9a321ab5c103031699d6c0db8a59d1cc8a1a2b24ce80bac0",
+      "result_sha256": "1a728f7e45c7a4c6b8b18a1a7184af4dad0222e50d7e66056910684802844630",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-sparse_neural_no_evidence",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.8125,
+        "mrr": 0.533294,
+        "mttc": 3.96875,
+        "efficiency": 0.703125,
+        "recommended_technical_score": 0.706863,
+        "reported_token_usage": {
+          "prompt_tokens": 2101177,
+          "completion_tokens": 0,
+          "total_tokens": 2101177
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.638889,
+            "mttc": 5.75
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.890625,
+            "mrr": 0.528354,
+            "mttc": 3.21875
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.78125,
+            "mrr": 0.510956,
+            "mttc": 3.828125
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.708333,
+            "mrr": 0.570833,
+            "mttc": 5.75
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 605,
+        "p50_seconds": 0.2668208750001213,
+        "p95_seconds": 0.35013845799949195,
+        "max_seconds": 0.5374926250005956,
+        "fallback_turns": 0,
+        "cached_turns": 208,
+        "ever_ranked_recall": {
+          "10": 0.81875,
+          "30": 0.88125,
+          "60": 0.95,
+          "120": 0.99375,
+          "300": 0.99375
+        },
+        "ever_route_recall": {
+          "sparse": 0.99375,
+          "scoped": 0.74375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 28,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-sparse_no_evidence",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T07:57:42.774514+00:00",
+      "finished_at_utc": "2026-08-26T07:58:05.964774+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 14.30808949999846,
+      "evaluation_seconds": 8.542826708000575,
+      "max_rss_bytes": 586268672,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "4d88b9c928bfb7451b00d5bdc2a2c32be80eb321c8ee6736ee53c835d5de742b",
+      "result_sha256": "981a30720aaa15726fcc72e5526dabfda0be4b8a2880abddd6de7ba5400befd4",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-sparse_no_evidence",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.7875,
+        "mrr": 0.494955,
+        "mttc": 4.23125,
+        "efficiency": 0.676875,
+        "recommended_technical_score": 0.677612,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.65625,
+            "mttc": 6.5
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.859375,
+            "mrr": 0.463914,
+            "mttc": 3.484375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.483761,
+            "mttc": 4.125
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.708333,
+            "mrr": 0.553819,
+            "mttc": 5.75
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 643,
+        "p50_seconds": 0.008089999999356223,
+        "p95_seconds": 0.0480270419993758,
+        "max_seconds": 0.106461458000922,
+        "fallback_turns": 0,
+        "cached_turns": 241,
+        "ever_ranked_recall": {
+          "10": 0.79375,
+          "30": 0.88125,
+          "60": 0.95,
+          "120": 0.99375,
+          "300": 0.99375
+        },
+        "ever_route_recall": {
+          "sparse": 0.99375,
+          "scoped": 0.74375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 32,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v2-sparse_other",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": true,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T07:57:02.284758+00:00",
+      "finished_at_utc": "2026-08-26T07:57:42.402772+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 13.750421749999077,
+      "evaluation_seconds": 26.04979808400094,
+      "max_rss_bytes": 576618496,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "c37da2892dc65bb3886220c7b9464a3ef6e23d5e5d68bcbd69ecaec0db092db4",
+      "result_sha256": "7ab4d84f7926a6717e5ffab777046545c30b5a363c9d07f3343e555b5e92e985",
+      "source_digest": "069e8a3a2cdd20a2b8de4c6b3d1f7811f26e5a729f21766b3517c0473e118d86",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v2-sparse_other",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.75,
+        "mrr": 0.352118,
+        "mttc": 4.49375,
+        "efficiency": 0.650625,
+        "recommended_technical_score": 0.61076,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.625,
+            "mrr": 0.248264,
+            "mttc": 6.25
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.84375,
+            "mrr": 0.380593,
+            "mttc": 3.640625
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.734375,
+            "mrr": 0.354216,
+            "mttc": 4.203125
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.583333,
+            "mrr": 0.305208,
+            "mttc": 6.958333
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 679,
+        "p50_seconds": 0.01639450000038778,
+        "p95_seconds": 0.1447688329990342,
+        "max_seconds": 0.5599619999993593,
+        "fallback_turns": 0,
+        "cached_turns": 279,
+        "ever_ranked_recall": {
+          "10": 0.7625,
+          "30": 0.86875,
+          "60": 0.9125,
+          "120": 0.975,
+          "300": 0.975
+        },
+        "ever_route_recall": {
+          "scoped": 0.75,
+          "sparse": 0.99375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 37,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v3-sparse_neural_no_evidence",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 2,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:25:39.602643+00:00",
+      "finished_at_utc": "2026-08-26T08:27:51.044029+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 17.153955874999156,
+      "evaluation_seconds": 113.78506212499997,
+      "max_rss_bytes": 1132052480,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "887c3ef52346ca862fcd19a2d227a05db023325d124d6418aef02ca13cf8ea0f",
+      "result_sha256": "f527581340e9ed146825942835f5b015607fbbef8b94c7cc79e1a0c5687072e5",
+      "source_digest": "e2252a1d85fdfbf68759199d69da263f95be6018dae3c88689cf3bf98f38531a",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v3-sparse_neural_no_evidence",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.79375,
+        "mrr": 0.517165,
+        "mttc": 4.15625,
+        "efficiency": 0.684375,
+        "recommended_technical_score": 0.688899,
+        "reported_token_usage": {
+          "prompt_tokens": 2121337,
+          "completion_tokens": 0,
+          "total_tokens": 2121337
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.625,
+            "mrr": 0.625,
+            "mttc": 7.375
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.890625,
+            "mrr": 0.535454,
+            "mttc": 3.21875
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.765625,
+            "mrr": 0.47048,
+            "mttc": 3.96875
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.666667,
+            "mrr": 0.556944,
+            "mttc": 6.083333
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 632,
+        "p50_seconds": 0.25920466699972167,
+        "p95_seconds": 0.3570047079992946,
+        "max_seconds": 0.6278326250012469,
+        "fallback_turns": 0,
+        "cached_turns": 231,
+        "ever_ranked_recall": {
+          "10": 0.8,
+          "30": 0.875,
+          "60": 0.95,
+          "120": 0.99375,
+          "300": 0.99375
+        },
+        "ever_route_recall": {
+          "sparse": 0.99375,
+          "scoped": 0.7375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 32,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v3-sparse_no_evidence",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 2,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:24:28.269896+00:00",
+      "finished_at_utc": "2026-08-26T08:24:51.293658+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 13.65370483300103,
+      "evaluation_seconds": 8.999371791000158,
+      "max_rss_bytes": 573571072,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "71b247904cf7c59538b6792ac3406770226c636ba041b31f9547e84db8b464a9",
+      "result_sha256": "6d18bdc69f12b6b7a89bdce3d52608c34c7d7af6ab4ed2d3f4957b321ae6d32e",
+      "source_digest": "e2252a1d85fdfbf68759199d69da263f95be6018dae3c88689cf3bf98f38531a",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v3-sparse_no_evidence",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.76875,
+        "mrr": 0.480521,
+        "mttc": 4.3875,
+        "efficiency": 0.66125,
+        "recommended_technical_score": 0.660781,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.625,
+            "mrr": 0.625,
+            "mttc": 7.375
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.859375,
+            "mrr": 0.472098,
+            "mttc": 3.484375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.734375,
+            "mrr": 0.447303,
+            "mttc": 4.28125
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.666667,
+            "mrr": 0.543403,
+            "mttc": 6.083333
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 665,
+        "p50_seconds": 0.007369458000539453,
+        "p95_seconds": 0.046754249999139574,
+        "max_seconds": 0.15091175000088697,
+        "fallback_turns": 0,
+        "cached_turns": 259,
+        "ever_ranked_recall": {
+          "10": 0.775,
+          "30": 0.875,
+          "60": 0.95,
+          "120": 0.99375,
+          "300": 0.99375
+        },
+        "ever_route_recall": {
+          "sparse": 0.99375,
+          "scoped": 0.7375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 36,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v3-tune_neural50",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 2,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.5,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:27:52.211614+00:00",
+      "finished_at_utc": "2026-08-26T08:30:03.138579+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 17.677689250000185,
+      "evaluation_seconds": 112.73785366699849,
+      "max_rss_bytes": 1133772800,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "3db5618606a745e9e6480ad755e82cf24e01c909d40706acb1f78366eb14621c",
+      "result_sha256": "af63b572498959ca80a7795242aab829f0b1feeb7c779f281e7bb8f5ff314ede",
+      "source_digest": "e2252a1d85fdfbf68759199d69da263f95be6018dae3c88689cf3bf98f38531a",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v3-tune_neural50",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.8375,
+        "mrr": 0.513269,
+        "mttc": 3.65,
+        "efficiency": 0.735,
+        "recommended_technical_score": 0.719731,
+        "reported_token_usage": {
+          "prompt_tokens": 2015222,
+          "completion_tokens": 0,
+          "total_tokens": 2015222
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.625,
+            "mrr": 0.35,
+            "mttc": 6
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.9375,
+            "mrr": 0.513039,
+            "mttc": 2.71875
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.796875,
+            "mrr": 0.492615,
+            "mttc": 3.609375
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.62338,
+            "mttc": 5.458333
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 558,
+        "p50_seconds": 0.2731709375002538,
+        "p95_seconds": 0.3759855000007519,
+        "max_seconds": 0.9422785000006115,
+        "fallback_turns": 0,
+        "cached_turns": 174,
+        "ever_ranked_recall": {
+          "10": 0.84375,
+          "30": 0.875,
+          "60": 0.95,
+          "120": 0.99375,
+          "300": 0.99375
+        },
+        "ever_route_recall": {
+          "sparse": 0.99375,
+          "scoped": 0.7375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 25,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v3-tune_neural75",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 2,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.75,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:30:04.081642+00:00",
+      "finished_at_utc": "2026-08-26T08:32:07.491601+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 17.260573583000223,
+      "evaluation_seconds": 105.51826520899886,
+      "max_rss_bytes": 1119518720,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "f719496604e88a2f67b0042c5e658ce144e5f3f261fb2375ce0d5e7921fea327",
+      "result_sha256": "f232a72f39f9493aa0e16b2e8ee135b1d92c580e807a82398e7e11e493e42988",
+      "source_digest": "e2252a1d85fdfbf68759199d69da263f95be6018dae3c88689cf3bf98f38531a",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v3-tune_neural75",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.84375,
+        "mrr": 0.547349,
+        "mttc": 3.60625,
+        "efficiency": 0.739375,
+        "recommended_technical_score": 0.733955,
+        "reported_token_usage": {
+          "prompt_tokens": 1982546,
+          "completion_tokens": 0,
+          "total_tokens": 1982546
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.296329,
+            "mttc": 4.25
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.921875,
+            "mrr": 0.597693,
+            "mttc": 2.875
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.796875,
+            "mrr": 0.490148,
+            "mttc": 3.5625
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.649306,
+            "mttc": 5.458333
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 552,
+        "p50_seconds": 0.2671503125002346,
+        "p95_seconds": 0.35485783299918694,
+        "max_seconds": 0.624297000000297,
+        "fallback_turns": 0,
+        "cached_turns": 174,
+        "ever_ranked_recall": {
+          "10": 0.85,
+          "30": 0.875,
+          "60": 0.95,
+          "120": 0.99375,
+          "300": 0.99375
+        },
+        "ever_route_recall": {
+          "scoped": 0.7375,
+          "sparse": 0.99375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 1,
+          "ranking_or_policy": 24,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v3-tune_other4",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 4,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:24:51.667859+00:00",
+      "finished_at_utc": "2026-08-26T08:25:15.164975+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 13.965126167000562,
+      "evaluation_seconds": 9.174722624999049,
+      "max_rss_bytes": 561283072,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "160dc7d130cf4be7c4fec68c81e890b3587001108a049e78ccf6403ed246a25d",
+      "result_sha256": "6196d34d53fb63b17ac4a469df6aab8f05fcde7b9ba39fa843e72f95db9829fc",
+      "source_digest": "e2252a1d85fdfbf68759199d69da263f95be6018dae3c88689cf3bf98f38531a",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v3-tune_other4",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.78125,
+        "mrr": 0.493021,
+        "mttc": 4.24375,
+        "efficiency": 0.675625,
+        "recommended_technical_score": 0.673656,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.75,
+            "mttc": 5.375
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.859375,
+            "mrr": 0.472098,
+            "mttc": 3.484375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.734375,
+            "mrr": 0.447303,
+            "mttc": 4.28125
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.708333,
+            "mrr": 0.585069,
+            "mttc": 5.791667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 644,
+        "p50_seconds": 0.008049312499679218,
+        "p95_seconds": 0.04853195800023968,
+        "max_seconds": 0.1322675410010561,
+        "fallback_turns": 0,
+        "cached_turns": 236,
+        "ever_ranked_recall": {
+          "10": 0.7875,
+          "30": 0.88125,
+          "60": 0.95625,
+          "120": 1,
+          "300": 1
+        },
+        "ever_route_recall": {
+          "sparse": 1,
+          "scoped": 0.75
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 0,
+          "ranking_or_policy": 35,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v3-tune_other9",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 9,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:25:15.540516+00:00",
+      "finished_at_utc": "2026-08-26T08:25:39.212148+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 14.102476457999728,
+      "evaluation_seconds": 9.186868999999206,
+      "max_rss_bytes": 564084736,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "c055823e962353c223f7f873711107ea14b4b70eb329593340a552152036462d",
+      "result_sha256": "6196d34d53fb63b17ac4a469df6aab8f05fcde7b9ba39fa843e72f95db9829fc",
+      "source_digest": "e2252a1d85fdfbf68759199d69da263f95be6018dae3c88689cf3bf98f38531a",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v3-tune_other9",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.78125,
+        "mrr": 0.493021,
+        "mttc": 4.24375,
+        "efficiency": 0.675625,
+        "recommended_technical_score": 0.673656,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.75,
+            "mrr": 0.75,
+            "mttc": 5.375
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.859375,
+            "mrr": 0.472098,
+            "mttc": 3.484375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.734375,
+            "mrr": 0.447303,
+            "mttc": 4.28125
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.708333,
+            "mrr": 0.585069,
+            "mttc": 5.791667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 644,
+        "p50_seconds": 0.00816077099989343,
+        "p95_seconds": 0.04845141700025124,
+        "max_seconds": 0.13762758399934683,
+        "fallback_turns": 0,
+        "cached_turns": 236,
+        "ever_ranked_recall": {
+          "10": 0.7875,
+          "30": 0.88125,
+          "60": 0.95625,
+          "120": 1,
+          "300": 1
+        },
+        "ever_route_recall": {
+          "scoped": 0.75,
+          "sparse": 1
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 0,
+          "ranking_or_policy": 35,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v4-final_contrast",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": true,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 4,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 60,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.75,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:46:18.560618+00:00",
+      "finished_at_utc": "2026-08-26T08:50:13.423228+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 17.518298249999134,
+      "evaluation_seconds": 216.82257945900164,
+      "max_rss_bytes": 1339359232,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "981e2a683574969ab45f98aea88612aa484639d59fdb3cb935ff77850002097e",
+      "result_sha256": "56e9cb6ea48123890203c44166fe5f3e213fdc8867679794a1fe67768c4f3c68",
+      "source_digest": "280dd8e012365707198f8652e42b8b38ae67a7d54fcfefff2b32d1f25431ea6c",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v4-final_contrast",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.9125,
+        "mrr": 0.596486,
+        "mttc": 3.09375,
+        "efficiency": 0.790625,
+        "recommended_technical_score": 0.793321,
+        "reported_token_usage": {
+          "prompt_tokens": 3948493,
+          "completion_tokens": 0,
+          "total_tokens": 3948493
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 1,
+            "mrr": 0.619246,
+            "mttc": 4.25
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.9375,
+            "mrr": 0.573779,
+            "mttc": 2.71875
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.890625,
+            "mrr": 0.561731,
+            "mttc": 2.78125
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.74213,
+            "mttc": 4.541667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 481,
+        "p50_seconds": 0.5573178330014343,
+        "p95_seconds": 0.764445083001192,
+        "max_seconds": 1.0104313749998255,
+        "fallback_turns": 0,
+        "cached_turns": 113,
+        "ever_ranked_recall": {
+          "10": 0.9125,
+          "30": 0.96875,
+          "60": 0.975,
+          "120": 1,
+          "300": 1
+        },
+        "ever_route_recall": {
+          "sparse": 1,
+          "scoped": 0.75
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 0,
+          "ranking_or_policy": 14,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v4-final_neural50",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 4,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.5,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:36:19.029207+00:00",
+      "finished_at_utc": "2026-08-26T08:38:21.655168+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 16.68238708300123,
+      "evaluation_seconds": 105.45826741699966,
+      "max_rss_bytes": 1211351040,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "fa4e98fda1654051fe8a100ea0ad1f6e154f7468aca2cdf026ba2b08968b7da2",
+      "result_sha256": "856b8479231c1b40b8abda2f48a91db1eeef9638e9ec98617f91263fe4d76025",
+      "source_digest": "280dd8e012365707198f8652e42b8b38ae67a7d54fcfefff2b32d1f25431ea6c",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v4-final_neural50",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.875,
+        "mrr": 0.558361,
+        "mttc": 3.40625,
+        "efficiency": 0.759375,
+        "recommended_technical_score": 0.756883,
+        "reported_token_usage": {
+          "prompt_tokens": 1948041,
+          "completion_tokens": 0,
+          "total_tokens": 1948041
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.677083,
+            "mttc": 5
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.9375,
+            "mrr": 0.541202,
+            "mttc": 2.765625
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.828125,
+            "mrr": 0.513988,
+            "mttc": 3.328125
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.833333,
+            "mrr": 0.68287,
+            "mttc": 4.791667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 525,
+        "p50_seconds": 0.2606821250010398,
+        "p95_seconds": 0.3612448330004554,
+        "max_seconds": 0.9334833749999234,
+        "fallback_turns": 0,
+        "cached_turns": 149,
+        "ever_ranked_recall": {
+          "10": 0.875,
+          "30": 0.9,
+          "60": 0.9625,
+          "120": 1,
+          "300": 1
+        },
+        "ever_route_recall": {
+          "scoped": 0.74375,
+          "sparse": 1
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 0,
+          "ranking_or_policy": 20,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v4-final_neural75",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 4,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.75,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:38:22.532990+00:00",
+      "finished_at_utc": "2026-08-26T08:40:18.707681+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 16.249188874999163,
+      "evaluation_seconds": 99.41849325000112,
+      "max_rss_bytes": 1207205888,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "74b7b553289620a8029244cf83eb7e45200c82047a68214b5113f66bf841440a",
+      "result_sha256": "e45a6a437caf60efcb09131756d286494b2e396c4eb3051d693fae5e44ccf2c9",
+      "source_digest": "280dd8e012365707198f8652e42b8b38ae67a7d54fcfefff2b32d1f25431ea6c",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v4-final_neural75",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.8875,
+        "mrr": 0.589978,
+        "mttc": 3.28125,
+        "efficiency": 0.771875,
+        "recommended_technical_score": 0.775118,
+        "reported_token_usage": {
+          "prompt_tokens": 1894530,
+          "completion_tokens": 0,
+          "total_tokens": 1894530
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 1,
+            "mrr": 0.607639,
+            "mttc": 4.25
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.921875,
+            "mrr": 0.591071,
+            "mttc": 2.875
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.859375,
+            "mrr": 0.54034,
+            "mttc": 3
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.833333,
+            "mrr": 0.713542,
+            "mttc": 4.791667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 507,
+        "p50_seconds": 0.26031058300031873,
+        "p95_seconds": 0.35092470800009323,
+        "max_seconds": 0.6692922499987617,
+        "fallback_turns": 0,
+        "cached_turns": 140,
+        "ever_ranked_recall": {
+          "10": 0.8875,
+          "30": 0.9,
+          "60": 0.9625,
+          "120": 1,
+          "300": 1
+        },
+        "ever_route_recall": {
+          "scoped": 0.74375,
+          "sparse": 1
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 0,
+          "ranking_or_policy": 18,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v4-final_neural75_60",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 4,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 60,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.75,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:40:19.430890+00:00",
+      "finished_at_utc": "2026-08-26T08:44:09.644571+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 17.620123125001555,
+      "evaluation_seconds": 212.02785566600141,
+      "max_rss_bytes": 1048100864,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "2ebf2ccd79b31a44921c72545104fad637c1223a881e6f21728b61ab799ce9c9",
+      "result_sha256": "d9c3286b566c2e86e3c8b95a886a5948958218265067f7f4492e5cba1100ff29",
+      "source_digest": "280dd8e012365707198f8652e42b8b38ae67a7d54fcfefff2b32d1f25431ea6c",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v4-final_neural75_60",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.90625,
+        "mrr": 0.592904,
+        "mttc": 3.14375,
+        "efficiency": 0.785625,
+        "recommended_technical_score": 0.788121,
+        "reported_token_usage": {
+          "prompt_tokens": 3942285,
+          "completion_tokens": 0,
+          "total_tokens": 3942285
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 1,
+            "mrr": 0.628472,
+            "mttc": 4.25
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.921875,
+            "mrr": 0.576513,
+            "mttc": 2.859375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.890625,
+            "mrr": 0.548673,
+            "mttc": 2.765625
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.742708,
+            "mttc": 4.541667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 488,
+        "p50_seconds": 0.5455202704997646,
+        "p95_seconds": 0.7297316670010332,
+        "max_seconds": 1.38351058400076,
+        "fallback_turns": 0,
+        "cached_turns": 120,
+        "ever_ranked_recall": {
+          "10": 0.90625,
+          "30": 0.95625,
+          "60": 0.9625,
+          "120": 1,
+          "300": 1
+        },
+        "ever_route_recall": {
+          "sparse": 1,
+          "scoped": 0.75
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 0,
+          "ranking_or_policy": 15,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v4-final_rank_value",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "rank_value",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 4,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 60,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.75,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:50:14.477042+00:00",
+      "finished_at_utc": "2026-08-26T08:54:15.030433+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 17.287571749999188,
+      "evaluation_seconds": 222.728803041,
+      "max_rss_bytes": 1206714368,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "49426adf22a27f8edd58e70635d3dab8b96f23e80015028286491ae090bc4290",
+      "result_sha256": "660ffd85e3ca05b45202d2f38c8664f11574ff2f35a5076f2bfe5d9e7ae1e22d",
+      "source_digest": "280dd8e012365707198f8652e42b8b38ae67a7d54fcfefff2b32d1f25431ea6c",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v4-final_rank_value",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.90625,
+        "mrr": 0.566932,
+        "mttc": 4.1,
+        "efficiency": 0.69,
+        "recommended_technical_score": 0.761205,
+        "reported_token_usage": {
+          "prompt_tokens": 3965054,
+          "completion_tokens": 0,
+          "total_tokens": 3965054
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 1,
+            "mrr": 0.628472,
+            "mttc": 3.375
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.921875,
+            "mrr": 0.586062,
+            "mttc": 3.875
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.890625,
+            "mrr": 0.500756,
+            "mttc": 4.109375
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.671875,
+            "mttc": 4.916667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 641,
+        "p50_seconds": 0.49791650000042864,
+        "p95_seconds": 0.7312861669997801,
+        "max_seconds": 0.892189000000144,
+        "fallback_turns": 0,
+        "cached_turns": 265,
+        "ever_ranked_recall": {
+          "10": 0.90625,
+          "30": 0.95625,
+          "60": 0.9625,
+          "120": 1,
+          "300": 1
+        },
+        "ever_route_recall": {
+          "sparse": 1,
+          "scoped": 0.75
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 0,
+          "ranking_or_policy": 15,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    },
+    {
+      "name": "v4-tune_other4",
+      "baseline": false,
+      "config": {
+        "dense": false,
+        "neural_rerank": false,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 4,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.25,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      "dataset": "artifacts/splits/development.jsonl",
+      "dataset_sha256": "46ff189cad70d39e3856889474cdfae7c1fd8008a9e1b86b1ad8956ff768b88a",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "reserved_evaluation": false,
+      "started_at_utc": "2026-08-26T08:35:55.970631+00:00",
+      "finished_at_utc": "2026-08-26T08:36:18.668239+00:00",
+      "python": "3.12.12",
+      "machine": "arm64",
+      "platform": "macOS-26.1-arm64-arm-64bit",
+      "git_head": "9a35be51780ff1caf89eceaabca34259e946f40f",
+      "cold_start_seconds": 13.774524500000553,
+      "evaluation_seconds": 8.574229417001334,
+      "max_rss_bytes": 572932096,
+      "paid_cost_usd": 0,
+      "cost_basis": "Existing local hardware; public model downloads; no paid APIs.",
+      "startup_fallbacks": {},
+      "package_versions": {
+        "numpy": "2.2.6",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "sentence-transformers": "5.1.2",
+        "huggingface-hub": "0.36.0"
+      },
+      "source_changed_during_run": false,
+      "manifest_sha256": "b046b9f92aa2d003d7b510d27a354be5d95d274a182151b9eb0805d192a9f41f",
+      "result_sha256": "4f445ad3ea926223806889b589411ee666f76768e9ae0c31c971f219c9e066a6",
+      "source_digest": "280dd8e012365707198f8652e42b8b38ae67a7d54fcfefff2b32d1f25431ea6c",
+      "source_snapshot_available": true,
+      "local_run_directory": "runs/v4-tune_other4",
+      "metrics": {
+        "sample_count": 160,
+        "hit_rate_at_10": 0.8125,
+        "mrr": 0.513983,
+        "mttc": 4.025,
+        "efficiency": 0.6975,
+        "recommended_technical_score": 0.699945,
+        "reported_token_usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        },
+        "scenario_metrics": {
+          "boundary": {
+            "sample_count": 8,
+            "hit_rate_at_10": 0.875,
+            "mrr": 0.66875,
+            "mttc": 5.125
+          },
+          "browsing": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.859375,
+            "mrr": 0.500918,
+            "mttc": 3.484375
+          },
+          "buying": {
+            "sample_count": 64,
+            "hit_rate_at_10": 0.765625,
+            "mrr": 0.47048,
+            "mttc": 4
+          },
+          "intent_override": {
+            "sample_count": 24,
+            "hit_rate_at_10": 0.791667,
+            "mrr": 0.613244,
+            "mttc": 5.166667
+          }
+        }
+      },
+      "diagnostics": {
+        "turn_count": 614,
+        "p50_seconds": 0.008246458499343134,
+        "p95_seconds": 0.046675625000716536,
+        "max_seconds": 0.12943479100067634,
+        "fallback_turns": 0,
+        "cached_turns": 218,
+        "ever_ranked_recall": {
+          "10": 0.8125,
+          "30": 0.9,
+          "60": 0.9625,
+          "120": 1,
+          "300": 1
+        },
+        "ever_route_recall": {
+          "sparse": 1,
+          "scoped": 0.74375
+        },
+        "failure_diagnostics": {
+          "not_retrieved": 0,
+          "ranking_or_policy": 30,
+          "agent_error_turns": 0
+        },
+        "recall_note": "Ever observed over each policy-dependent session; not an independent fixed-turn benchmark."
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "control": "starter-dev",
+      "candidate": "v4-final_neural75",
+      "sample_count": 160,
+      "technical_score_delta": 0.6620587797619047,
+      "technical_score_95pct_ci": [
+        0.6020572916666667,
+        0.7211421130952381
+      ],
+      "hit_rate_delta": 0.75625,
+      "bootstrap_resamples": 10000,
+      "bootstrap_seed": 20260826,
+      "practical_gain": true,
+      "hit_loss_within_limit": true,
+      "note": "Paired public-session bootstrap; uncertainty does not predict private-test performance."
+    },
+    {
+      "control": "v4-tune_other4",
+      "candidate": "v4-final_neural75",
+      "sample_count": 160,
+      "technical_score_delta": 0.0751733630952381,
+      "technical_score_95pct_ci": [
+        0.03984970238095239,
+        0.1112046130952381
+      ],
+      "hit_rate_delta": 0.075,
+      "bootstrap_resamples": 10000,
+      "bootstrap_seed": 20260826,
+      "practical_gain": true,
+      "hit_loss_within_limit": true,
+      "note": "Paired public-session bootstrap; uncertainty does not predict private-test performance."
+    },
+    {
+      "control": "v4-final_neural50",
+      "candidate": "v4-final_neural75",
+      "sample_count": 160,
+      "technical_score_delta": 0.01823511904761905,
+      "technical_score_95pct_ci": [
+        -0.00005952380952380723,
+        0.03748511904761905
+      ],
+      "hit_rate_delta": 0.0125,
+      "bootstrap_resamples": 10000,
+      "bootstrap_seed": 20260826,
+      "practical_gain": true,
+      "hit_loss_within_limit": true,
+      "note": "Paired public-session bootstrap; uncertainty does not predict private-test performance."
+    },
+    {
+      "control": "v4-final_neural75",
+      "candidate": "v4-final_neural75_60",
+      "sample_count": 160,
+      "technical_score_delta": 0.013002976190476193,
+      "technical_score_95pct_ci": [
+        -0.002564732142857142,
+        0.03141964285714286
+      ],
+      "hit_rate_delta": 0.01875,
+      "bootstrap_resamples": 10000,
+      "bootstrap_seed": 20260826,
+      "practical_gain": true,
+      "hit_loss_within_limit": true,
+      "note": "Paired public-session bootstrap; uncertainty does not predict private-test performance."
+    },
+    {
+      "control": "v4-final_neural75_60",
+      "candidate": "v4-final_contrast",
+      "sample_count": 160,
+      "technical_score_delta": 0.005199404761904762,
+      "technical_score_95pct_ci": [
+        -0.004972470238095236,
+        0.017714285714285717
+      ],
+      "hit_rate_delta": 0.00625,
+      "bootstrap_resamples": 10000,
+      "bootstrap_seed": 20260826,
+      "practical_gain": false,
+      "hit_loss_within_limit": true,
+      "note": "Paired public-session bootstrap; uncertainty does not predict private-test performance."
+    },
+    {
+      "control": "v4-final_neural75_60",
+      "candidate": "v4-final_rank_value",
+      "sample_count": 160,
+      "technical_score_delta": -0.026916666666666665,
+      "technical_score_95pct_ci": [
+        -0.039523065476190486,
+        -0.014229166666666673
+      ],
+      "hit_rate_delta": 0,
+      "bootstrap_resamples": 10000,
+      "bootstrap_seed": 20260826,
+      "practical_gain": false,
+      "hit_loss_within_limit": true,
+      "note": "Paired public-session bootstrap; uncertainty does not predict private-test performance."
+    },
+    {
+      "control": "reserved-final_neural75",
+      "candidate": "reserved-final_neural75_60",
+      "sample_count": 40,
+      "technical_score_delta": -0.00031249999999999887,
+      "technical_score_95pct_ci": [
+        -0.0009374999999999967,
+        0
+      ],
+      "hit_rate_delta": 0,
+      "bootstrap_resamples": 10000,
+      "bootstrap_seed": 20260826,
+      "practical_gain": false,
+      "hit_loss_within_limit": true,
+      "note": "Paired public-session bootstrap; uncertainty does not predict private-test performance."
+    },
+    {
+      "control": "official-starter-full-offline",
+      "candidate": "official-final-offline",
+      "descriptive_only": true,
+      "sample_count": 200,
+      "technical_score_delta": 0.6800136904761905,
+      "technical_score_95pct_ci": [
+        0.6262547619047619,
+        0.7321696428571428
+      ],
+      "hit_rate_delta": 0.77,
+      "bootstrap_resamples": 10000,
+      "bootstrap_seed": 20260826,
+      "practical_gain": true,
+      "hit_loss_within_limit": true,
+      "note": "Paired public-session bootstrap; uncertainty does not predict private-test performance."
+    }
+  ],
+  "official_selected_full_public": {
+    "metrics": {
+      "sample_count": 200,
+      "hit_rate_at_10": 0.895,
+      "mrr": 0.613746,
+      "mttc": 3.245,
+      "efficiency": 0.7755,
+      "recommended_technical_score": 0.786724,
+      "reported_token_usage": {
+        "prompt_tokens": 2375727,
+        "completion_tokens": 0,
+        "total_tokens": 2375727
+      },
+      "scenario_metrics": {
+        "boundary": {
+          "sample_count": 10,
+          "hit_rate_at_10": 1,
+          "mrr": 0.686111,
+          "mttc": 4.8
+        },
+        "browsing": {
+          "sample_count": 80,
+          "hit_rate_at_10": 0.9125,
+          "mrr": 0.611607,
+          "mttc": 2.9125
+        },
+        "buying": {
+          "sample_count": 80,
+          "hit_rate_at_10": 0.875,
+          "mrr": 0.562515,
+          "mttc": 2.875
+        },
+        "intent_override": {
+          "sample_count": 30,
+          "hit_rate_at_10": 0.866667,
+          "mrr": 0.731944,
+          "mttc": 4.6
+        }
+      }
+    },
+    "result_sha256": "eeba444682d430d42bd34e87f58668187f82c21486b4dd791890c6176d85ec5e",
+    "network": "OS-denied by macOS sandbox-exec",
+    "credentials_removed": [
+      "HF_TOKEN",
+      "HUGGING_FACE_HUB_TOKEN",
+      "OPENAI_API_KEY",
+      "ANTHROPIC_API_KEY"
+    ],
+    "python_environment": ".venv-repro",
+    "command_wall_seconds": 148.32,
+    "max_rss_bytes": 1241497600,
+    "matches_frozen_session_union": true,
+    "descriptive_only": true
+  },
+  "finalist_freeze": {
+    "frozen_at_utc": "2026-08-26T08:54:43.649859+00:00",
+    "reason": "Development-only selection: simple-question neural systems at 30 and 60 candidates. Contrast gain below 0.01 and rank-value underperformed. Prefer lower-cost 30 if reserved comparison is inconclusive; no further tuning.",
+    "configs": [
+      {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 4,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 30,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.75,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      },
+      {
+        "dense": false,
+        "neural_rerank": true,
+        "contrast": false,
+        "evidence_ranking": false,
+        "state_mode": "ledger",
+        "question_policy": "other",
+        "slate_policy": "fixed",
+        "slate_size": 10,
+        "other_question_limit": 4,
+        "candidate_limit": 120,
+        "sparse_limit": 180,
+        "dense_limit": 100,
+        "rerank_limit": 60,
+        "max_sessions": 256,
+        "dense_weight": 0.35,
+        "neural_weight": 0.75,
+        "contrast_weight": 0.12,
+        "artifact_dir": "artifacts",
+        "device": "cpu",
+        "threads": 4
+      }
+    ],
+    "config_paths": [
+      "configs/final_neural75.json",
+      "configs/final_neural75_60.json"
+    ],
+    "reserved_sha256": "6a244252e21a44dc8ef1a9682fbaae8c6ab03ddeb956dcb5e084ef48accfbd81",
+    "source_hashes": {
+      "mercury/__init__.py": "47f7ac703c32c06b921b0444dd31e55613f31fdd2503bc467a75fbb934b06755",
+      "mercury/agent.py": "7240be498c78ed73f16b427772e555265b552b714d807b28712c606c2885b8a8",
+      "mercury/catalog.py": "f6401991d95f4c6e1f021431bc639c98038e2881e6a712e940773f641f894b50",
+      "mercury/config.py": "7948a97ad6eed8bd89dffc6f8b19e81d1e8633e47b861d4d0b220dd60def4da8",
+      "mercury/contrast.py": "99cd577d785dfb75b690b57c1573bcfd5dad39dd31709e49f7bca8cf1d7a693c",
+      "mercury/model_assets.py": "acba2de7455a237998f1154ba934641d2f907a0f38c9784f320ec85d1cf0e7ce",
+      "mercury/neural.py": "27262816a06456395d38a68c1709114bb8104b670de9768205755e4dc6768560",
+      "mercury/policy.py": "015e64544bbc2cda250e4ae6d28a0626218fa8f969ff5b6717bb8b136ee2260e",
+      "mercury/ranking.py": "e3e86150db3368d84459f092944fa60bd84fa1e48b07500f47aa3583fe78543a",
+      "mercury/retrieval.py": "9a597df2195c9375d29a6d30107a512201d238f4d6bac8d9d3a2f3cc7fa84f42",
+      "mercury/state.py": "53b46ce513b3c9c6a7e8814712b3432d0f01df9e0518db3be52fb535ba3abc04",
+      "mercury/types.py": "479e612800064d250f598dc39e085e7d1f69296b93682cabb21f695c757db8ff",
+      "experiments/__init__.py": "0e31f215637b43598c2d9860341c55492b24b4f63c92f0c5e4c5333249104dc7",
+      "experiments/compare.py": "58634fe6ea265fd9e4e632f977bca8ae6804d6b1dd7b094dcbcc14242ca63fd4",
+      "experiments/family_audit.py": "08a5b9483f193b935583e7f78b1c336d0e6b605b89b843f2a206c9fd64a92cd7",
+      "experiments/freeze.py": "a0818e6959f1bb9d408c71792f86caa8089497d557a9fb46e46f98344a494281",
+      "experiments/prepare.py": "263e002a3c5978c7a77806db2726111c0b09c1a3313e94b0cfc54a9258963f9c",
+      "experiments/prepare_contrast.py": "999ca2fcfde941a80679bfe27afb9e65c8f201e7e0994e10e00b559eacfd6977",
+      "experiments/prepare_dense.py": "fcf41093e5e90500b77fa93a3f4e3b78f37c3e144a18d0287265cbaeca2b273b",
+      "experiments/prepare_models.py": "308312170c80ac12a5b334fdf7ae0bf1c6e0c504e5e13ef8feca60b4495f5ac3",
+      "experiments/run.py": "c1746d91893b22efae3c2d1f930edde69bfe48283d9e0da859bd0faf85534eaa",
+      "baselines/__init__.py": "2dd6f6d84524cee8de28046f6c0297e7b8e8a50d127988ea3bf29207f976e397",
+      "baselines/official.py": "cd0fdade2d743aaf220b93a6cd3bfa7fb1b9b9065d2fbd174128ed2b0f1b812d",
+      "starter/__init__.py": "03c49004df458e7fb767d172cc896fb5dd08a2aa00686d322248befdc2d7f5d4",
+      "starter/agent.py": "446db0e61283a399b7350124ad0fe9bf14aa55829cc40b53033a9a7d1cbd9d33",
+      "evaluator/__init__.py": "c597e982409b24fe5411298cfe033aeb287eafcf26c33e34b8c43294cff0a917",
+      "evaluator/local_evaluator.py": "79a5ea06f9a1b8c5036f30efa85dc1f36b8f6b06eb8feb8f545dfa767bc45564",
+      "tests/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "tests/test_agent.py": "1eee5964b93a2abc854c8d534f4e306726d6e8a711aa912064e62a8a10a834f1",
+      "tests/test_boundaries.py": "5f220a3958f8d9a7310293f03fc388b4b8602ea6e89a49c0776fb510482aca6a",
+      "tests/test_catalog.py": "9caf2b2fed373ae8101e8dddcfc0ecc180316cac0fc5f32170b85465de35defe",
+      "tests/test_config.py": "91cfaa6f755fbff1fdfd43400cb55ad60a97cd4d433a2404a4cbabee9fc5dba3",
+      "tests/test_contrast.py": "cd5d8cb13f641ca84d86d21a7787b9d492bd1dc7ea58aa0f32561690fd1c74e7",
+      "tests/test_evaluator.py": "e07648ee81b1be0a14a4b13be3c566d17959154fef533f7ef6f4c349ce69d5df",
+      "tests/test_experiments.py": "1a959f1061727042da4f418386f24e22768542b57811fcf67c295a93a0b9ff45",
+      "tests/test_neural.py": "712c42918bcd6d00f8c106eaf8329f9ec330155eb4f92ab9b5847b4cb00c6345",
+      "tests/test_policy.py": "714b0c49586b55c985324ea07b367c96d16711a7ffb4ee90a9463a9ba1a3fcc5",
+      "tests/test_ranking.py": "28be0b025267ffc4ce18658de8a3cad37eb28fb6dcf8faa16b0240b54741bf41",
+      "tests/test_release.py": "d9de2c99a5d63bdcd7328dc903c4a03d51b366ae81ac263a57edc9c952e40542",
+      "tests/test_retrieval.py": "2d54ec1f859b7627eab89ed17f38597af7c2889caa36e8f0d9d36094df2e4f4c",
+      "tests/test_robustness.py": "36a07b0bfa05a69882417b615578432cf0d73e8b14c6ee2c8f0885f3c28a5203",
+      "tests/test_splits.py": "688ef3cfd1a5a3b2fe9705b4e96975bbc308326aceb568d2e197b85ed1a5c853",
+      "tests/test_state.py": "c566442f5917cc3cbc5453777d33b4d695fa309389111837fa2f56c233156239",
+      "demo/__init__.py": "aa7891cd54061229883a72ee17ace581d258b0f5ad2dd47ad110f013aa4fac40",
+      "demo/replay.py": "db51bbe0a10713599479573966d81429017f088c21fb1b765bf723ec17bb7589",
+      "agent.py": "c0f1b40bcade700b24407191b5815ea47f90fec2576dce28bca0f5461307d60c",
+      "docs/evaluation_config.json": "8ee0c899ddc68d521754cf9d2f239a8bc09851fb37c5872567160c30d431aa53",
+      "docs/agent_api_contract.json": "635563741dd71c273d540722913eccdc595b4af9b47ade79f38cd42ae45c8822",
+      "requirements.txt": "680f3725a58a7835a453af33ca990e4449d3ed2642c9ea473f7d703254296670",
+      "requirements-dev.txt": "f183acc744329d46655ae46c03a284cf9dd334501f83b24a680eec61b7f8eb30",
+      "requirements-neural.txt": "913940c836ff6da39501a93521dd1af1ac29e55d3cc4db54de8f9365f7221df6",
+      "requirements-neural.lock.txt": "8696955288886244e213ee8cf9571296c6f31810098c9aeab9116c4708fa7bcb"
+    },
+    "protocol": "docs/EXPERIMENT_PROTOCOL.md",
+    "maximum_finalists": 2
+  },
+  "source_matches_freeze": true,
+  "preprocessing": {
+    "artifacts/dense/manifest.json": {
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "model_revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+      "document_version": "fields-v1-256",
+      "count": 50000,
+      "dimensions": 384,
+      "device": "mps",
+      "threads": 4,
+      "batch_size": 32,
+      "python": "3.12.12",
+      "build_seconds": 302.4685813750002,
+      "max_rss_native": 849035264,
+      "sha256": {
+        "vectors.npy": "06d13a27e8ca8375f1132de82c37c8466b31ddda68e7a17123d90e1f7a042d76",
+        "ids.json": "bab53f3972ba8a390e253ce3a97f976dbd424bbbc91414413cb86aa7b8da452b"
+      }
+    },
+    "artifacts/contrast/manifest.json": {
+      "version": "lexical-neighbors-v2-negation",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "count": 50000,
+      "neighbor_limit": 8,
+      "pool_per_term_limit": 256,
+      "posting_terms_limit": 6,
+      "sha256": "28552142ab4ae1579c1dcc2f8d5afb339301f8e5e76a5b92c0e1d445a6ee5fdf",
+      "build_seconds": 90.63128620799944,
+      "bytes": 40316285
+    },
+    "artifacts/contrast-v1/manifest.json": {
+      "version": "lexical-neighbors-v1",
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "count": 50000,
+      "neighbor_limit": 8,
+      "pool_per_term_limit": 256,
+      "posting_terms_limit": 6,
+      "sha256": "f8dcffac13b920359ead4c7b3d95197e7dd45d3d4e1bdd7e245cf920ea60209d",
+      "build_seconds": 80.81955041699985,
+      "bytes": 40314096
+    }
+  },
+  "model_assets": {
+    "embedding": {
+      "repo_id": "BAAI/bge-small-en-v1.5",
+      "revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+      "license": "MIT",
+      "files": {
+        "1_Pooling/config.json": "d1caf60c96f5fba2157c0c26b76d80818fad6cf0b8eb5e73ec372ff9818eba5c",
+        "README.md": "ddb964361a55c6e5dfca6361615854b260c9c960205d04c7520151aaa1d75837",
+        "config.json": "094f8e891b932f2000c92cfc663bac4c62069f5d8af5b5278c4306aef3084750",
+        "config_sentence_transformers.json": "940d5f50db195fa6e5e6a4f122c095f77880de259d74b14a65779ed48bdd7c56",
+        "model.safetensors": "3c9f31665447c8911517620762200d2245a2518d6e7208acc78cd9db317e21ad",
+        "modules.json": "84e40c8e006c9b1d6c122e02cba9b02458120b5fb0c87b746c41e0207cf642cf",
+        "sentence_bert_config.json": "84e39fda68ccbff05bfa723ae9c0e70e23e2ec373b76e0f8c6e71af72a693cbf",
+        "special_tokens_map.json": "b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3",
+        "tokenizer.json": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66",
+        "tokenizer_config.json": "9261e7d79b44c8195c1cada2b453e55b00aeb81e907a6664974b4d7776172ab3",
+        "vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3"
+      }
+    },
+    "reranker": {
+      "repo_id": "cross-encoder/ms-marco-MiniLM-L6-v2",
+      "revision": "233902d25c440f23af6f7d6e94d2946bac0bee0a",
+      "license": "Apache-2.0",
+      "files": {
+        "README.md": "7c0ec39941d0d1d766ccde671f592971d82fe45b7eea550a80d1ea864ebc3baa",
+        "config.json": "380e02c93f431831be65d99a4e7e5f67c133985bf2e77d9d4eba46847190bacc",
+        "model.safetensors": "821d1aa69520101d6e0737f78a042ae25b19e5cb9160701909d10434f4aeb0ae",
+        "special_tokens_map.json": "3c3507f36dff57bce437223db3b3081d1e2b52ec3e56ee55438193ecb2c94dd6",
+        "tokenizer.json": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66",
+        "tokenizer_config.json": "a5c2e5a7b1a29a0702cd28c08a399b5ecc110c263009d17f7e3b415f25905fd8",
+        "vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3"
+      }
+    }
+  },
+  "demo": {
+    "config": {
+      "dense": false,
+      "neural_rerank": true,
+      "contrast": false,
+      "evidence_ranking": false,
+      "state_mode": "ledger",
+      "question_policy": "other",
+      "slate_policy": "fixed",
+      "slate_size": 10,
+      "other_question_limit": 4,
+      "candidate_limit": 120,
+      "sparse_limit": 180,
+      "dense_limit": 100,
+      "rerank_limit": 30,
+      "max_sessions": 256,
+      "dense_weight": 0.35,
+      "neural_weight": 0.75,
+      "contrast_weight": 0.12,
+      "artifact_dir": "artifacts",
+      "device": "cpu",
+      "threads": 4
+    },
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "cold_start_seconds": 16.915552166999987,
+    "presentation_duration_seconds": 180,
+    "output_is_video": false,
+    "note": "Asciicast terminal replay of actual responses; timings are paced for narration."
+  },
+  "verification": {
+    "hardware": {"cpu": "Apple M4", "architecture": "arm64", "cpu_cores": 10, "unified_memory_gib": 16},
+    "actual_missing_model_fallback": {
+      "network_denied": true,
+      "catalog_count": 50000,
+      "missing_asset": "reranker/model.safetensors",
+      "valid_unique_recommendations": 10,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "configuration": "selected config with an empty temporary artifact directory"
+    },
+    "unit_integration_tests": 223,
+    "ruff": "passed",
+    "pip_check": "passed",
+    "static_type_check": "not configured",
+    "external_cross_model_review": "unavailable; CLI startup failure",
+    "local_review_scopes": 7,
+    "published": false
+  }
+}

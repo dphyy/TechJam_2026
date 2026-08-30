@@ -1,0 +1,95 @@
+{
+  "measured_source_commit": "8964157d701c5cd9d3c642246d38f38db91248a0",
+  "post_promotion": {
+    "all_consumption_receipts_unchanged": true,
+    "all_model_files_unchanged": true,
+    "all_other_frozen_inputs_unchanged": true,
+    "all_registered_control_configs_unchanged": true,
+    "all_runtime_experiment_test_source_unchanged": true,
+    "exact_frozen_grouped_bytes": true,
+    "expected_verifier_error": "The selected frozen baseline must retain alternatives off",
+    "note": "The original verifier deliberately requires the pre-selection baseline. Promotion changes only configs/selected.json to the already measured grouped bytes. Do not relax the verifier, reset consumption, or reuse validation for tuning.",
+    "only_changed_frozen_inputs": [
+      "selected_config"
+    ],
+    "original_freeze_verifier_rejects_promoted_selection": true,
+    "selected_config_sha256": "9fda091879cc4f5e4b8709dce1f9fea8eb3f540d939481ca2e96edf58a30baf3"
+  },
+  "pre_promotion_verification": {
+    "consumption_receipts": {
+      "frozen-capabilities": {
+        "completed_at_utc": "2026-08-26T13:15:14.081344+00:00",
+        "completion_sha256": "70fef4a306f51d7eb29c883365cad4dedfce7999fe351ab414349373e3b06145",
+        "consumed_at_utc": "2026-08-26T13:15:08.272320+00:00",
+        "consumption_sha256": "139fcd885d875bb75638269d51eda8985062ac4b662e1d97848605802a6664b9",
+        "status": "completed"
+      },
+      "frozen-targets": {
+        "completed_at_utc": "2026-08-26T13:15:07.999232+00:00",
+        "completion_sha256": "260d056e2e95ad33337e178dd7aac6f7a448ef9d4731cf36daa479764677bfb1",
+        "consumed_at_utc": "2026-08-26T13:14:25.517233+00:00",
+        "consumption_sha256": "19c06263b640ada3645b7ac5f5743cc985a79d943d0cd2e712c8a1e960a2a417",
+        "status": "completed"
+      },
+      "grouped-capabilities": {
+        "completed_at_utc": "2026-08-26T13:16:55.985962+00:00",
+        "completion_sha256": "74ba56de05ac3f36bc80b21d522eba64a133fcb24348ffb8f93b3f422429cd63",
+        "consumed_at_utc": "2026-08-26T13:16:50.989220+00:00",
+        "consumption_sha256": "b4ff22fd59d1819547ef7a2c9cb1880b7c1deff08ffcea485a1b571d44c4a9aa",
+        "status": "completed"
+      },
+      "grouped-targets": {
+        "completed_at_utc": "2026-08-26T13:16:50.725626+00:00",
+        "completion_sha256": "f8a05d6b7d4e7c2f35d6aca9594d50a956a228c6a634bf3cce5a3e8171757a79",
+        "consumed_at_utc": "2026-08-26T13:16:06.420941+00:00",
+        "consumption_sha256": "320ead5b04014ab4bc6c5580c7f701463f1375ca5b8226bd22a809a0064ff3d8",
+        "status": "completed"
+      },
+      "parse-capabilities": {
+        "completed_at_utc": "2026-08-26T13:16:05.740894+00:00",
+        "completion_sha256": "613cfc3b2f108c3a6bdedd58af0d176b834a46d1ca801c0ce1ee45d4bdee6baf",
+        "consumed_at_utc": "2026-08-26T13:16:00.524165+00:00",
+        "consumption_sha256": "33e9b74dae375025296082940700be5eddd8d1d0d6f58ca7da9cc184db3a13a6",
+        "status": "completed"
+      },
+      "parse-targets": {
+        "completed_at_utc": "2026-08-26T13:16:00.258250+00:00",
+        "completion_sha256": "ac948b0fad6feaa6a17c66925ef3fc00ce0908feb5907e593fab3a65a558777f",
+        "consumed_at_utc": "2026-08-26T13:15:14.594711+00:00",
+        "consumption_sha256": "7550956738156e56262ab1480daee2d5ebcea5b06f9bec942f460a474276ddab",
+        "status": "completed"
+      }
+    },
+    "freeze_sha256": "efbeb75ad1ea95c4c6ad834a4b9fbd2524cf9573d2f9def713eaffdf77e0d9aa",
+    "freeze_verified": true,
+    "gates": {
+      "development": {
+        "file": "artifacts/cycle2/development-gates-v2.json",
+        "grouped_all_passed": true,
+        "sha256": "eccb0219b41449939fcec19e9ab21ce03d55ddb64d0a81564ddc43ee636eb62e"
+      },
+      "validation": {
+        "file": "artifacts/cycle2/validation-gates.json",
+        "grouped_all_passed": true,
+        "sha256": "6bb1020b04e3b2410217485d0fcde026794c3e1f8d5b02cab9b33bd092320d7f"
+      }
+    },
+    "grouped_config_sha256": "9fda091879cc4f5e4b8709dce1f9fea8eb3f540d939481ca2e96edf58a30baf3",
+    "schema": "cycle2-pre-promotion-verification-v1",
+    "selected_before_sha256": "b9ab2b6175275c2043094ec08c5a4a7b857fae0e090cca559cc1769f3d248ca6",
+    "source_file_count": 60,
+    "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63",
+    "verified_at_utc": "2026-08-26T13:22:16.746414+00:00"
+  },
+  "reason": "Select the pre-frozen grouped correctness repair after every registered developer invariant, regression floor, resource gate and locked no-new-failure gate passed. No incremental target score or locked capability gain was observed.",
+  "schema": "cycle2-selection-receipt-v1",
+  "selected_at_utc": "2026-08-26T13:22:43.370075+00:00",
+  "selection": "grouped",
+  "selection_order": [
+    "grouped",
+    "parse",
+    "frozen"
+  ],
+  "source_file_count": 60,
+  "source_inventory_sha256": "6773e77ebb3b04dd9a784ba52ab9a382e28f9f3ac4e317801388828ce2785c63"
+}

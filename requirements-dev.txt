@@ -1,0 +1,3 @@
+# Unit tests for optional vector validation; the sparse runtime is stdlib-only.
+numpy==2.2.6
+ruff==0.9.6
