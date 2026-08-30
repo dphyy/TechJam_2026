@@ -201,7 +201,7 @@ _RESIDUAL_STOPWORDS = frozenset("""
     have has had having can can't cannot could would should will won't must may might
     to of in on at for from by with without into about as than and or nor but except so if
     because while when where which who how what whether not no yes yeah okay ok sure please
-    thanks thank just really very quite maybe perhaps ideally actually also too well
+    thanks thank just really very quite maybe perhaps ideally preferably leaning toward towards actually also too well
     want wants wanted need needs needed like liked prefer preferred preference preferences
     looking look find searching search shop shopping buy buying browse browsing after
     get give show see pick choose keep continue try trying use wear wearing made make

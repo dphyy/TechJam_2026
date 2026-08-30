@@ -984,6 +984,22 @@ class SessionStateTest(unittest.TestCase):
             self.assertEqual(state.query(), before)
             self.assertFalse(state.last_update_informative)
 
+    def test_preference_cues_do_not_pollute_open_vocabulary_query(self):
+        cases = (
+            ("Hiking boots, preferably waterproof.", {"boots", "hiking", "waterproof"}),
+            ("A canvas bag, leaning toward waterproof.", {"bags", "canvas", "waterproof"}),
+        )
+        for message, expected in cases:
+            with self.subTest(message=message):
+                state = SessionState({})
+                state.update(message, 1)
+                self.assertEqual(set(state.query().split()), expected)
+                self.assertFalse(any(
+                    preference.attribute == "other"
+                    and preference.value in {"preferably", "leaning", "toward", "towards"}
+                    for preference in state.active_preferences()
+                ))
+
     def test_rare_product_name_survives_without_any_known_facet(self):
         state = SessionState({})
         state.update("I'm looking for a dirndl.", 1)
