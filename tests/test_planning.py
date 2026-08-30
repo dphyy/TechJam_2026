@@ -20,6 +20,17 @@ class PlanningTest(unittest.TestCase):
         self.assertIn("Must not have: leather", plan.rerank_context)
         self.assertEqual(plan.lexical_query, state.query())
 
+    def test_soft_negative_stays_out_of_search_and_is_labeled_as_avoidance(self):
+        state, plan = self.plan(["I would prefer not to have leather."])
+        leather = next(signal for signal in plan.soft_preferences if signal.value == "leather")
+        self.assertEqual(leather.polarity, -1)
+        self.assertFalse(leather.hard)
+        self.assertIn("leather", plan.negative_terms)
+        self.assertNotIn("leather", plan.lexical_query)
+        self.assertIn("Prefer to avoid: leather", plan.rerank_context)
+        self.assertNotIn("Must not have: leather", plan.rerank_context)
+        self.assertEqual(plan.lexical_query, state.query())
+
     def test_neutral_and_withdrawn_values_leave_all_search_contexts(self):
         _, plan = self.plan(["I need a blue cotton shirt.", "I do not have a color preference."])
         self.assertNotIn("blue", plan.positive_terms)

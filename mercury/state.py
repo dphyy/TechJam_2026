@@ -598,7 +598,7 @@ class SessionState:
                     polarity = 0
                 strength = _preference_strength(clause, start, end)
                 soft = strength == "soft"
-                hard = polarity == -1 or strength == "hard" or (
+                hard = (polarity == -1 and not soft) or strength == "hard" or (
                     attribute == "budget" and not soft and not budget_hedged(clause, start, end))
                 if polarity == 0:
                     hard = False

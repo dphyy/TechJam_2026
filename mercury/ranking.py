@@ -236,7 +236,7 @@ def _constraint_groups(preferences: list[Preference]) -> list[list[Preference]]:
         if preference.polarity == 1 and preference.alternative_group is not None:
             key = (preference.attribute, preference.alternative_group)
             alternatives.setdefault(key, []).append(preference)
-        elif preference.hard or preference.polarity < 0:
+        elif preference.hard:
             constraints.append([preference])
     # Hardness belongs to the group; even a soft member can satisfy its OR.
     constraints.extend(group for group in alternatives.values() if any(item.hard for item in group))
@@ -276,6 +276,34 @@ def rank_constraints(candidates: list[Candidate], preferences: list[Preference])
             parts["constraint_penalty"] = penalty
         result.append(Candidate(candidate.product, score, parts))
     return sorted(result, key=lambda item: -item.score)
+
+
+def rank_soft_negatives(candidates: list[Candidate], preferences: list[Preference],
+                        weight: float) -> list[Candidate]:
+    """Apply a bounded demotion for explicitly soft exclusions.
+
+    Matching a soft negative should lower priority without acting as a hard
+    guard. Unknown evidence and explicit evidence that the value is absent are
+    neutral. The stored adjustment is replaced so repeated application is a
+    fixed point.
+    """
+    avoided = [preference for preference in preferences
+               if preference.active and preference.polarity == -1 and not preference.hard]
+    if not candidates or (not avoided and not any(
+            "soft_negative_preference" in candidate.route_scores for candidate in candidates)):
+        return list(candidates)
+    result = []
+    for candidate in candidates:
+        parts = dict(candidate.route_scores)
+        score = candidate.score - parts.pop("soft_negative_preference", 0.0)
+        adjustment = weight * sum(
+            min(0.0, preference_evidence(candidate.product, preference)) * preference.confidence
+            for preference in avoided
+        )
+        if adjustment:
+            parts["soft_negative_preference"] = adjustment
+        result.append(Candidate(candidate.product, score + adjustment, parts))
+    return sorted(result, key=lambda item: (-item.score, item.product.parent_asin))
 
 
 def rank_product_compatibility(candidates: list[Candidate], preferences: list[Preference]) -> list[Candidate]:

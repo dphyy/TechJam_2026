@@ -2,7 +2,8 @@ import unittest
 
 from mercury.catalog import product_from_dict
 from mercury.ranking import (evidence_score, preference_evidence, rank_candidates, rank_constraints,
-                             rank_product_compatibility, rank_soft_prices, value_matches)
+                             rank_product_compatibility, rank_soft_negatives, rank_soft_prices,
+                             value_matches)
 from mercury.types import Candidate, Preference
 
 
@@ -38,6 +39,31 @@ class RankingTest(unittest.TestCase):
                          {item.product.parent_asin for item in candidates})
         self.assertNotIn("price_preference", ranked[1].route_scores)
         self.assertNotIn("price_preference", ranked[2].route_scores)
+
+    def test_soft_negative_demotes_a_match_without_becoming_a_constraint(self):
+        candidates = [
+            Candidate(product_from_dict({"parent_asin": "avoided", "title": "Leather bag"}), 1.0),
+            Candidate(product_from_dict({"parent_asin": "clean", "title": "Cotton bag"}), 1.0),
+            Candidate(product_from_dict({"parent_asin": "unknown", "title": "Travel bag"}), 1.0),
+        ]
+        avoided = preference("material", "leather", polarity=-1, hard=False)
+        self.assertEqual(rank_constraints(candidates, [avoided]), candidates)
+
+        ranked = rank_soft_negatives(candidates, [avoided], .02)
+        self.assertEqual([item.product.parent_asin for item in ranked], ["clean", "unknown", "avoided"])
+        self.assertEqual({item.product.parent_asin for item in ranked},
+                         {item.product.parent_asin for item in candidates})
+        self.assertLess(ranked[-1].route_scores["soft_negative_preference"], 0)
+        self.assertEqual(rank_soft_negatives(ranked, [avoided], .02), ranked)
+
+    def test_hard_negative_remains_a_constraint(self):
+        candidates = [
+            Candidate(product_from_dict({"parent_asin": "avoided", "title": "Leather bag"}), 2.0),
+            Candidate(product_from_dict({"parent_asin": "clean", "title": "Cotton bag"}), 1.0),
+        ]
+        ranked = rank_constraints(candidates, [preference("material", "leather", polarity=-1, hard=True)])
+        self.assertEqual([item.product.parent_asin for item in ranked], ["clean", "avoided"])
+        self.assertIn("constraint_penalty", ranked[-1].route_scores)
 
     def test_negated_material_is_not_positive_support(self):
         product = product_from_dict({"parent_asin": "a", "title": "Faux leather bag"})
@@ -213,11 +239,11 @@ class ConstraintRankingTest(unittest.TestCase):
             ("free", 2.0, {"details": {"Material": "Leather-free"}}),
             ("unknown", 1.0, {}),
         ])
-        ranked = rank_constraints(candidates, [preference("material", "leather", -1)])
+        ranked = rank_constraints(candidates, [preference("material", "leather", -1, hard=True)])
         self.assertEqual([item.product.parent_asin for item in ranked],
                          ["faux", "free", "unknown", "leather"])
         self.assertEqual([item.score for item in ranked[:3]], [3.0, 2.0, 1.0])
-        ranked = rank_constraints(candidates, [preference("material", "faux leather", -1)])
+        ranked = rank_constraints(candidates, [preference("material", "faux leather", -1, hard=True)])
         self.assertEqual([item.product.parent_asin for item in ranked],
                          ["leather", "free", "unknown", "faux"])
 
@@ -227,7 +253,7 @@ class ConstraintRankingTest(unittest.TestCase):
             ("not_waterproof", 2.0, {"title": "Not waterproof jacket"}),
             ("unknown", 1.0, {"title": "Jacket"}),
         ])
-        ranked = rank_constraints(candidates, [preference("feature", "waterproof", -1)])
+        ranked = rank_constraints(candidates, [preference("feature", "waterproof", -1, hard=True)])
         self.assertEqual([item.product.parent_asin for item in ranked],
                          ["not_waterproof", "unknown", "waterproof"])
 
@@ -390,8 +416,9 @@ class GroupedConstraintRankingTest(unittest.TestCase):
     def test_negative_requirements_are_independent_of_group_metadata(self):
         candidates = self.candidates(["Cotton fabric.", "Linen-free."])
         for preferences in (
-            self.choices() + [preference("material", "cotton", -1, alternative_group="material-choice")],
-            [preference("material", value, -1, alternative_group="material-choice")
+            self.choices() + [preference("material", "cotton", -1, hard=True,
+                                         alternative_group="material-choice")],
+            [preference("material", value, -1, hard=True, alternative_group="material-choice")
              for value in ("cotton", "linen")],
         ):
             with self.subTest(preferences=preferences):

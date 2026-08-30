@@ -28,7 +28,8 @@ def build_retrieval_plan(state: SessionState, intent: IntentDecision) -> Retriev
     negative = [preference for preference in active if preference.polarity == -1]
     hard = tuple(_signal(preference) for preference in active
                  if preference.polarity != 0 and preference.hard)
-    soft = tuple(_signal(preference) for preference in positive if not preference.hard)
+    soft = tuple(_signal(preference) for preference in active
+                 if preference.polarity != 0 and not preference.hard)
     scoped = tuple(_signal(preference) for preference in active
                    if preference.polarity != 0 and preference.scope is not None)
     objects = _unique(preference.value for preference in positive if preference.attribute == "category")
@@ -47,9 +48,13 @@ def build_retrieval_plan(state: SessionState, intent: IntentDecision) -> Retriev
         context_lines.append("Must have: " + "; ".join(must))
     if must_not:
         context_lines.append("Must not have: " + "; ".join(must_not))
-    preferred = _unique(signal.value for signal in soft if signal.attribute != "use_case")
+    preferred = _unique(signal.value for signal in soft
+                        if signal.polarity == 1 and signal.attribute != "use_case")
     if preferred:
         context_lines.append("Prefer: " + "; ".join(preferred))
+    avoided = _unique(signal.value for signal in soft if signal.polarity == -1)
+    if avoided:
+        context_lines.append("Prefer to avoid: " + "; ".join(avoided))
     if use_cases:
         context_lines.append("Preferred use: " + "; ".join(use_cases))
     budgets = _unique(preference.value for preference in active

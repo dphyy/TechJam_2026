@@ -81,6 +81,12 @@ class ConfigTest(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 Config(soft_price_weight=value)
 
+    def test_soft_negative_weight_is_bounded(self):
+        self.assertEqual(Config().soft_negative_weight, .02)
+        for value in (-.1, 1.1):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                Config(soft_negative_weight=value)
+
     def test_retrieval_sufficiency_controls_are_gated_and_bounded(self):
         config = Config(retrieval_sufficiency_gate=True, insufficient_action="minimal_probe",
                         max_deferred_turns=1, minimal_probe_limit=30,

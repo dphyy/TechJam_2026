@@ -234,6 +234,23 @@ class SessionStateTest(unittest.TestCase):
                 for cue in ("preferably", "mandatory", "non-negotiable"):
                     self.assertNotIn(cue, state.query())
 
+    def test_soft_negative_language_does_not_create_a_hard_exclusion(self):
+        for message in ("I would prefer not to have leather.", "Ideally no leather."):
+            with self.subTest(message=message):
+                state = SessionState({})
+                state.update(message, 1)
+                leather = next(p for p in state.active_preferences() if p.value == "leather")
+                self.assertEqual(leather.polarity, -1)
+                self.assertFalse(leather.hard)
+                self.assertEqual(leather.confidence, 0.8)
+                self.assertNotIn("leather", state.query())
+
+        state = SessionState({})
+        state.update("No leather.", 1)
+        leather = next(p for p in state.active_preferences() if p.value == "leather")
+        self.assertEqual(leather.polarity, -1)
+        self.assertTrue(leather.hard)
+
     def test_additive_constraint_does_not_erase_prior_constraint(self):
         state = SessionState({})
         state.update("I need a jacket that's waterproof.", 1)

@@ -17,7 +17,8 @@ from mercury.planning import build_retrieval_plan
 from mercury.policy import choose_policy
 from mercury.profile import distill_profile, rank_profile_prior
 from mercury.ranking import (rank_candidates, rank_composition_evidence, rank_constraints,
-                             rank_product_compatibility, rank_role_evidence, rank_soft_prices)
+                             rank_product_compatibility, rank_role_evidence, rank_soft_negatives,
+                             rank_soft_prices)
 from mercury.retrieval import SparseIndex, fuse_routes, terms
 from mercury.state import SessionState
 from mercury.sufficiency import decide_retrieval_sufficiency
@@ -430,6 +431,7 @@ class Agent:
                     fallbacks.append("ranking")
                     LOGGER.warning("Evidence ranking failed: %s", type(error).__name__)
             candidates = _apply_constraints(candidates, preferences, fallbacks)
+            candidates = rank_soft_negatives(candidates, preferences, self.config.soft_negative_weight)
             if self.config.product_guard:
                 candidates = _apply_product_guard(candidates, preferences, fallbacks)
             stage_counts["guarded_before_truncation"] = len(candidates)
@@ -512,6 +514,7 @@ class Agent:
             if self.config.composition_evidence:
                 candidates, composition_witnesses = rank_composition_evidence(candidates, preferences)
             candidates = _apply_constraints(candidates, preferences, fallbacks)
+            candidates = rank_soft_negatives(candidates, preferences, self.config.soft_negative_weight)
             candidates = rank_soft_prices(candidates, preferences, self.config.soft_price_weight)
             if self.config.profile_prior:
                 candidates = rank_profile_prior(
@@ -610,6 +613,10 @@ class Agent:
                                  for item in candidates},
             "price_adjustments": {item.product.parent_asin: item.route_scores.get("price_preference", 0.0)
                                   for item in candidates},
+            "soft_negative_adjustments": {
+                item.product.parent_asin: item.route_scores.get("soft_negative_preference", 0.0)
+                for item in candidates
+            },
             "fallbacks": fallbacks, "policy": decision.diagnostics,
             "question": {"attribute": decision.ask_attribute, "goal": decision.question_goal,
                          "reason": decision.diagnostics.get("decision", "policy")},

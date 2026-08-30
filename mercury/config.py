@@ -80,6 +80,7 @@ class Config:
     question_turn_cost: float = 0.02
     profile_weight: float = 0.005
     soft_price_weight: float = 0.02
+    soft_negative_weight: float = 0.02
     minimum_retrieval_specificity: float = 0.35
     cascade_threshold: float = 0.65
     cascade_low_overlap: float = 0.15
@@ -140,7 +141,7 @@ class Config:
                     "intent_sparse_request_weight", "buying_scoped_weight", "browsing_scenario_weight",
                     "mixed_scoped_weight",
                     "buying_dense_weight", "browsing_dense_weight", "mixed_dense_weight", "question_turn_cost",
-                    "profile_weight", "soft_price_weight", "minimum_retrieval_specificity",
+                    "profile_weight", "soft_price_weight", "soft_negative_weight", "minimum_retrieval_specificity",
                     "cascade_threshold", "cascade_low_overlap", "cascade_low_confidence"):
             value = getattr(self, key)
             if type(value) not in (int, float) or not 0 <= value <= 1:
