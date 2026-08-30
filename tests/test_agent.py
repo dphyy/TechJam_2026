@@ -975,9 +975,12 @@ class AgentTest(unittest.TestCase):
         }
         self.assertEqual(selected.slate_paging_first_turn, 1)
         self.assertTrue(selected.slate_reset_on_override)
+        self.assertTrue(selected.repeat_driven_paging)
         self.assertFalse(selected.routed_retrieval)
         for field in Config.__dataclass_fields__:
-            if field not in tuned_fields | {"slate_paging_first_turn", "slate_reset_on_override"}:
+            if field not in tuned_fields | {
+                "slate_paging_first_turn", "slate_reset_on_override", "repeat_driven_paging",
+            }:
                 self.assertEqual(getattr(selected, field), getattr(historical, field), field)
 
     def test_cycle3_admission_configs_only_change_admission_mode(self):
@@ -1009,7 +1012,8 @@ class AgentTest(unittest.TestCase):
             Config.load(root / "margin_fusion.json"),
             replace(selected, neural_margin_fusion=True,
                     neural_low_margin_weight=.50, neural_margin_threshold=1.0,
-                    slate_paging_first_turn=5, slate_reset_on_override=False),
+                    slate_paging_first_turn=5, slate_reset_on_override=False,
+                    repeat_driven_paging=False),
         )
 
     def test_early_paging_candidate_only_changes_the_registered_start_turn(self):
@@ -1017,7 +1021,7 @@ class AgentTest(unittest.TestCase):
         selected = Config.load(root / "selected.json")
         self.assertEqual(
             Config.load(root / "paging_from_start.json"),
-            replace(selected, slate_reset_on_override=False),
+            replace(selected, slate_reset_on_override=False, repeat_driven_paging=False),
         )
 
     def test_early_paging_override_reset_candidate_only_changes_registered_paging_fields(self):
@@ -1025,7 +1029,14 @@ class AgentTest(unittest.TestCase):
         selected = Config.load(root / "selected.json")
         self.assertEqual(
             Config.load(root / "paging_from_start_override_reset.json"),
-            selected,
+            replace(selected, repeat_driven_paging=False),
+        )
+
+    def test_realistic_shopping_candidate_is_the_promoted_selected_config(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        self.assertEqual(
+            Config.load(root / "realistic_shopping_candidate.json"),
+            Config.load(root / "selected.json"),
         )
 
     def test_frontier_configs_only_change_registered_fields(self):
@@ -1033,11 +1044,12 @@ class AgentTest(unittest.TestCase):
         selected = Config.load(root / "selected.json")
         self.assertEqual(
             Config.load(root / "frontier_seen_aware.json"),
-            replace(selected, seen_aware_slate=True),
+            replace(selected, repeat_driven_paging=False, seen_aware_slate=True),
         )
         self.assertEqual(
             Config.load(root / "frontier_progressive.json"),
-            replace(selected, seen_aware_slate=True, progressive_frontier_rerank=True),
+            replace(selected, repeat_driven_paging=False, seen_aware_slate=True,
+                    progressive_frontier_rerank=True),
         )
 
     def test_page_local_config_only_enables_the_registered_bounded_candidate(self):
@@ -1046,7 +1058,8 @@ class AgentTest(unittest.TestCase):
         self.assertEqual(
             Config.load(root / "page_local_rerank.json"),
             replace(
-                selected, page_local_rerank=True, page_local_rerank_limit=10,
+                selected, repeat_driven_paging=False, page_local_rerank=True,
+                page_local_rerank_limit=10,
                 page_local_max_batches=2, page_local_max_pairs=20,
                 page_local_budget_seconds=.25,
             ),
@@ -1057,7 +1070,8 @@ class AgentTest(unittest.TestCase):
         selected = Config.load(root / "selected.json")
         self.assertEqual(
             Config.load(root / "neural_logit_cache.json"),
-            replace(selected, neural_logit_cache=True, neural_logit_cache_size=8192),
+            replace(selected, repeat_driven_paging=False, neural_logit_cache=True,
+                    neural_logit_cache_size=8192),
         )
 
     def test_cycle3_document_configs_only_change_document_mode(self):
@@ -1684,6 +1698,70 @@ class AgentTest(unittest.TestCase):
             seen = self.slates(agent, 6)
             self.assertEqual(len(set(seen[0]) & set(seen[4])), 0)
             self.assertEqual(len({item for slate in seen for item in slate}), 30)
+        finally:
+            agent.close()
+
+    def test_repeat_driven_paging_uses_stable_head_membership_and_unseen_items(self):
+        agent = Agent(self.paging_catalog(), Config(
+            slate_paging_first_turn=1, repeat_driven_paging=True,
+        ))
+        try:
+            ordered = [f"P{index:03d}" for index in range(30)]
+            page = agent._slate_page("repeat", ordered, 1, 10)
+            first, _, _ = agent._repeat_driven_selection("repeat", ordered, page, 10)
+            reordered = list(reversed(ordered[:10])) + ordered[20:] + ordered[10:20]
+            page = agent._slate_page("repeat", reordered, 2, 10)
+            second, newly_shown, diagnostics = agent._repeat_driven_selection(
+                "repeat", reordered, page, 10,
+            )
+            self.assertEqual(page, 1)
+            self.assertFalse(set(first) & set(second))
+            self.assertEqual(newly_shown, 10)
+            self.assertEqual(diagnostics["reason"], "highest_ranked_unseen")
+
+            changed_head = ["P010", *reordered[1:10], reordered[0], *reordered[11:]]
+            self.assertEqual(agent._slate_page("repeat", changed_head, 3, 10), 0)
+        finally:
+            agent.close()
+
+    def test_repeat_driven_override_clears_exposure_and_replays_new_head(self):
+        agent = Agent(self.paging_catalog(), Config(
+            slate_paging_first_turn=1, slate_reset_on_override=True,
+            repeat_driven_paging=True,
+        ))
+        try:
+            agent.reset("repeat-override", {})
+            first = agent.respond("repeat-override", "blue cotton shirt", 1, 10)
+            second = agent.respond("repeat-override", "blue cotton shirt", 2, 10)
+            reset = agent.respond(
+                "repeat-override", "Actually, make that a blue cotton shirt", 3, 10,
+            )
+            first_ids = [item["parent_asin"] for item in first["recommendations"]]
+            second_ids = [item["parent_asin"] for item in second["recommendations"]]
+            reset_ids = [item["parent_asin"] for item in reset["recommendations"]]
+            self.assertFalse(set(first_ids) & set(second_ids))
+            self.assertEqual(reset_ids, first_ids)
+            self.assertEqual(agent.last_diagnostics["slate_page"], 0)
+            self.assertTrue(agent.last_diagnostics["repeat_driven_paging"]["override_reset"])
+            self.assertEqual(agent.last_diagnostics["slate_exposure"]["shown_total"], 10)
+        finally:
+            agent.close()
+
+    def test_repeat_driven_exhaustion_keeps_a_full_unique_slate(self):
+        agent = Agent(self.paging_catalog(14), Config(
+            slate_paging_first_turn=1, repeat_driven_paging=True,
+        ))
+        try:
+            ordered = [f"P{index:03d}" for index in range(14)]
+            first, _, _ = agent._repeat_driven_selection("exhaust", ordered, 0, 10)
+            second, newly_shown, diagnostics = agent._repeat_driven_selection(
+                "exhaust", ordered, 1, 10,
+            )
+            self.assertEqual(len(first), 10)
+            self.assertEqual(len(second), 10)
+            self.assertEqual(len(set(second)), 10)
+            self.assertEqual(newly_shown, 4)
+            self.assertEqual(diagnostics["reason"], "unseen_exhausted_with_ranked_fill")
         finally:
             agent.close()
 

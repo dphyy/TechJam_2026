@@ -26,7 +26,8 @@ from mercury.planning import build_retrieval_plan
 from mercury.policy import choose_policy
 from mercury.profile import distill_profile, rank_profile_prior
 from mercury.ranking import (rank_candidates, rank_composition_evidence, rank_constraints,
-                             rank_product_compatibility, rank_role_evidence, rank_soft_prices)
+                             rank_product_compatibility, rank_role_evidence, rank_soft_negatives,
+                             rank_soft_prices)
 from mercury.retrieval import SparseIndex, fuse_routes, terms
 from mercury.state import SessionState
 from mercury.sufficiency import decide_retrieval_sufficiency
@@ -375,7 +376,9 @@ class Agent:
         page = self._pages.get(session_id, 0)
         if reset_page:
             page = 0
-        elif previous is not None and ordered == previous:
+        elif previous is not None and (
+                set(ordered[:limit]) == set(previous[:limit])
+                if self.config.repeat_driven_paging and limit else ordered == previous):
             if first_turn and turn >= first_turn:
                 page += 1
         else:
@@ -384,6 +387,43 @@ class Agent:
         self._pages[session_id] = page
         self._last_ranked[session_id] = ordered
         return page
+
+    def _repeat_driven_selection(
+        self, session_id: str, ordered: list[str], page: int, limit: int,
+        reset_seen: bool = False,
+    ) -> tuple[list[str], int, dict[str, int | str | bool]]:
+        """Show the strongest unseen products only after a stable head repeats."""
+        seen = self._shown_ids.setdefault(session_id, set())
+        if reset_seen:
+            seen.clear()
+        prior_seen = len(seen)
+        unseen = [identifier for identifier in ordered if identifier not in seen]
+        if not limit:
+            selected, reason = [], "empty_limit"
+        elif page == 0:
+            selected, reason = ordered[:limit], "base_head"
+        else:
+            selected = unseen[:limit]
+            reason = "highest_ranked_unseen"
+            if len(selected) < limit:
+                selected_set = set(selected)
+                held_page = ordered[page * limit:page * limit + limit]
+                fill = []
+                for identifier in (*held_page, *ordered):
+                    if identifier not in selected_set:
+                        fill.append(identifier)
+                        selected_set.add(identifier)
+                selected.extend(fill[:limit - len(selected)])
+                reason = "unseen_exhausted_with_ranked_fill"
+        newly_shown = sum(identifier not in seen for identifier in selected)
+        seen.update(selected)
+        return selected, newly_shown, {
+            "reason": reason,
+            "prior_seen": prior_seen,
+            "unseen_available": len(unseen),
+            "selected_unseen": newly_shown,
+            "override_reset": reset_seen,
+        }
 
     def _explicit_rejection_slate(
         self, session_id: str, ordered: list[str], limit: int, state: SessionState,
@@ -515,6 +555,7 @@ class Agent:
                 unresolved=self.config.intent_unresolved_weight,
                 sparse_request=self.config.intent_sparse_request_weight,
             ),
+            routing_confidence_threshold=self.config.router_min_confidence,
         )
         plan = build_retrieval_plan(state, intent)
         if self.config.multi_hypothesis_retrieval:
@@ -609,6 +650,9 @@ class Agent:
                     fallbacks.append("ranking")
                     LOGGER.warning("Evidence ranking failed: %s", type(error).__name__)
             candidates = _apply_constraints(candidates, preferences, fallbacks)
+            candidates = rank_soft_negatives(
+                candidates, preferences, self.config.soft_negative_weight,
+            )
             if self.config.product_guard:
                 candidates = _apply_product_guard(candidates, preferences, fallbacks)
             stage_counts["guarded_before_truncation"] = len(candidates)
@@ -780,6 +824,9 @@ class Agent:
             if self.config.composition_evidence:
                 candidates, composition_witnesses = rank_composition_evidence(candidates, preferences)
             candidates = _apply_constraints(candidates, preferences, fallbacks)
+            candidates = rank_soft_negatives(
+                candidates, preferences, self.config.soft_negative_weight,
+            )
             candidates = rank_soft_prices(candidates, preferences, self.config.soft_price_weight)
             if self.config.profile_prior:
                 candidates = rank_profile_prior(
@@ -859,6 +906,9 @@ class Agent:
                             candidates, preferences,
                         )
                     candidates = _apply_constraints(candidates, preferences, fallbacks)
+                    candidates = rank_soft_negatives(
+                        candidates, preferences, self.config.soft_negative_weight,
+                    )
                     candidates = rank_soft_prices(
                         candidates, preferences, self.config.soft_price_weight,
                     )
@@ -908,11 +958,14 @@ class Agent:
         state.record_question(decision.ask_attribute, decision.question_goal)
         limit = min(top_k, max(0, decision.slate_size))
         ordered = list(dict.fromkeys(item.product.parent_asin for item in candidates))
-        override_page_reset = (
-            self.config.slate_reset_on_override and "intent_override" in intent.reasons
+        override_page_reset = self.config.slate_reset_on_override and (
+            state.last_override.detected
+            or intent.event in {"override", "correction", "relaxation"}
+            or state.last_update_kind in {"replacement", "polarity_change", "category_change"}
         )
         shown_before = len(self._shown_ids.get(session_id, set()))
         continuity_reason = "disabled"
+        repeat_selection: dict[str, int | str | bool] = {"reason": "disabled"}
         if self.config.seen_aware_slate:
             page, ranked, newly_shown = self._seen_aware_selection(
                 session_id, ordered, limit, override_page_reset,
@@ -922,6 +975,12 @@ class Agent:
                 session_id, ordered, limit, state, override_page_reset,
             ) if limit else (0, [], "empty_slate")
             newly_shown = 0
+        elif self.config.repeat_driven_paging:
+            page = self._slate_page(session_id, ordered, turn, limit, override_page_reset)
+            ranked, newly_shown, repeat_selection = self._repeat_driven_selection(
+                session_id, ordered, page, limit, override_page_reset,
+            )
+            continuity_reason = str(repeat_selection["reason"])
         else:
             page = self._slate_page(session_id, ordered, turn, limit, override_page_reset)
             ranked = ordered[page * limit:page * limit + limit] if limit else []
@@ -1076,6 +1135,10 @@ class Agent:
             "revision": state.revision, "cache_hit": cache_hit, "slate_page": page,
             "slate_continuity_reason": continuity_reason,
             "slate_page_reset": "intent_override" if override_page_reset else None,
+            "repeat_driven_paging": {
+                "enabled": self.config.repeat_driven_paging,
+                **repeat_selection,
+            },
             "slate_exposure": {
                 "seen_aware": self.config.seen_aware_slate,
                 "shown_before": shown_before,
@@ -1145,7 +1208,8 @@ class Agent:
                 "max_session_escalations": self.config.cascade_max_turns,
             },
             "neural_scores": neural_scores,
-            "intent": {"mode": intent.mode, "specificity": intent.specificity,
+            "intent": {"mode": intent.mode, "effective_mode": intent.effective_mode,
+                       "event": intent.event, "specificity": intent.specificity,
                        "confidence": intent.confidence,
                        "hard_constraint_count": intent.hard_constraint_count,
                        "over_general": intent.over_general, "reasons": list(intent.reasons)},
@@ -1183,6 +1247,14 @@ class Agent:
                 "scope": state.last_feedback.scope, "attribute": state.last_feedback.attribute,
                 "reason": state.last_feedback.reason,
             },
+            "state_delta": {
+                "kind": state.last_state_delta.kind,
+                "added": [{"attribute": attribute, "value": value, "polarity": polarity}
+                          for attribute, value, polarity in state.last_state_delta.added],
+                "removed": [{"attribute": attribute, "value": value, "polarity": polarity}
+                            for attribute, value, polarity in state.last_state_delta.removed],
+                "explicit_replacement": state.last_state_delta.explicit_replacement,
+            },
             "routes": routes, "route_weights": route_weights, "route_overlap": _route_overlap(routes),
             "stage_counts": stage_counts,
             "stage_ids": stage_ids,
@@ -1219,6 +1291,10 @@ class Agent:
                                  for item in candidates},
             "price_adjustments": {item.product.parent_asin: item.route_scores.get("price_preference", 0.0)
                                   for item in candidates},
+            "soft_negative_adjustments": {
+                item.product.parent_asin: item.route_scores.get("soft_negative_preference", 0.0)
+                for item in candidates
+            },
             "fallbacks": fallbacks, "policy": decision.diagnostics,
             "question": {"attribute": decision.ask_attribute, "goal": decision.question_goal,
                          "reason": decision.diagnostics.get("decision", "policy")},

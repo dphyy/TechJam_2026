@@ -75,6 +75,7 @@ cleared the development and correctness gates.
 | Final candidate, paging | 0.975000 | 0.658244 | 2.650000 | 0.851973 | 423,141 |
 | Consumed public, paging (descriptive) | 0.970000 | 0.645919 | 2.980000 | 0.839176 | 2,375,008 |
 | Consumed public, early paging + override reset | 0.970000 | 0.641633 | 2.905000 | 0.839390 | 2,372,103 |
+| Consumed public, stable-head unseen paging + semantic reset | 0.980000 | 0.640647 | 2.860000 | 0.844994 | 2,372,103 |
 
 Paging improves TechnicalScore by `+0.018536` on unseen development and
 `+0.013937` on the final split, with `+0.025` Hit@10 on both. It performs no

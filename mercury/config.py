@@ -31,6 +31,7 @@ class Config:
     source_alias_retrieval: bool = False
     neural_margin_fusion: bool = False
     slate_reset_on_override: bool = False
+    repeat_driven_paging: bool = False
     seen_aware_slate: bool = False
     progressive_frontier_rerank: bool = False
     page_local_rerank: bool = False
@@ -82,6 +83,7 @@ class Config:
     router_buying_threshold: float = 0.50
     router_browsing_threshold: float = 0.50
     router_over_general_threshold: float = 0.35
+    router_min_confidence: float = 0.65
     intent_object_weight: float = 0.20
     intent_slot_weight: float = 0.25
     intent_hard_weight: float = 0.00
@@ -99,6 +101,7 @@ class Config:
     question_turn_cost: float = 0.02
     profile_weight: float = 0.005
     soft_price_weight: float = 0.02
+    soft_negative_weight: float = 0.02
     minimum_retrieval_specificity: float = 0.35
     cascade_threshold: float = 0.65
     cascade_low_overlap: float = 0.15
@@ -137,7 +140,8 @@ class Config:
                     "retrieval_sufficiency_gate", "compute_cascade", "multi_hypothesis_retrieval",
                     "semantic_question_goals", "require_positive_question_value", "role_evidence",
                     "composition_evidence", "source_alias_retrieval", "neural_margin_fusion",
-                    "slate_reset_on_override", "seen_aware_slate", "progressive_frontier_rerank",
+                    "slate_reset_on_override", "repeat_driven_paging", "seen_aware_slate",
+                    "progressive_frontier_rerank",
                     "page_local_rerank", "neural_logit_cache", "catalog_vocabulary",
                     "canonical_state_semantics", "adaptive_rerank_depth",
                     "explicit_rejection_continuity"):
@@ -169,13 +173,15 @@ class Config:
         if type(self.slate_paging_first_turn) is not int or not 0 <= self.slate_paging_first_turn <= 10:
             raise ValueError("slate_paging_first_turn must be an integer in [0, 10]; 0 disables paging")
         for key in ("dense_weight", "neural_weight", "contrast_weight", "router_buying_threshold",
-                    "router_browsing_threshold", "router_over_general_threshold", "intent_object_weight",
+                    "router_browsing_threshold", "router_over_general_threshold",
+                    "router_min_confidence", "intent_object_weight",
                     "intent_slot_weight", "intent_hard_weight", "intent_buying_language_weight",
                     "intent_browsing_language_weight", "intent_use_case_weight", "intent_unresolved_weight",
                     "intent_sparse_request_weight", "buying_scoped_weight", "browsing_scenario_weight",
                     "mixed_scoped_weight",
                     "buying_dense_weight", "browsing_dense_weight", "mixed_dense_weight", "question_turn_cost",
-                    "profile_weight", "soft_price_weight", "minimum_retrieval_specificity",
+                    "profile_weight", "soft_price_weight", "soft_negative_weight",
+                    "minimum_retrieval_specificity",
                     "cascade_threshold", "cascade_low_overlap", "cascade_low_confidence",
                     "neural_low_margin_weight"):
             value = getattr(self, key)
@@ -188,6 +194,10 @@ class Config:
             raise ValueError("Low-margin neural weight cannot exceed the configured neural weight")
         if self.progressive_frontier_rerank and not (self.neural_rerank and self.seen_aware_slate):
             raise ValueError("Progressive frontier reranking requires neural reranking and seen-aware slates")
+        if self.repeat_driven_paging and (self.seen_aware_slate or self.explicit_rejection_continuity):
+            raise ValueError(
+                "Repeat-driven paging cannot be combined with alternate slate-continuity policies"
+            )
         if self.neural_logit_cache and not self.neural_rerank:
             raise ValueError("Neural logit caching requires neural reranking")
         if self.page_local_rerank and (

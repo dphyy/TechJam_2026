@@ -27,6 +27,17 @@ class PlanningTest(unittest.TestCase):
         self.assertNotIn("blue", plan.rerank_context)
         self.assertIn("cotton", plan.positive_terms)
 
+    def test_soft_negative_is_labeled_as_avoidance_not_a_hard_constraint(self):
+        state, plan = self.plan(["I would prefer not to have leather."])
+        leather = next(signal for signal in plan.soft_preferences if signal.value == "leather")
+        self.assertEqual(leather.polarity, -1)
+        self.assertFalse(leather.hard)
+        self.assertIn("leather", plan.negative_terms)
+        self.assertNotIn("leather", plan.lexical_query)
+        self.assertIn("Prefer to avoid: leather", plan.rerank_context)
+        self.assertNotIn("Must not have: leather", plan.rerank_context)
+        self.assertEqual(plan.lexical_query, state.query())
+
     def test_plan_preserves_alternative_groups(self):
         _, plan = self.plan(["I need a cotton or linen shirt."])
         alternatives = [signal for signal in (*plan.hard_constraints, *plan.soft_preferences)

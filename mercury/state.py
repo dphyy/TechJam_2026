@@ -6,7 +6,7 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 
-from mercury.types import FeedbackDecision, OverrideDecision, OverrideFact, Preference
+from mercury.types import FeedbackDecision, OverrideDecision, OverrideFact, Preference, StateDelta
 from mercury.vocabulary import CatalogVocabulary, VocabularyMatch
 
 
@@ -200,8 +200,12 @@ _ATTRIBUTE_CHANGE_REQUEST = re.compile(
     r"brand|size|category|product type|features?)\b"
 )
 _ADDITIVE = re.compile(r"\b(?:also|as well|in addition|either|or|too)\b")
-_SOFT = re.compile(r"\b(?:prefer|preference|ideally|maybe|perhaps|would be nice|if possible|leaning|nice to have)\b")
-_HARD = re.compile(r"\b(?:must|need|needs|required|only|essential|have to|has to|cannot|can't)\b")
+_SOFT = re.compile(
+    r"\b(?:prefer|preference|preferably|ideally|maybe|perhaps|would be nice|if possible|leaning|nice to have)\b"
+)
+_HARD = re.compile(
+    r"\b(?:must|need|needs|required|only|essential|mandatory|non[- ]negotiable|have to|has to|cannot|can't)\b"
+)
 _PRODUCT_TYPE_REJECTION = re.compile(
     r"\b(?:not|don't want|do not want) (?:this|that) (?:product )?(?:type|category|kind)\b"
 )
@@ -243,7 +247,7 @@ _RESIDUAL_STOPWORDS = frozenset("""
     have has had having can can't cannot could would should will won't must may might
     to of in on at for from by with without into about as than and or nor but except so if
     because while when where which who how what whether not no yes yeah okay ok sure please
-    thanks thank just really very quite maybe perhaps ideally actually also too well
+    thanks thank just really very quite maybe perhaps ideally preferably leaning toward towards actually also too well
     want wants wanted need needs needed like liked prefer preferred preference preferences
     looking look find searching search shop shopping buy buying browse browsing after
     get give show see pick choose keep continue try trying use wear wearing made make go
@@ -252,7 +256,7 @@ _RESIDUAL_STOPWORDS = frozenset("""
     then again ever always never possible fine nice good great right wrong better best longer
     different same previous next options option choices choice recommendations recommendation
     item items product products thing things details detail information new particular
-    specific strong necessary required important anymore maximum minimum budget dollars
+    specific strong necessary required important essential mandatory non-negotiable anymore maximum minimum budget dollars
     dollar price cost spend stretch cap capped pair around approximately roughly under
     over above below between least most enough comfortable happy willing interested
     brand material fabric color colour style size feature features category occasion
@@ -356,6 +360,20 @@ def budget_hedged(clause: str, start: int, end: int) -> bool:
     """
     window = clause[max(0, start - 20):end] + clause[end:end + 8]
     return bool(_BUDGET_HEDGE.search(window))
+
+
+def _preference_strength(clause: str, start: int, end: int) -> str | None:
+    """Return the nearest explicit hard/soft cue for one extracted value."""
+    cues: list[tuple[int, int, str]] = []
+    for strength, pattern in (("hard", _HARD), ("soft", _SOFT)):
+        for match in pattern.finditer(clause):
+            distance = (
+                start - match.end() if match.end() <= start
+                else match.start() - end if match.start() >= end
+                else 0
+            )
+            cues.append((distance, 0 if strength == "hard" else 1, strength))
+    return min(cues)[2] if cues else None
 
 
 def _sizes(clause: str, prompted: bool) -> list[tuple[str, int, int]]:
@@ -464,8 +482,13 @@ class SessionState:
         self.last_answer_productivity = "not_applicable"
         self.last_feedback = FeedbackDecision("none")
         self.last_override = OverrideDecision()
+        self.last_state_delta = StateDelta("none")
         self.revision = 0
         self.turn = 0
+
+    @property
+    def last_update_kind(self) -> str:
+        return self.last_state_delta.kind
 
     def record_question(self, attribute: str | None, goal: str | None = None) -> None:
         self.last_question = attribute
@@ -589,6 +612,7 @@ class SessionState:
         self.unsupported_alternatives = []
         before = self._signature()
         override_before = self._override_facts()
+        before_facts = {(p.attribute, p.value, p.polarity) for p in self.active_preferences()}
         normalized = _normalize(user_message)
         self.last_vocabulary_expansions = []
         if self.catalog_vocabulary is not None and self.catalog_vocabulary.dual_lane:
@@ -656,6 +680,13 @@ class SessionState:
         self.last_override = self._decide_override(
             normalized, override_before, assertions, requested_attribute,
         )
+        after_facts = {(p.attribute, p.value, p.polarity) for p in self.active_preferences()}
+        self.last_state_delta = self._state_delta(
+            before_facts, after_facts, assertions, self.last_update_informative,
+            bool((_REPLACEMENT.search(normalized) or _IMPLICIT_PREFERENCE_SHIFT.search(normalized))
+                 and not (_NO_CHANGE_GUARD.search(normalized) or _EITHER_OR_GUARD.search(normalized))),
+            bool(_NO_CHANGE_GUARD.search(normalized) or _EITHER_OR_GUARD.search(normalized)),
+        )
         if self.last_question is None:
             self.last_answer_productivity = "not_applicable"
         elif any(item.preference.polarity == 0 for item in assertions):
@@ -672,6 +703,51 @@ class SessionState:
         if self.last_update_informative:
             self.revision += 1
         self.history.append(SourceRecord(turn, user_message, [a.preference for a in assertions], self.last_update_informative))
+
+    @staticmethod
+    def _state_delta(before: set[tuple[str, str, int]], after: set[tuple[str, str, int]],
+                     assertions: list[_Assertion], informative: bool,
+                     message_replacement: bool = False,
+                     replacement_protected: bool = False) -> StateDelta:
+        added = tuple(sorted(after - before))
+        removed = tuple(sorted(before - after))
+        explicit_replacement = not replacement_protected and (
+            message_replacement or any(
+                item.replacement or item.choice_replacement for item in assertions
+            )
+        )
+        if not informative:
+            return StateDelta("none", explicit_replacement=explicit_replacement)
+
+        before_categories = {value for attribute, value, polarity in before
+                             if attribute == "category" and polarity == 1}
+        after_categories = {value for attribute, value, polarity in after
+                            if attribute == "category" and polarity == 1}
+        if before and before_categories != after_categories:
+            kind = "category_change"
+        else:
+            before_polarities = {(attribute, value): polarity for attribute, value, polarity in before}
+            after_polarities = {(attribute, value): polarity for attribute, value, polarity in after}
+            polarity_changed = any(
+                key in after_polarities and after_polarities[key] != polarity
+                for key, polarity in before_polarities.items()
+            ) or any(polarity <= 0 for _, _, polarity in added + removed)
+            if polarity_changed:
+                kind = "polarity_change"
+            else:
+                positive_added = {(attribute, value) for attribute, value, polarity in added if polarity == 1}
+                positive_removed = {(attribute, value) for attribute, value, polarity in removed if polarity == 1}
+                replaced_slot = any(
+                    any(attribute == removed_attribute for removed_attribute, _ in positive_removed)
+                    for attribute, _ in positive_added
+                )
+                if explicit_replacement or replaced_slot:
+                    kind = "replacement"
+                elif added and any(item.additive for item in assertions):
+                    kind = "additive"
+                else:
+                    kind = "refinement"
+        return StateDelta(kind, added, removed, explicit_replacement)
 
     def _extract(self, message: str, turn: int) -> list[_Assertion]:
         text = re.sub(r"\b(?:anything|everything) but\b", "without", _normalize(message))
@@ -760,7 +836,6 @@ class SessionState:
                 or pending_replacement
                 or (turn_replacement and not _ADDITIVE.search(clause))
             )
-            soft = bool(_SOFT.search(clause))
             discourse = [("discourse", "", match.start(), match.end()) for match in re.finditer(r"\bworks\b", clause)] if alternatives else []
             residuals = _residuals(clause, mentions + discourse + [("quantity", value, start, end) for value, start, end in quantities])
             pending_replacement = replacement and not mentions and not residuals
@@ -770,10 +845,12 @@ class SessionState:
                 polarity = _polarity(clause, start, end)
                 if _SUFFIX_RELAXATION.search(clause[end:]):
                     polarity = 0
-                hard = polarity == -1 or bool(_HARD.search(clause)) or (
+                strength = _preference_strength(clause, start, end)
+                soft = strength == "soft"
+                hard = (polarity == -1 and not soft) or strength == "hard" or (
                     attribute == "budget" and not soft and not budget_hedged(clause, start, end))
                 if catalog_match is not None:
-                    hard = polarity == -1
+                    hard = polarity == -1 and not soft
                 if polarity == 0:
                     hard = False
                 confidence = 0.8 if soft and not hard else 1.0

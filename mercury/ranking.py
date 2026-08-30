@@ -166,11 +166,11 @@ def rank_candidates(candidates: list[Candidate], preferences: list[Preference]) 
 
 def rank_soft_prices(candidates: list[Candidate], preferences: list[Preference],
                      weight: float) -> list[Candidate]:
-    """Apply a small price preference without filtering uncertain products.
+    """Apply a small structured price preference without filtering products.
 
-    Only catalog evidence strong enough for ``_budget`` contributes. Missing,
-    malformed, and inconclusive lower-bound prices remain neutral. Even a
-    confirmed mismatch receives only a bounded score adjustment, never removal.
+    Firm limits retain binary fit evidence. Soft figures use continuous
+    proximity to their target. Missing, malformed, and inconclusive lower-bound
+    prices remain neutral.
     """
     budgets = [preference for preference in preferences
                if preference.active and preference.attribute == "budget"
@@ -179,16 +179,36 @@ def rank_soft_prices(candidates: list[Candidate], preferences: list[Preference],
         return list(candidates)
     result = []
     for candidate in candidates:
-        signals = [_budget(candidate.product, preference.value) * preference.confidence
+        signals = [budget_preference_score(candidate.product, preference) * preference.confidence
                    for preference in budgets]
         signal = sum(signals) / len(signals)
         adjustment = weight * max(-1.0, min(1.0, signal))
         parts = dict(candidate.route_scores)
-        parts.pop("price_preference", None)
+        score = candidate.score - parts.pop("price_preference", 0.0)
         if adjustment:
             parts["price_preference"] = adjustment
-        result.append(Candidate(candidate.product, candidate.score + adjustment, parts))
+        result.append(Candidate(candidate.product, score + adjustment, parts))
     return sorted(result, key=lambda item: (-item.score, item.product.parent_asin))
+
+
+def budget_preference_score(product: Product, preference: Preference) -> float:
+    """Return binary firm-budget evidence or continuous soft-target proximity."""
+    if preference.hard:
+        return _budget(product, preference.value)
+    if product.price is None or product.price_lower_bound or product.price < 0:
+        return 0.0
+    numbers = [float(number) for number in re.findall(r"\d+(?:\.\d+)?", preference.value)]
+    if not numbers:
+        return 0.0
+    if len(numbers) == 2:
+        low, high = sorted(numbers[:2])
+        target = (low + high) / 2.0
+        scale = max((high - low) / 2.0, target, 1.0)
+    else:
+        target = numbers[0]
+        scale = max(target, 1.0)
+    distance = abs(product.price - target) / scale
+    return max(-1.0, 1.0 - 2.0 * distance)
 
 
 def rank_role_evidence(candidates: list[Candidate], preferences: list[Preference]) -> tuple[list[Candidate], dict[str, list[dict]]]:
@@ -236,7 +256,7 @@ def _constraint_groups(preferences: list[Preference]) -> list[list[Preference]]:
         if preference.polarity == 1 and preference.alternative_group is not None:
             key = (preference.attribute, preference.alternative_group)
             alternatives.setdefault(key, []).append(preference)
-        elif preference.hard or preference.polarity < 0:
+        elif preference.hard:
             constraints.append([preference])
     # Hardness belongs to the group; even a soft member can satisfy its OR.
     constraints.extend(group for group in alternatives.values() if any(item.hard for item in group))
@@ -276,6 +296,28 @@ def rank_constraints(candidates: list[Candidate], preferences: list[Preference])
             parts["constraint_penalty"] = penalty
         result.append(Candidate(candidate.product, score, parts))
     return sorted(result, key=lambda item: -item.score)
+
+
+def rank_soft_negatives(candidates: list[Candidate], preferences: list[Preference],
+                        weight: float) -> list[Candidate]:
+    """Apply a bounded, idempotent demotion for explicitly soft exclusions."""
+    avoided = [preference for preference in preferences
+               if preference.active and preference.polarity == -1 and not preference.hard]
+    if not candidates or (not avoided and not any(
+            "soft_negative_preference" in candidate.route_scores for candidate in candidates)):
+        return list(candidates)
+    result = []
+    for candidate in candidates:
+        parts = dict(candidate.route_scores)
+        score = candidate.score - parts.pop("soft_negative_preference", 0.0)
+        adjustment = weight * sum(
+            min(0.0, preference_evidence(candidate.product, preference)) * preference.confidence
+            for preference in avoided
+        )
+        if adjustment:
+            parts["soft_negative_preference"] = adjustment
+        result.append(Candidate(candidate.product, score + adjustment, parts))
+    return sorted(result, key=lambda item: (-item.score, item.product.parent_asin))
 
 
 def rank_product_compatibility(candidates: list[Candidate], preferences: list[Preference]) -> list[Candidate]:

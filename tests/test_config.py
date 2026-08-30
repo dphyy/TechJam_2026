@@ -39,6 +39,7 @@ class ConfigTest(unittest.TestCase):
     def test_intent_rule_defaults_match_the_grouped_cv_artifact(self):
         config = Config()
         self.assertEqual((config.router_buying_threshold, config.router_browsing_threshold), (.5, .5))
+        self.assertEqual(config.router_min_confidence, .65)
         self.assertEqual(
             (config.intent_object_weight, config.intent_slot_weight, config.intent_hard_weight,
              config.intent_buying_language_weight, config.intent_browsing_language_weight,
@@ -80,6 +81,19 @@ class ConfigTest(unittest.TestCase):
         for value in (-.1, 1.1):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 Config(soft_price_weight=value)
+
+    def test_realistic_preference_and_intent_controls_are_bounded(self):
+        self.assertEqual(Config().soft_negative_weight, .02)
+        self.assertFalse(Config().repeat_driven_paging)
+        for values in (
+            {"soft_negative_weight": -.1}, {"soft_negative_weight": 1.1},
+            {"router_min_confidence": -.1}, {"router_min_confidence": 1.1},
+            {"repeat_driven_paging": 1},
+        ):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                Config.from_dict(values)
+        with self.assertRaises(ValueError):
+            Config(repeat_driven_paging=True, seen_aware_slate=True)
 
     def test_retrieval_sufficiency_controls_are_gated_and_bounded(self):
         config = Config(retrieval_sufficiency_gate=True, insufficient_action="minimal_probe",

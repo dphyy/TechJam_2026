@@ -17,7 +17,7 @@ This is a preparation build dated 26 August 2026, not a submitted entry or a cla
 - [x] Preserve all five capability-validation failures, the absence of a real-catalog grouped intervention, source/config/consumption receipts and actual offline fault evidence in [the cycle-2 report](CYCLE2_RESULTS.md) and [aggregate](cycle2-summary.json).
 - [x] Produce the final 24-call alternatives comparison replay and [recording guide](DEMO_SCRIPT.md), clearly separating real catalog exchanges from the invented correctness witness. Encoding and public upload remain pending.
 - [x] Restore the landing README with current setup, evaluation, caveats and the judge-showcase command.
-- [x] Harden correction and generic-negative-feedback parsing with invented-data regressions; reproduce the guarded-paging selected release at 0.839390 with zero fallbacks and agent errors.
+- [x] Merge confidence-gated intent, semantic reset and repeat-driven unseen paging; reproduce the selected release at 0.844994 with zero fallbacks and agent errors.
 - [x] Reject unguarded early paging after its intent-override regression, then promote a separately registered override-reset guard under the TechnicalScore non-decline rule.
 - [x] Screen preregistered low-margin neural fusion; reject it after MRR and TechnicalScore declined, preserving the receipts and disabled implementation.
 

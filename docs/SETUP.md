@@ -92,7 +92,7 @@ The showcase is the recommended judge walkthrough. It executes the real selected
 
 ## Completed comparison and validation boundary
 
-The alternatives comparison is complete under [its registered protocol](CYCLE2_ALTERNATIVES_PROTOCOL.md). [The final report](CYCLE2_RESULTS.md) and [aggregate evidence](cycle2-summary.json) distinguish developer correctness, target recovery, capability failures and resources. Grouped passed the release gates but did not improve target scores or locked capability passes. Its historical fixed-slate public score is 0.786724; the current guarded-paging implementation scores 0.839390 on that consumed set. The latter is an implementation check, not a fresh private-performance estimate.
+The alternatives comparison is complete under [its registered protocol](CYCLE2_ALTERNATIVES_PROTOCOL.md). [The final report](CYCLE2_RESULTS.md) and [aggregate evidence](cycle2-summary.json) distinguish developer correctness, target recovery, capability failures and resources. Grouped passed the release gates but did not improve target scores or locked capability passes. Its historical fixed-slate public score is 0.786724; the current realistic-shopping implementation scores 0.844994 on that consumed set. The latter is an implementation check, not a fresh private-performance estimate.
 
 Reproduce a control on released development data with a fresh name:
 

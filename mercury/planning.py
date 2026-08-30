@@ -36,7 +36,8 @@ def build_retrieval_plan(state: SessionState, intent: IntentDecision) -> Retriev
     negative = [preference for preference in active if preference.polarity == -1]
     hard = tuple(_signal(preference) for preference in active
                  if preference.polarity != 0 and preference.hard)
-    soft = tuple(_signal(preference) for preference in positive if not preference.hard)
+    soft = tuple(_signal(preference) for preference in active
+                 if preference.polarity != 0 and not preference.hard)
     scoped = tuple(_signal(preference) for preference in active
                    if preference.polarity != 0 and preference.scope is not None)
     objects = _unique(preference.value for preference in positive if preference.attribute == "category")
@@ -46,7 +47,7 @@ def build_retrieval_plan(state: SessionState, intent: IntentDecision) -> Retriev
     lexical_query = state.query()
     semantic_parts = _unique((*objects, *use_cases, *positive_terms))
     semantic_query = " ".join(semantic_parts)
-    context_lines = [f"Mode: {intent.mode}"]
+    context_lines = [f"Mode: {intent.effective_mode}"]
     if objects:
         context_lines.append("Object: " + "; ".join(objects))
     must = _unique(signal.value for signal in hard if signal.polarity == 1 and signal.attribute != "budget")
@@ -55,9 +56,13 @@ def build_retrieval_plan(state: SessionState, intent: IntentDecision) -> Retriev
         context_lines.append("Must have: " + "; ".join(must))
     if must_not:
         context_lines.append("Must not have: " + "; ".join(must_not))
-    preferred = _unique(signal.value for signal in soft if signal.attribute != "use_case")
+    preferred = _unique(signal.value for signal in soft
+                        if signal.polarity == 1 and signal.attribute != "use_case")
     if preferred:
         context_lines.append("Prefer: " + "; ".join(preferred))
+    avoided = _unique(signal.value for signal in soft if signal.polarity == -1)
+    if avoided:
+        context_lines.append("Prefer to avoid: " + "; ".join(avoided))
     if use_cases:
         context_lines.append("Preferred use: " + "; ".join(use_cases))
     budgets = _unique(preference.value for preference in active
@@ -67,7 +72,7 @@ def build_retrieval_plan(state: SessionState, intent: IntentDecision) -> Retriev
     for signal in scoped:
         context_lines.append(f"Scoped {signal.attribute}: {signal.value} -> {signal.scope}")
     return RetrievalPlan(
-        intent.mode,
+        intent.effective_mode,
         objects,
         objects,
         positive_terms,

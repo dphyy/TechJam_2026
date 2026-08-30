@@ -69,6 +69,13 @@ class IntentDecision:
     hard_constraint_count: int
     over_general: bool
     reasons: tuple[str, ...] = ()
+    event: Literal["continue", "override", "correction", "relaxation"] = "continue"
+    action_mode: Literal["buying", "browsing", "mixed"] | None = None
+
+    @property
+    def effective_mode(self) -> Literal["buying", "browsing", "mixed"]:
+        """Return the confidence-gated mode used by downstream decisions."""
+        return self.action_mode or self.mode
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +99,16 @@ class OverrideDecision:
     added: tuple[OverrideFact, ...] = ()
     retained: tuple[OverrideFact, ...] = ()
     reasons: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class StateDelta:
+    """Observable semantic change produced by the latest shopper message."""
+
+    kind: Literal["none", "additive", "refinement", "replacement", "polarity_change", "category_change"]
+    added: tuple[tuple[str, str, int], ...] = ()
+    removed: tuple[tuple[str, str, int], ...] = ()
+    explicit_replacement: bool = False
 
 
 @dataclass(frozen=True, slots=True)

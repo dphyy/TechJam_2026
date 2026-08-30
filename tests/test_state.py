@@ -4,6 +4,48 @@ from mercury.state import SessionState
 
 
 class SessionStateTest(unittest.TestCase):
+    def test_semantic_state_delta_classifies_real_shopping_changes(self):
+        state = SessionState({})
+        sequence = (
+            ("A blue shirt.", "refinement"),
+            ("It should also be waterproof.", "additive"),
+            ("Actually, green instead.", "replacement"),
+            ("No leather.", "polarity_change"),
+            ("Actually, boots instead.", "category_change"),
+            ("No new preferences to add.", "none"),
+        )
+        for turn, (message, expected) in enumerate(sequence, 1):
+            with self.subTest(message=message):
+                state.update(message, turn)
+                self.assertEqual(state.last_update_kind, expected)
+
+    def test_nearest_strength_cue_scopes_mixed_requirements(self):
+        state = SessionState({})
+        state.update("I need boots that would ideally be blue.", 1)
+        boots = next(p for p in state.active_preferences() if p.value == "boots")
+        blue = next(p for p in state.active_preferences() if p.value == "blue")
+        self.assertTrue(boots.hard)
+        self.assertFalse(blue.hard)
+        self.assertEqual(blue.confidence, 0.8)
+
+    def test_soft_negative_language_does_not_create_a_hard_exclusion(self):
+        for message in ("I would prefer not to have leather.", "Ideally no leather."):
+            with self.subTest(message=message):
+                state = SessionState({})
+                state.update(message, 1)
+                leather = next(p for p in state.active_preferences() if p.value == "leather")
+                self.assertEqual(leather.polarity, -1)
+                self.assertFalse(leather.hard)
+                self.assertEqual(leather.confidence, 0.8)
+        state = SessionState({})
+        state.update("No leather.", 1)
+        self.assertTrue(next(p for p in state.active_preferences() if p.value == "leather").hard)
+
+    def test_preference_cues_do_not_pollute_open_vocabulary_query(self):
+        state = SessionState({})
+        state.update("Hiking boots, preferably waterproof.", 1)
+        self.assertEqual(set(state.query().split()), {"boots", "hiking", "waterproof"})
+
     def test_newer_override_phrasing_retracts_only_changed_preferences(self):
         state = SessionState({}, alternatives_mode="grouped")
         state.update("I need a black leather shoulder bag with an adjustable strap.", 1)
