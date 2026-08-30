@@ -4,7 +4,8 @@ from mercury.catalog import product_from_dict
 from mercury.intent import decide_intent
 from mercury.planning import build_retrieval_plan
 from mercury.ranking import (evidence_score, preference_evidence, rank_candidates, rank_constraints,
-                             rank_product_compatibility, rank_soft_negatives, rank_soft_prices,
+                             budget_preference_score, rank_product_compatibility, rank_soft_negatives,
+                             rank_soft_prices,
                              rank_typed_plan, typed_plan_evidence, value_matches)
 from mercury.state import SessionState
 from mercury.types import Candidate, Preference
@@ -42,6 +43,37 @@ class RankingTest(unittest.TestCase):
                          {item.product.parent_asin for item in candidates})
         self.assertNotIn("price_preference", ranked[1].route_scores)
         self.assertNotIn("price_preference", ranked[2].route_scores)
+
+    def test_approximate_budget_uses_continuous_proximity_and_is_idempotent(self):
+        budget = preference("budget", "<= 100", hard=False)
+        candidates = [
+            Candidate(product_from_dict({"parent_asin": "far-over", "price": 200}), 1.0),
+            Candidate(product_from_dict({"parent_asin": "under", "price": 75}), 1.0),
+            Candidate(product_from_dict({"parent_asin": "unknown"}), 1.0),
+            Candidate(product_from_dict({"parent_asin": "target", "price": 100}), 1.0),
+        ]
+        self.assertEqual(budget_preference_score(candidates[3].product, budget), 1.0)
+        self.assertEqual(budget_preference_score(candidates[1].product, budget), 0.5)
+        self.assertEqual(budget_preference_score(candidates[0].product, budget), -1.0)
+        self.assertEqual(budget_preference_score(candidates[2].product, budget), 0.0)
+        ranked = rank_soft_prices(candidates, [budget], .02)
+        self.assertEqual([item.product.parent_asin for item in ranked],
+                         ["target", "under", "unknown", "far-over"])
+        self.assertEqual(rank_soft_prices(ranked, [budget], .02), ranked)
+
+    def test_firm_budget_keeps_binary_fit_semantics(self):
+        budget = preference("budget", "<= 100", hard=True)
+        cheap = product_from_dict({"parent_asin": "cheap", "price": 20})
+        near = product_from_dict({"parent_asin": "near", "price": 95})
+        over = product_from_dict({"parent_asin": "over", "price": 120})
+        self.assertEqual(budget_preference_score(cheap, budget), 1.0)
+        self.assertEqual(budget_preference_score(near, budget), 1.0)
+        self.assertEqual(budget_preference_score(over, budget), -1.0)
+
+    def test_soft_budget_lower_bound_price_remains_unknown(self):
+        budget = preference("budget", "<= 100", hard=False)
+        product = product_from_dict({"parent_asin": "from", "price": "from $50"})
+        self.assertEqual(budget_preference_score(product, budget), 0.0)
 
     def test_soft_negative_demotes_a_match_without_becoming_a_constraint(self):
         candidates = [
