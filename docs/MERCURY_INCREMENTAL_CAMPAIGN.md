@@ -401,3 +401,43 @@ so this is diagnostic rather than a production accuracy estimate, but the gain
 clearly depends on off-intent activation. Runtime diversity is rejected. A
 future retry should first calibrate intent routing on a dedicated,
 human-reviewed set.
+
+## Finalist: accepted combination — keep
+
+Branch `final/mercury-incremental`, assembly commit `06901c1`, promotes the
+accepted parser and state semantics, Top-10 set stability, highest-ranked unseen
+paging, explicit override resets, turn-3 paging, and structured budget
+proximity. `configs/selected.json` now selects turn 3 and explicitly leaves
+typed-plan scoring off. Live intent diversity is excluded; its evaluator-only
+oracle remains available for future experiments. The complete finalist suite
+passed with 549 tests and Ruff passed.
+
+The locked candidate repeated its turn-efficiency improvement on the untouched
+80-session confirmation split:
+
+| Confirmation variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Old turn-5 policy | 0.975000 | 0.675134 | 2.812500 | 0.853790 | 930,671 | 0.636193 s |
+| Final turn-3 policy | 0.975000 | 0.675134 | 2.737500 | 0.855290 | 930,671 | 0.535389 s |
+
+The paired TechnicalScore delta was `+0.001500` with a 10,000-resample 95%
+bootstrap interval of `[+0.000500, +0.002750]`. HitRate and MRR were unchanged,
+MTTC improved by `0.075000`, boundary and intent-override scenario scores were
+unchanged, and browsing and buying each improved `0.001875`. This confirms a
+small correctness/UX benefit, not the `+0.010` needed to claim a material score
+feature.
+
+The final configuration was then run exactly once on the untouched 80-session
+validation split:
+
+| Validation | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Locked finalist | 0.925000 | 0.546786 | 3.275000 | 0.781036 | 928,813 | 0.682772 s |
+
+Validation completed with zero fallbacks. Its absolute score is lower than the
+confirmation split, driven in part by two misses among only four boundary
+sessions and two misses among 12 intent-override sessions. Because the protocol
+opened validation only for the locked finalist and did not run a validation
+control, cross-split score differences must not be attributed to the changes.
+The confirmed paired result is the causal evidence for promotion; validation is
+reported as an honest generalization check and was not used for further tuning.
