@@ -208,6 +208,32 @@ class SessionStateTest(unittest.TestCase):
         self.assertLess(cotton.confidence, waterproof.confidence)
         self.assertTrue(waterproof.hard)
 
+    def test_nearest_strength_cue_scopes_mixed_requirements(self):
+        state = SessionState({})
+        state.update("I need boots that would ideally be blue.", 1)
+
+        boots = next(p for p in state.active_preferences() if p.value == "boots")
+        blue = next(p for p in state.active_preferences() if p.value == "blue")
+        self.assertTrue(boots.hard)
+        self.assertEqual(boots.confidence, 1.0)
+        self.assertFalse(blue.hard)
+        self.assertEqual(blue.confidence, 0.8)
+
+    def test_expanded_strength_cues_set_force_without_query_pollution(self):
+        for message, value, hard, confidence in (
+            ("Hiking boots, preferably waterproof.", "waterproof", False, 0.8),
+            ("Boots are non-negotiable.", "boots", True, 1.0),
+            ("A mandatory waterproof jacket.", "waterproof", True, 1.0),
+        ):
+            with self.subTest(message=message):
+                state = SessionState({})
+                state.update(message, 1)
+                preference = next(p for p in state.active_preferences() if p.value == value)
+                self.assertIs(preference.hard, hard)
+                self.assertEqual(preference.confidence, confidence)
+                for cue in ("preferably", "mandatory", "non-negotiable"):
+                    self.assertNotIn(cue, state.query())
+
     def test_additive_constraint_does_not_erase_prior_constraint(self):
         state = SessionState({})
         state.update("I need a jacket that's waterproof.", 1)

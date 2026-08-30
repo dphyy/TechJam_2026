@@ -161,8 +161,12 @@ _ACTIONABLE_REJECTION = re.compile(r"\bnot (?:these|those)\b")
 _NOT_JUST_COMPONENT = re.compile(r"\bnot\s+(?:just|only|merely)\b")
 _REPLACEMENT = re.compile(r"\b(?:actually|instead|rather than|after all|on second thought|change|switch|replace)\b")
 _ADDITIVE = re.compile(r"\b(?:also|as well|in addition|either|or|too)\b")
-_SOFT = re.compile(r"\b(?:prefer|preference|ideally|maybe|perhaps|would be nice|if possible|leaning|nice to have)\b")
-_HARD = re.compile(r"\b(?:must|need|needs|required|only|essential|have to|has to|cannot|can't)\b")
+_SOFT = re.compile(
+    r"\b(?:prefer|preference|preferably|ideally|maybe|perhaps|would be nice|if possible|leaning|nice to have)\b"
+)
+_HARD = re.compile(
+    r"\b(?:must|need|needs|required|only|essential|mandatory|non[- ]negotiable|have to|has to|cannot|can't)\b"
+)
 _PRODUCT_TYPE_REJECTION = re.compile(
     r"\b(?:not|don't want|do not want) (?:this|that) (?:product )?(?:type|category|kind)\b"
 )
@@ -210,7 +214,7 @@ _RESIDUAL_STOPWORDS = frozenset("""
     then again ever always never possible fine nice good great right wrong better best longer
     different same previous next options option choices choice recommendations recommendation
     item items product products thing things details detail information new particular
-    specific strong necessary required important anymore maximum minimum budget dollars
+    specific strong necessary required important essential mandatory non-negotiable anymore maximum minimum budget dollars
     dollar price cost spend stretch cap capped pair around approximately roughly under
     over above below between least most enough comfortable happy willing interested
     brand material fabric color colour style size feature features category occasion
@@ -304,6 +308,22 @@ def budget_hedged(clause: str, start: int, end: int) -> bool:
     """
     window = clause[max(0, start - 20):end] + clause[end:end + 8]
     return bool(_BUDGET_HEDGE.search(window))
+
+
+def _preference_strength(clause: str, start: int, end: int) -> str | None:
+    """Return the nearest explicit hard/soft cue for one extracted value.
+
+    A clause can contain mixed force (for example, "need boots that would
+    ideally be blue"). Using the nearest cue prevents an early requirement word
+    from hardening every later value while retaining ordinary constructions such
+    as "need blue boots". Ties prefer hard evidence.
+    """
+    cues: list[tuple[int, int, str]] = []
+    for strength, pattern in (("hard", _HARD), ("soft", _SOFT)):
+        for match in pattern.finditer(clause):
+            distance = start - match.end() if match.end() <= start else match.start() - end if match.start() >= end else 0
+            cues.append((distance, 0 if strength == "hard" else 1, strength))
+    return min(cues)[2] if cues else None
 
 
 def _sizes(clause: str, prompted: bool) -> list[tuple[str, int, int]]:
@@ -568,7 +588,6 @@ class SessionState:
 
             additive = bool(_ADDITIVE.search(clause))
             replacement = bool(_REPLACEMENT.search(clause)) or pending_replacement
-            soft = bool(_SOFT.search(clause))
             discourse = [("discourse", "", match.start(), match.end()) for match in re.finditer(r"\bworks\b", clause)] if alternatives else []
             residuals = _residuals(clause, mentions + discourse + [("quantity", value, start, end) for value, start, end in quantities])
             pending_replacement = replacement and not mentions and not residuals
@@ -577,7 +596,9 @@ class SessionState:
                 polarity = _polarity(clause, start, end)
                 if _SUFFIX_RELAXATION.search(clause[end:]):
                     polarity = 0
-                hard = polarity == -1 or bool(_HARD.search(clause)) or (
+                strength = _preference_strength(clause, start, end)
+                soft = strength == "soft"
+                hard = polarity == -1 or strength == "hard" or (
                     attribute == "budget" and not soft and not budget_hedged(clause, start, end))
                 if polarity == 0:
                     hard = False
