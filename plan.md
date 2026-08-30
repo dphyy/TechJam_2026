@@ -414,6 +414,37 @@ unattributable arm.
 - No HitRate or critical-slice regression.
 - Pinned assets, offline loading, corruption tests, and legal sparse fallback.
 
+### Phase 6 execution status — 30 August 2026
+
+Phase 6 is closed after one isolated feasibility arm. Dynamic int8 QNNPACK
+quantization reduced the serialized state estimate by 35.48%, but p95 regressed
+from `0.186s` to `0.408s`, RSS increased 10.23%, fused ranking changed, and
+maximum logit drift reached `0.651466`. The installed eager quantization API is
+deprecated, emits a backend correctness warning, and the prototype still needs
+the float32 asset before in-memory conversion.
+
+The candidate is rejected without runtime integration or private-like outcome
+evaluation. Final remains sealed and `configs/selected.json` is unchanged. See
+[the quantization protocol](docs/NEURAL_QUANTIZATION_PROTOCOL.md).
+
+## Roadmap closure — 30 August 2026
+
+All remaining phases have now been executed or dependency-closed:
+
+- Phase 2 produced the frozen matrix and discriminating metamorphic suite.
+- Phase 3 improved admission quality but failed its latency gate.
+- Phase 4 was correctly skipped because Phase 3 did not pass.
+- Phase 5 improved aggregate fresh quality and unseen-word slots but failed the
+  no-loss buying slice gate.
+- Phase 6 reduced a size estimate but failed latency, memory, ranking-stability,
+  portability, and deployability checks.
+
+The roadmap's experimental work is complete, but its release-level Definition
+of Done is intentionally not claimed: no candidate achieved the required 25%
+pair reduction and 20% warm-p95 reduction without quality loss. The selected
+release remains the strongest gate-compliant configuration, and the untouched
+final split remains available for a future genuinely new candidate.
+
 ## Evaluation and Promotion Protocol
 
 ### Required metrics
