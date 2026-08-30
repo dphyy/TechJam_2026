@@ -287,3 +287,27 @@ deltas. Shadow mode is kept as reusable experimental infrastructure, not enabled
 in the finalist. The predeclared active weight still receives one end-to-end run
 on a separate branch because static rank simulation cannot reproduce dialogue
 and paging feedback.
+
+## Stage 4: structured budget proximity — keep
+
+Branch `exp/04-structured-budget-proximity`, implementation commit `b2f138a`,
+keeps firm ceilings, floors, and ranges as binary fit evidence while ranking
+explicitly soft budget figures by continuous price proximity. Missing prices and
+inconclusive `from` lower bounds remain neutral, adjustments are bounded by the
+existing `0.02` weight, candidate identity is preserved, and repeated
+application is idempotent. Budget numbers remain outside lexical/BM25 retrieval.
+The complete suite passed with 546 tests and Ruff passed.
+
+The source-matched screening result was exactly neutral:
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stage 2C control | 0.943750 | 0.574660 | 3.025000 | 0.803773 | 1,826,142 | 0.581242 s |
+| Stage 4 | 0.943750 | 0.574660 | 3.025000 | 0.803773 | 1,826,142 | 0.665875 s |
+
+All 475 responses and rankings were identical. The pack contained zero parsed
+budget turns and therefore zero price adjustments. This stage is kept as a
+focused, unit-tested correctness improvement with no screening regression, not
+as evidence of score benefit. A future budget-specific pack must measure target
+proximity, hard-limit safety, uncertain-price neutrality, and sensitivity to the
+`0.02` weight before it is tuned further.
