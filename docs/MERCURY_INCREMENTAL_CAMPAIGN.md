@@ -184,3 +184,26 @@ changes, 5 additive changes, and 5 polarity changes. Of the 24 generated
 a category change, and three were correctly no-ops because the requested value
 did not alter the active ledger. This stage is kept as tested infrastructure for
 override-aware paging; the observed latency difference is treated as noise.
+
+## Stage 2A: Top-10 membership stability — keep
+
+Branch `exp/02a-top10-set-stability`, implementation commit `7c1b435`, defines a
+stable slate as equal base Top-10 membership rather than equality of the full
+120-item ranking. Rank swaps inside the head and tail-only changes now advance;
+changing even one head member resets to page zero so newly relevant items are
+shown. Page slicing and the turn-5 threshold remain unchanged until later
+stages. Focused tests cover head reordering, tail reordering, and one-member head
+replacement. The complete suite passed with 535 tests and Ruff passed.
+
+The source-matched screening candidate was exactly neutral:
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stage 1D control | 0.937500 | 0.575444 | 3.131250 | 0.798758 | 1,826,142 | 0.538604 s |
+| Stage 2A | 0.937500 | 0.575444 | 3.131250 | 0.798758 | 1,826,142 | 0.533357 s |
+
+All 491 paired responses and slate pages were identical. In this pack, every
+non-cached full-ranking change that reached paging also changed Top-10
+membership; cached rankings were fully equal. The stage is kept as the requested
+unit-tested paging correctness fix with no score, fallback, or resource
+regression. It is not credited with a measured campaign improvement.
