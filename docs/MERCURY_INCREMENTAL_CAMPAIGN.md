@@ -234,3 +234,29 @@ unchanged, and browsing declined only `0.001753`, inside the predeclared
 gain is below the score-feature promotion threshold, this stage is kept under
 the correctness rule because it guarantees novelty and improves aggregate
 discovery without a material regression.
+
+## Stage 2C: override-aware paging from turn 3 — keep
+
+Branch `exp/02c2-override-aware-turn3`, implementation commits `fdddd2b`,
+`6997db4`, and candidate commit `65934d7`, advances a stable Top-10 from turn 3
+while forcing page zero for replacements, polarity changes, category changes,
+and explicit replacement language. Message-level detection preserves an
+override even when the parser forms no assertion. The complete suite passed
+with 540 tests and Ruff passed.
+
+The source-matched screening result was:
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stage 2B control | 0.943750 | 0.574660 | 3.100000 | 0.802273 | 1,826,142 | 0.557221 s |
+| Stage 2C turn 3 | 0.943750 | 0.574660 | 3.025000 | 0.803773 | 1,826,142 | 0.581242 s |
+
+All 24 explicit overrides reset to page zero. Twelve sessions found the same
+target one turn earlier with identical hit status and best rank. MTTC improved
+by `0.075000`, TechnicalScore improved by `0.001500`, and MRR and HitRate were
+unchanged. Scenario TechnicalScore deltas were non-negative: boundary
+`0.000000`, browsing `+0.001875`, buying `+0.001562`, and intent override
+`+0.000833`. The sibling turn-2 branch was rejected because its boundary score
+fell `0.027500`. Turn 3 is kept under the correctness rule: it implements stable
+slate novelty and explicit override reset with no measured quality regression,
+although its score gain is not large enough to claim a ranking improvement.
