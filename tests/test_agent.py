@@ -982,6 +982,13 @@ class AgentTest(unittest.TestCase):
             if field not in tuned_fields | {"slate_paging_first_turn"}:
                 self.assertEqual(getattr(selected, field), getattr(historical, field), field)
 
+    def test_repeat_driven_candidate_only_advances_paging_one_turn_earlier(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "selected.json")
+        candidate = Config.load(root / "exp06_repeat_driven_paging.json")
+        self.assertEqual(selected.slate_paging_first_turn, 3)
+        self.assertEqual(candidate, replace(selected, slate_paging_first_turn=2))
+
     def test_cycle3_admission_configs_only_change_admission_mode(self):
         root = Path(__file__).resolve().parents[1] / "configs"
         selected = Config.load(root / "cycle2_grouped.json")
