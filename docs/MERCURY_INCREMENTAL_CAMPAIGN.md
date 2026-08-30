@@ -159,3 +159,28 @@ catalog phrases containing `No` are not user exclusions. The stage is kept as a
 predeclared correctness and preference-fidelity fix with no regression. The
 `0.02` weight is bounded and unit-tested but cannot be claimed as empirically
 tuned until a dedicated soft-negative language pack exists.
+
+## Stage 1D: semantic state deltas — keep
+
+Branch `exp/01d-semantic-state-deltas`, implementation commit `b153336`, exposes
+an immutable delta after every message. It records added and removed
+`(attribute, value, polarity)` facts, whether replacement syntax was explicit,
+and one target-independent update kind: `none`, `refinement`, `additive`,
+`replacement`, `polarity_change`, or `category_change`. It is diagnostic-only in
+this stage and cannot inspect evaluator labels or future turns. The complete
+suite passed with 534 tests and Ruff passed.
+
+The source-matched screening candidate was exactly neutral:
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stage 1C control | 0.937500 | 0.575444 | 3.131250 | 0.798758 | 1,826,142 | 0.581618 s |
+| Stage 1D | 0.937500 | 0.575444 | 3.131250 | 0.798758 | 1,826,142 | 0.538604 s |
+
+All 491 paired responses, state, plans, rankings, and slate pages were identical.
+Observed updates were 317 refinements, 131 no-ops, 23 replacements, 10 category
+changes, 5 additive changes, and 5 polarity changes. Of the 24 generated
+`ignore my earlier preference` override messages, 20 were replacements, one was
+a category change, and three were correctly no-ops because the requested value
+did not alter the active ledger. This stage is kept as tested infrastructure for
+override-aware paging; the observed latency difference is treated as noise.
