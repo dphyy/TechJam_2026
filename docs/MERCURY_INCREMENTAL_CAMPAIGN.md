@@ -109,3 +109,27 @@ ranked IDs, and slate page also had zero paired changes, showing that the frozen
 simulator did not exercise these cue forms. The lower observed latency is treated
 as run-to-run noise, not an improvement. This stage is kept as a targeted,
 tested correctness fix with no screening or resource regression.
+
+## Stage 1B: local hard/soft scope — keep
+
+Branch `exp/01b-local-hard-soft-scope`, implementation commit `f83de65`, assigns
+each explicitly extracted value the nearest hard or soft cue in its clause. This
+corrects mixed-force input such as `I need boots that would ideally be blue`:
+`boots` remains hard while `blue` becomes a soft preference. It also recognizes
+`preferably`, `mandatory`, and `non-negotiable` without leaking those cues into
+the lexical query. Negative requirements are intentionally unchanged until
+Stage 1C. The complete suite passed with 527 tests and Ruff passed.
+
+The source-matched screening candidate was again exactly neutral:
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stage 1A control | 0.937500 | 0.575444 | 3.131250 | 0.798758 | 1,826,142 | 0.557279 s |
+| Stage 1B | 0.937500 | 0.575444 | 3.131250 | 0.798758 | 1,826,142 | 0.593333 s |
+
+Across all 491 paired turns there were zero changes to responses, queries,
+preferences, preference groups, intent, retrieval plans, ranked IDs, or slate
+pages. This exposes a frozen-simulator coverage gap: the generated language does
+not test mixed strength within one clause. The stage is kept as a predeclared,
+unit-tested correctness fix with no score, fallback, or resource regression;
+latency differences are treated as noise.
