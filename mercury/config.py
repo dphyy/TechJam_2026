@@ -64,6 +64,7 @@ class Config:
     router_buying_threshold: float = 0.50
     router_browsing_threshold: float = 0.50
     router_over_general_threshold: float = 0.35
+    router_min_confidence: float = 0.65
     intent_object_weight: float = 0.20
     intent_slot_weight: float = 0.25
     intent_hard_weight: float = 0.00
@@ -138,7 +139,8 @@ class Config:
         if type(self.slate_paging_first_turn) is not int or not 0 <= self.slate_paging_first_turn <= 10:
             raise ValueError("slate_paging_first_turn must be an integer in [0, 10]; 0 disables paging")
         for key in ("dense_weight", "neural_weight", "contrast_weight", "router_buying_threshold",
-                    "router_browsing_threshold", "router_over_general_threshold", "intent_object_weight",
+                    "router_browsing_threshold", "router_over_general_threshold", "router_min_confidence",
+                    "intent_object_weight",
                     "intent_slot_weight", "intent_hard_weight", "intent_buying_language_weight",
                     "intent_browsing_language_weight", "intent_use_case_weight", "intent_unresolved_weight",
                     "intent_sparse_request_weight", "buying_scoped_weight", "browsing_scenario_weight",

@@ -402,6 +402,7 @@ class Agent:
                 unresolved=self.config.intent_unresolved_weight,
                 sparse_request=self.config.intent_sparse_request_weight,
             ),
+            routing_confidence_threshold=self.config.router_min_confidence,
         )
         plan = build_retrieval_plan(state, intent)
         if self.config.multi_hypothesis_retrieval:
@@ -615,7 +616,8 @@ class Agent:
                 "max_session_escalations": self.config.cascade_max_turns,
             },
             "neural_scores": neural_scores,
-            "intent": {"mode": intent.mode, "specificity": intent.specificity,
+            "intent": {"mode": intent.mode, "effective_mode": intent.effective_mode,
+                       "event": intent.event, "specificity": intent.specificity,
                        "confidence": intent.confidence,
                        "hard_constraint_count": intent.hard_constraint_count,
                        "over_general": intent.over_general, "reasons": list(intent.reasons)},

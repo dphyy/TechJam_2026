@@ -69,6 +69,13 @@ class IntentDecision:
     hard_constraint_count: int
     over_general: bool
     reasons: tuple[str, ...] = ()
+    event: Literal["continue", "override", "correction", "relaxation"] = "continue"
+    action_mode: Literal["buying", "browsing", "mixed"] | None = None
+
+    @property
+    def effective_mode(self) -> Literal["buying", "browsing", "mixed"]:
+        """Return the confidence-gated mode used by optional downstream policies."""
+        return self.action_mode or self.mode
 
 
 @dataclass(frozen=True, slots=True)

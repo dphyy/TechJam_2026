@@ -39,6 +39,7 @@ class ConfigTest(unittest.TestCase):
     def test_intent_rule_defaults_match_the_grouped_cv_artifact(self):
         config = Config()
         self.assertEqual((config.router_buying_threshold, config.router_browsing_threshold), (.5, .5))
+        self.assertEqual(config.router_min_confidence, .65)
         self.assertEqual(
             (config.intent_object_weight, config.intent_slot_weight, config.intent_hard_weight,
              config.intent_buying_language_weight, config.intent_browsing_language_weight,
@@ -46,6 +47,11 @@ class ConfigTest(unittest.TestCase):
              config.intent_sparse_request_weight),
             (.2, .25, 0.0, .2, .5, .25, .25, .5),
         )
+
+    def test_intent_confidence_gate_is_bounded(self):
+        for value in (-.1, 1.1):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                Config(router_min_confidence=value)
 
     def test_product_guard_is_explicitly_gated(self):
         self.assertFalse(Config().product_guard)
