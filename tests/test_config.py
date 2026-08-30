@@ -189,6 +189,33 @@ class ConfigTest(unittest.TestCase):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 Config.from_dict(values)
 
+    def test_neural_logit_cache_is_bounded_and_requires_the_reranker(self):
+        config = Config(
+            neural_rerank=True, neural_logit_cache=True,
+            neural_logit_cache_size=8192,
+        )
+        self.assertTrue(config.neural_logit_cache)
+        self.assertEqual(Config.from_dict(config.to_dict()), config)
+        for values in (
+            {"neural_logit_cache": 1},
+            {"neural_logit_cache": True},
+            {"neural_logit_cache_size": 0},
+            {"neural_logit_cache_size": 10001},
+            {"neural_logit_cache_size": True},
+        ):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                Config.from_dict(values)
+
+    def test_neural_batch_size_is_restricted_to_registered_matrix_values(self):
+        for batch_size in (16, 30, 32):
+            with self.subTest(batch_size=batch_size):
+                config = Config(neural_batch_size=batch_size)
+                self.assertEqual(config.neural_batch_size, batch_size)
+                self.assertEqual(Config.from_dict(config.to_dict()), config)
+        for batch_size in (0, 15, 31, 33, 16.0, True, "30"):
+            with self.subTest(batch_size=batch_size), self.assertRaises(ValueError):
+                Config(neural_batch_size=batch_size)
+
     def test_alternatives_are_explicitly_opt_in(self):
         self.assertEqual(Config().alternatives_mode, "off")
         for mode in ("off", "parse", "grouped"):

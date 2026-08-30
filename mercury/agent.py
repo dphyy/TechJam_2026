@@ -132,8 +132,14 @@ class Agent:
         if self.config.neural_rerank:
             try:
                 from mercury.neural import NeuralRanker
+                cache_options = (
+                    {"cache_capacity": self.config.neural_logit_cache_size}
+                    if self.config.neural_logit_cache else {}
+                )
+                if self.config.neural_batch_size != 16:
+                    cache_options["batch_size"] = self.config.neural_batch_size
                 self.reranker = NeuralRanker(artifacts, self.config.device, self.config.threads,
-                                             self.config.reranker_model)
+                                             self.config.reranker_model, **cache_options)
             except (OSError, ValueError, KeyError, ImportError, RuntimeError, TypeError, AttributeError) as error:
                 self._startup_failure("neural_rerank", error)
         if self.config.contrast:
@@ -382,6 +388,20 @@ class Agent:
     def _tokens(self) -> int:
         return sum(getattr(model, "prompt_tokens", 0) for model in (self.dense, self.reranker) if model is not None)
 
+    def _neural_cache_stats(self) -> dict[str, int | bool]:
+        empty = {
+            "enabled": False, "capacity": 0, "size": 0, "hits": 0,
+            "misses": 0, "evictions": 0, "evaluated_pairs": 0,
+        }
+        stats = getattr(self.reranker, "cache_stats", None)
+        if not callable(stats):
+            return empty
+        try:
+            snapshot = stats()
+        except (RuntimeError, ValueError, TypeError, AttributeError):
+            return empty
+        return snapshot if isinstance(snapshot, dict) else empty
+
     def _minimal_probe(self, query: str, fallbacks: list[str]) -> tuple[
             list[Candidate], dict[str, list[str]], dict[str, float]]:
         identifiers = self.sparse.search(query, self.config.minimal_probe_limit)
@@ -402,6 +422,7 @@ class Agent:
         user_message = user_message[:8000]
         started = time.perf_counter()
         tokens_before = self._tokens()
+        neural_cache_before = self._neural_cache_stats()
         top_k = max(0, min(10, top_k)) if type(top_k) is int else 0
         state = self.sessions[session_id]
         self.sessions.move_to_end(session_id)
@@ -839,6 +860,11 @@ class Agent:
         if neural_scores["logit_margin"] is not None:
             self._last_neural_margin[session_id] = neural_scores["logit_margin"]
         self._abstentions[session_id] = 0 if ranked else self._abstentions[session_id] + 1
+        neural_cache_after = self._neural_cache_stats()
+        neural_cache_turn = {
+            key: int(neural_cache_after.get(key, 0)) - int(neural_cache_before.get(key, 0))
+            for key in ("hits", "misses", "evictions", "evaluated_pairs")
+        }
         self.last_diagnostics = {
             "query": query, "source_alias_query": source_alias_query,
             "revision": state.revision, "cache_hit": cache_hit, "slate_page": page,
@@ -872,6 +898,10 @@ class Agent:
                 "batches_used": self._page_rerank_batches.get(session_id, 0),
                 "additional_pairs_used": self._page_rerank_pairs.get(session_id, 0),
                 "state_revision": self._page_rerank_revision.get(session_id),
+            },
+            "neural_logit_cache": {
+                **neural_cache_after,
+                "turn": neural_cache_turn,
             },
             "override": {
                 "detected": state.last_override.detected,

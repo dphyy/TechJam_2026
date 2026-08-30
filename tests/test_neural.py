@@ -1,7 +1,10 @@
 import json
 import tempfile
 import unittest
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import RLock
 from unittest.mock import patch
 
 import numpy as np
@@ -12,7 +15,188 @@ from mercury.neural import (DOCUMENT_VERSION, document_text, fuse_neural_logits,
                             structured_document_text, validate_dense_manifest)
 
 
+class DeterministicFakeCrossEncoder:
+    def __init__(self):
+        self.predict_calls = []
+        self.predict_options = []
+
+    def tokenizer(self, left, right, **kwargs):
+        return {"input_ids": [[1] * max(1, len(document.split())) for document in right]}
+
+    def predict(self, pairs, **kwargs):
+        self.predict_calls.append(list(pairs))
+        self.predict_options.append(dict(kwargs))
+        return np.array([
+            sum((index + 1) * byte for index, byte in enumerate(document.encode("utf-8"))) % 10007
+            for _, document in pairs
+        ], dtype=float)
+
+
+def cached_ranker(capacity=8, model=None):
+    from mercury.neural import NeuralRanker
+
+    ranker = NeuralRanker.__new__(NeuralRanker)
+    ranker.model = model or DeterministicFakeCrossEncoder()
+    ranker.kind = "reranker"
+    ranker.device = "cpu"
+    ranker.threads = 4
+    ranker.batch_size = 16
+    ranker.prompt_tokens = 0
+    ranker._cache_capacity = capacity
+    ranker._logit_cache = OrderedDict()
+    ranker._cache_lock = RLock()
+    ranker._score_lock = RLock()
+    ranker._cache_hits = 0
+    ranker._cache_misses = 0
+    ranker._cache_evictions = 0
+    ranker._evaluated_pairs = 0
+    return ranker
+
+
 class NeuralAssetsTest(unittest.TestCase):
+    def test_exact_pair_cache_restores_scores_in_the_requested_order(self):
+        from mercury.types import Candidate
+
+        candidates = [
+            Candidate(product_from_dict({"parent_asin": value, "title": title}), score)
+            for value, title, score in (("a", "Blue shirt", 2.0), ("b", "Red shirt", 1.0))
+        ]
+        ranker = cached_ranker()
+        first = ranker.score("cotton shirt", candidates)
+        second = ranker.score("cotton shirt", list(reversed(candidates)))
+        self.assertEqual(list(second), ["b", "a"])
+        self.assertEqual(second, {"b": first["b"], "a": first["a"]})
+        self.assertEqual(len(ranker.model.predict_calls), 1)
+        self.assertEqual(ranker.cache_stats(), {
+            "enabled": True, "capacity": 8, "size": 2, "hits": 2,
+            "misses": 2, "evictions": 0, "evaluated_pairs": 2,
+        })
+
+    def test_pair_cache_invalidates_on_query_id_document_and_mode_changes(self):
+        from mercury.types import Candidate
+
+        ranker = cached_ranker()
+        original = Candidate(product_from_dict({"parent_asin": "a", "title": "Blue shirt"}), 1.0)
+        changed_document = Candidate(
+            product_from_dict({"parent_asin": "a", "title": "Blue linen shirt"}), 1.0,
+        )
+        changed_id = Candidate(product_from_dict({"parent_asin": "b", "title": "Blue shirt"}), 1.0)
+        ranker.score("shirt", [original])
+        ranker.score("different query", [original])
+        ranker.score("shirt", [changed_document])
+        ranker.score("shirt", [changed_id])
+        ranker.score("shirt", [original], document_mode="lexical")
+        stats = ranker.cache_stats()
+        self.assertEqual(stats["misses"], 5)
+        self.assertEqual(stats["hits"], 0)
+        self.assertEqual(stats["evaluated_pairs"], 5)
+
+    def test_pair_cache_key_pins_model_serializer_and_sequence_provenance(self):
+        from mercury.types import Candidate
+
+        ranker = cached_ranker()
+        candidate = Candidate(product_from_dict({"parent_asin": "a", "title": "Blue shirt"}), 1.0)
+        base = ranker._pair_cache_key("shirt", "Title: Blue shirt", candidate, "head", False)
+        with patch.dict(MODELS["reranker"], {"revision": "changed-revision"}):
+            changed_model = ranker._pair_cache_key(
+                "shirt", "Title: Blue shirt", candidate, "head", False,
+            )
+        with patch("mercury.neural.DOCUMENT_VERSION", "changed-document-version"):
+            changed_serializer = ranker._pair_cache_key(
+                "shirt", "Title: Blue shirt", candidate, "head", False,
+            )
+        with patch("mercury.neural.MAX_LENGTH", 128):
+            changed_length = ranker._pair_cache_key(
+                "shirt", "Title: Blue shirt", candidate, "head", False,
+            )
+        ranker.batch_size = 30
+        changed_batch = ranker._pair_cache_key(
+            "shirt", "Title: Blue shirt", candidate, "head", False,
+        )
+        self.assertEqual(
+            len({base, changed_model, changed_serializer, changed_length, changed_batch}), 5,
+        )
+
+    def test_pair_cache_uses_deterministic_lru_eviction(self):
+        from mercury.types import Candidate
+
+        ranker = cached_ranker(capacity=2)
+        candidates = {
+            value: Candidate(product_from_dict({"parent_asin": value, "title": title}), 1.0)
+            for value, title in (("a", "A shirt"), ("b", "B shirt"), ("c", "C shirt"))
+        }
+        ranker.score("shirt", [candidates["a"], candidates["b"]])
+        ranker.score("shirt", [candidates["a"]])
+        ranker.score("shirt", [candidates["c"]])
+        self.assertEqual(
+            [key[7] for key in ranker._logit_cache], ["a", "c"],
+        )
+        ranker.score("shirt", [candidates["b"]])
+        self.assertEqual([key[7] for key in ranker._logit_cache], ["c", "b"])
+        self.assertEqual(ranker.cache_stats()["evictions"], 2)
+
+    def test_pair_cache_serializes_concurrent_lookups_without_duplicate_inference(self):
+        from mercury.types import Candidate
+
+        ranker = cached_ranker()
+        candidates = [
+            Candidate(product_from_dict({"parent_asin": value, "title": f"{value} shirt"}), 1.0)
+            for value in ("a", "b")
+        ]
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            results = list(executor.map(
+                lambda _: ranker.score("shirt", candidates), range(4),
+            ))
+        self.assertTrue(all(result == results[0] for result in results))
+        self.assertEqual(len(ranker.model.predict_calls), 1)
+        stats = ranker.cache_stats()
+        self.assertEqual(stats["evaluated_pairs"], 2)
+        self.assertEqual(stats["hits"], 6)
+
+    def test_cache_enabled_and_disabled_rankings_are_exactly_equal(self):
+        from mercury.types import Candidate
+
+        candidates = [
+            Candidate(product_from_dict({"parent_asin": str(index), "title": f"Shirt {index}"}),
+                      5.0 - index, {"sparse": 1.0 / (index + 1)})
+            for index in range(5)
+        ]
+        control = cached_ranker(capacity=0)
+        candidate = cached_ranker(capacity=8)
+        control_ranking = control.rank("shirt", candidates, 4, .75)
+        candidate_ranking = candidate.rank("shirt", candidates, 4, .75)
+        def snapshot(ranking):
+            return [(item.product.parent_asin, item.score, item.route_scores) for item in ranking]
+        self.assertEqual(snapshot(candidate_ranking), snapshot(control_ranking))
+
+    def test_failed_scores_are_not_inserted_into_the_pair_cache(self):
+        from mercury.types import Candidate
+
+        class NonfiniteModel(DeterministicFakeCrossEncoder):
+            def predict(self, pairs, **kwargs):
+                self.predict_calls.append(list(pairs))
+                return np.array([float("nan") for _ in pairs])
+
+        ranker = cached_ranker(model=NonfiniteModel())
+        candidate = Candidate(product_from_dict({"parent_asin": "a", "title": "Blue shirt"}), 1.0)
+        for _ in range(2):
+            with self.assertRaises(ValueError):
+                ranker.score("shirt", [candidate])
+        self.assertEqual(len(ranker.model.predict_calls), 2)
+        stats = ranker.cache_stats()
+        self.assertEqual(stats["size"], 0)
+        self.assertEqual(stats["hits"], 0)
+        self.assertEqual(stats["misses"], 2)
+
+    def test_ranker_uses_the_configured_inference_batch_size(self):
+        from mercury.types import Candidate
+
+        ranker = cached_ranker(capacity=0)
+        ranker.batch_size = 30
+        candidate = Candidate(product_from_dict({"parent_asin": "a", "title": "Blue shirt"}), 1.0)
+        ranker.score("shirt", [candidate])
+        self.assertEqual(ranker.model.predict_options[0]["batch_size"], 30)
+
     def test_progressive_logit_fusion_can_promote_a_scored_tail_candidate(self):
         from mercury.types import Candidate
 

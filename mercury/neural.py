@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import math
 import os
 import re
+from collections import OrderedDict
 from pathlib import Path
+from threading import RLock
 
 from mercury.catalog import Catalog
 from mercury.model_assets import MODELS, file_sha256, verify_model
@@ -13,6 +16,7 @@ from mercury.types import Candidate, Preference, Product
 
 
 DOCUMENT_VERSION = "fields-v1-256"
+STRUCTURED_DOCUMENT_VERSION = "structured-fields-v1-256"
 QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 MAX_LENGTH = 256
 DOCUMENT_MODES = frozenset({"head", "lexical", "protected"})
@@ -261,7 +265,11 @@ class DenseIndex:
 
 class NeuralRanker:
     def __init__(self, artifact_dir: Path, device: str = "cpu", threads: int = 4,
-                 kind: str = "reranker"):
+                 kind: str = "reranker", cache_capacity: int = 0, batch_size: int = 16):
+        if type(cache_capacity) is not int or cache_capacity < 0:
+            raise ValueError("cache_capacity must be a nonnegative integer")
+        if type(batch_size) is not int or batch_size not in {16, 30, 32}:
+            raise ValueError("batch_size must be one of 16, 30, or 32")
         path = artifact_dir / "models" / kind
         verify_model(path, kind)
         options = _model_options(device, threads)
@@ -270,31 +278,148 @@ class NeuralRanker:
 
         self.model = CrossEncoder(str(path), max_length=MAX_LENGTH,
                                   activation_fn=torch.nn.Identity(), **options)
+        self.kind = kind
+        self.device = device
+        self.threads = threads
+        self.batch_size = batch_size
         self.prompt_tokens = 0
+        self._cache_capacity = cache_capacity
+        self._logit_cache: OrderedDict[tuple, float] = OrderedDict()
+        self._cache_lock = RLock()
+        self._score_lock = RLock()
+        self._cache_hits = 0
+        self._cache_misses = 0
+        self._cache_evictions = 0
+        self._evaluated_pairs = 0
+
+    def cache_stats(self) -> dict[str, int | bool]:
+        """Return a consistent snapshot without exposing cached query evidence."""
+        lock = getattr(self, "_cache_lock", None)
+        if lock is None:
+            return {
+                "enabled": False, "capacity": 0, "size": 0, "hits": 0,
+                "misses": 0, "evictions": 0, "evaluated_pairs": 0,
+            }
+        with lock:
+            return {
+                "enabled": self._cache_capacity > 0,
+                "capacity": self._cache_capacity,
+                "size": len(self._logit_cache),
+                "hits": self._cache_hits,
+                "misses": self._cache_misses,
+                "evictions": self._cache_evictions,
+                "evaluated_pairs": self._evaluated_pairs,
+            }
+
+    def _pair_cache_key(self, effective_query: str, document: str, candidate: Candidate,
+                        document_mode: str, structured: bool) -> tuple:
+        kind = self.kind
+        serializer = (
+            STRUCTURED_DOCUMENT_VERSION if structured
+            else f"{DOCUMENT_VERSION}:{document_mode}"
+        )
+        return (
+            kind,
+            MODELS[kind]["revision"],
+            getattr(self, "device", "cpu"),
+            getattr(self, "threads", 4),
+            getattr(self, "batch_size", 16),
+            serializer,
+            hashlib.sha256(effective_query.encode("utf-8")).digest(),
+            candidate.product.parent_asin,
+            hashlib.sha256(document.encode("utf-8")).digest(),
+            MAX_LENGTH,
+        )
+
+    def _predict_logits(self, effective_query: str, documents: list[str]) -> list[float]:
+        import numpy as np
+
+        pairs = [(effective_query, document) for document in documents]
+        tokens = self.model.tokenizer(
+            [pair[0] for pair in pairs], [pair[1] for pair in pairs],
+            truncation=True, max_length=MAX_LENGTH,
+        )
+        self.prompt_tokens += sum(map(len, tokens["input_ids"]))
+        logits = np.asarray(self.model.predict(
+            pairs, batch_size=getattr(self, "batch_size", 16),
+            convert_to_numpy=True, show_progress_bar=False,
+        )).reshape(-1)
+        if len(logits) != len(documents) or not np.isfinite(logits).all():
+            raise ValueError("Reranker returned malformed or non-finite scores")
+        return [float(logit) for logit in logits]
+
+    def _score_unlocked(self, query: str, candidates: list[Candidate],
+                        preferences: list[Preference] | None, document_mode: str,
+                        structured: bool) -> dict[str, float]:
+        effective_query = query[:2000]
+        documents = [
+            structured_document_text(item.product) if structured else
+            document_text(item.product, query, preferences, document_mode)
+            for item in candidates
+        ]
+        if getattr(self, "_cache_capacity", 0) <= 0:
+            cache_lock = getattr(self, "_cache_lock", None)
+            if cache_lock is not None:
+                with cache_lock:
+                    self._evaluated_pairs += len(candidates)
+            logits = self._predict_logits(effective_query, documents)
+            return {
+                item.product.parent_asin: logit
+                for item, logit in zip(candidates, logits, strict=True)
+            }
+
+        keys = [
+            self._pair_cache_key(effective_query, document, item, document_mode, structured)
+            for item, document in zip(candidates, documents, strict=True)
+        ]
+        restored: list[float | None] = [None] * len(candidates)
+        missing_indices = []
+        with self._cache_lock:
+            for index, key in enumerate(keys):
+                if key in self._logit_cache:
+                    restored[index] = self._logit_cache[key]
+                    self._logit_cache.move_to_end(key)
+                    self._cache_hits += 1
+                else:
+                    missing_indices.append(index)
+                    self._cache_misses += 1
+
+        if missing_indices:
+            with self._cache_lock:
+                self._evaluated_pairs += len(missing_indices)
+            fresh = self._predict_logits(
+                effective_query, [documents[index] for index in missing_indices],
+            )
+            with self._cache_lock:
+                for index, logit in zip(missing_indices, fresh, strict=True):
+                    key = keys[index]
+                    restored[index] = logit
+                    self._logit_cache[key] = logit
+                    self._logit_cache.move_to_end(key)
+                    while len(self._logit_cache) > self._cache_capacity:
+                        self._logit_cache.popitem(last=False)
+                        self._cache_evictions += 1
+        if any(logit is None for logit in restored):
+            raise RuntimeError("Neural cache failed to restore candidate scores")
+        return {
+            item.product.parent_asin: float(logit)
+            for item, logit in zip(candidates, restored, strict=True)
+        }
 
     def score(self, query: str, candidates: list[Candidate],
               preferences: list[Preference] | None = None, document_mode: str = "head",
               *, structured: bool = False) -> dict[str, float]:
-        import numpy as np
-
         if not candidates:
             return {}
-        pairs = [
-            (query[:2000], structured_document_text(item.product) if structured else
-             document_text(item.product, query, preferences, document_mode))
-            for item in candidates
-        ]
-        tokens = self.model.tokenizer([pair[0] for pair in pairs], [pair[1] for pair in pairs],
-                                      truncation=True, max_length=MAX_LENGTH)
-        self.prompt_tokens += sum(map(len, tokens["input_ids"]))
-        logits = np.asarray(self.model.predict(pairs, batch_size=16, convert_to_numpy=True,
-                                               show_progress_bar=False)).reshape(-1)
-        if len(logits) != len(candidates) or not np.isfinite(logits).all():
-            raise ValueError("Reranker returned malformed or non-finite scores")
-        return {
-            item.product.parent_asin: float(logit)
-            for item, logit in zip(candidates, logits, strict=True)
-        }
+        lock = getattr(self, "_score_lock", None)
+        if lock is None:
+            return self._score_unlocked(
+                query, candidates, preferences, document_mode, structured,
+            )
+        with lock:
+            return self._score_unlocked(
+                query, candidates, preferences, document_mode, structured,
+            )
 
     def rank(self, query: str, candidates: list[Candidate], limit: int, weight: float,
              preferences: list[Preference] | None = None, document_mode: str = "head",

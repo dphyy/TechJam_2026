@@ -34,6 +34,7 @@ class Config:
     seen_aware_slate: bool = False
     progressive_frontier_rerank: bool = False
     page_local_rerank: bool = False
+    neural_logit_cache: bool = False
     state_mode: str = "ledger"
     alternatives_mode: str = "off"
     question_policy: str = "other"
@@ -57,6 +58,8 @@ class Config:
     page_local_rerank_limit: int = 10
     page_local_max_batches: int = 2
     page_local_max_pairs: int = 20
+    neural_logit_cache_size: int = 8192
+    neural_batch_size: int = 16
     max_deferred_turns: int = 1
     minimal_probe_limit: int = 30
     cascade_max_rerank_limit: int = 60
@@ -125,7 +128,7 @@ class Config:
                     "semantic_question_goals", "require_positive_question_value", "role_evidence",
                     "composition_evidence", "source_alias_retrieval", "neural_margin_fusion",
                     "slate_reset_on_override", "seen_aware_slate", "progressive_frontier_rerank",
-                    "page_local_rerank"):
+                    "page_local_rerank", "neural_logit_cache"):
             if type(getattr(self, key)) is not bool:
                 raise ValueError(f"{key} must be a boolean")
         if self.role_evidence and self.composition_evidence:
@@ -136,7 +139,8 @@ class Config:
                     "max_sessions", "threads", "over_general_candidate_threshold", "over_general_rerank_limit",
                     "soft_decay_turns", "max_deferred_turns", "minimal_probe_limit",
                     "cascade_max_rerank_limit", "cascade_max_turns", "cascade_candidate_threshold",
-                    "max_intent_hypotheses", "hypothesis_candidate_budget"):
+                    "max_intent_hypotheses", "hypothesis_candidate_budget",
+                    "neural_logit_cache_size"):
             value = getattr(self, key)
             if type(value) is not int or not 1 <= value <= 10000:
                 raise ValueError(f"{key} must be an integer in [1, 10000]")
@@ -144,6 +148,8 @@ class Config:
             value = getattr(self, key)
             if type(value) is not int or not 1 <= value <= 100:
                 raise ValueError(f"{key} must be an integer in [1, 100]")
+        if type(self.neural_batch_size) is not int or self.neural_batch_size not in {16, 30, 32}:
+            raise ValueError("neural_batch_size must be one of 16, 30, or 32")
         if type(self.slate_size) is not int or not 0 <= self.slate_size <= 10:
             raise ValueError("slate_size must be an integer in [0, 10]")
         if type(self.other_question_limit) is not int or not 0 <= self.other_question_limit <= 9:
@@ -170,6 +176,8 @@ class Config:
             raise ValueError("Low-margin neural weight cannot exceed the configured neural weight")
         if self.progressive_frontier_rerank and not (self.neural_rerank and self.seen_aware_slate):
             raise ValueError("Progressive frontier reranking requires neural reranking and seen-aware slates")
+        if self.neural_logit_cache and not self.neural_rerank:
+            raise ValueError("Neural logit caching requires neural reranking")
         if self.page_local_rerank and (
                 not self.neural_rerank or self.seen_aware_slate or self.progressive_frontier_rerank):
             raise ValueError(

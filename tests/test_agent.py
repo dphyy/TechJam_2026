@@ -1052,6 +1052,14 @@ class AgentTest(unittest.TestCase):
             ),
         )
 
+    def test_neural_cache_config_only_enables_the_registered_capacity(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "selected.json")
+        self.assertEqual(
+            Config.load(root / "neural_logit_cache.json"),
+            replace(selected, neural_logit_cache=True, neural_logit_cache_size=8192),
+        )
+
     def test_cycle3_document_configs_only_change_document_mode(self):
         root = Path(__file__).resolve().parents[1] / "configs"
         selected = Config.load(root / "cycle2_grouped.json")
@@ -1089,6 +1097,26 @@ class AgentTest(unittest.TestCase):
                                             artifact_dir=self.temp.name))
         try:
             self.assertEqual(seen["kind"], "bge_reranker_base")
+            self.assertEqual(agent.startup_fallbacks, {})
+        finally:
+            agent.close()
+
+    def test_agent_passes_nondefault_neural_cache_and_batch_options(self):
+        seen = {}
+
+        class FakeRanker:
+            def __init__(self, artifact_dir, device="cpu", threads=4, kind="reranker",
+                         cache_capacity=0, batch_size=16):
+                seen.update(cache_capacity=cache_capacity, batch_size=batch_size)
+
+        with patch("mercury.neural.NeuralRanker", FakeRanker):
+            agent = Agent(self.path, Config(
+                neural_rerank=True, neural_logit_cache=True,
+                neural_logit_cache_size=8192, neural_batch_size=30,
+                artifact_dir=self.temp.name,
+            ))
+        try:
+            self.assertEqual(seen, {"cache_capacity": 8192, "batch_size": 30})
             self.assertEqual(agent.startup_fallbacks, {})
         finally:
             agent.close()
@@ -1152,6 +1180,37 @@ class AgentTest(unittest.TestCase):
             agent.respond("cost", "blue cotton shirt", 1, 10)
             self.assertIsInstance(agent._rerank_cost, float)
             self.assertGreaterEqual(agent._rerank_cost, 0.0)
+        finally:
+            agent.close()
+
+    def test_neural_pair_cache_survives_session_reset_and_reports_turn_deltas(self):
+        from tests.test_neural import cached_ranker
+
+        agent = Agent(self.path, Config(
+            neural_rerank=True, neural_logit_cache=True,
+            neural_logit_cache_size=8192, artifact_dir=self.temp.name,
+        ))
+        ranker = cached_ranker(capacity=8192)
+        agent.reranker = ranker
+        agent.startup_fallbacks.pop("neural_rerank", None)
+        try:
+            agent.reset("cache", {})
+            first = agent.respond("cache", "blue cotton shirt", 1, 10)
+            first_cache = agent.last_diagnostics["neural_logit_cache"]
+            self.assertEqual(first_cache["turn"]["misses"], 12)
+            self.assertEqual(first_cache["turn"]["evaluated_pairs"], 12)
+
+            agent.reset("cache", {})
+            second = agent.respond("cache", "blue cotton shirt", 1, 10)
+            second_cache = agent.last_diagnostics["neural_logit_cache"]
+            self.assertEqual(second["message"], first["message"])
+            self.assertEqual(second["ask_attribute"], first["ask_attribute"])
+            self.assertEqual(second["recommendations"], first["recommendations"])
+            self.assertEqual(second["usage"]["completion_tokens"], 0)
+            self.assertLess(second["usage"]["prompt_tokens"], first["usage"]["prompt_tokens"])
+            self.assertEqual(second_cache["turn"]["hits"], 12)
+            self.assertEqual(second_cache["turn"]["evaluated_pairs"], 0)
+            self.assertEqual(second_cache["size"], 12)
         finally:
             agent.close()
 
