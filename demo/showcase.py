@@ -115,6 +115,7 @@ def build_showcase(output: str | Path, agent: Agent, messages: Iterable[str] = M
             "query": diagnostics["query"],
             "negative_feedback": diagnostics["negative_feedback"],
             "slate_page": diagnostics["slate_page"],
+            "slate_page_reset": diagnostics.get("slate_page_reset"),
             "fallbacks": diagnostics["fallbacks"],
             "latency_seconds": diagnostics["latency_seconds"],
             "products": products,
@@ -180,6 +181,7 @@ def _render_html(report: dict) -> str:
             )
         reasons = ", ".join(turn["intent"].get("reasons", [])) or "No additional routing reason"
         fallback = ", ".join(turn["fallbacks"]) or "None"
+        page_reset = turn.get("slate_page_reset") or "None"
         turn_sections.append(
             f'<section class="turn"><header><span>Turn {turn["turn"]}</span>'
             f'<strong>{html.escape(turn["intent"]["mode"].title())} intent</strong></header>'
@@ -192,6 +194,7 @@ def _render_html(report: dict) -> str:
             f'<dt>Routing rationale</dt><dd>{html.escape(reasons)}</dd>'
             f'<dt>Negative feedback</dt><dd>{html.escape(turn["negative_feedback"]["scope"])}</dd>'
             f'<dt>Result page</dt><dd>{turn["slate_page"] + 1}</dd>'
+            f'<dt>Page reset</dt><dd>{html.escape(page_reset)}</dd>'
             f'<dt>Fallbacks</dt><dd>{html.escape(fallback)}</dd></dl></details>'
             f'<h3>Top catalog results</h3>{"".join(products)}</section>'
         )

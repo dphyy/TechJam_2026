@@ -145,6 +145,7 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(config.neural_low_margin_weight, .50)
         for values in (
             {"neural_margin_fusion": 1},
+            {"slate_reset_on_override": 1},
             {"neural_low_margin_weight": -0.1},
             {"neural_margin_threshold": -0.1},
             {"neural_margin_threshold": float("inf")},

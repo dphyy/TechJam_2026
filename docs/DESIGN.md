@@ -6,10 +6,11 @@ The agent turns a changing shopping conversation into a ranked list of real cata
 
 The original research hypothesis tested catalog-grounded contrasts and rank-aware questions against ordinary conversational retrieval. Those optional mechanisms remain disabled in the selected release. Cycle 2 adds a bounded explicit-alternatives correctness repair after registered comparisons; it does not claim a new ranking algorithm or an incremental score gain. See [the measured result](CYCLE2_RESULTS.md).
 
-The 30 August merged refinement promotes one policy change: from turn 5, an
-unchanged full ranking advances to the next Top-10 page instead of repeating a
-slate that has already failed. Any ranking change returns to page zero. Intent
-rule coefficients are fitted on grouped independently authored language, but
+The 30 August refinement pages from the first repeated full ranking instead of
+repeating a slate that has already failed. Any ranking change returns to page
+zero, and an intent override explicitly resets to page zero even when the ranked
+IDs remain unchanged because earlier results may not have been eligible to
+score. Intent rule coefficients are fitted on grouped independently authored language, but
 intent-routed retrieval remains disabled because it added cost without changing
 downstream recommendations. See [the refinement evidence](PIPELINE_REFINEMENT_RESULTS.md).
 

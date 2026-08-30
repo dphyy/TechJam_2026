@@ -30,6 +30,7 @@ class Config:
     composition_evidence: bool = False
     source_alias_retrieval: bool = False
     neural_margin_fusion: bool = False
+    slate_reset_on_override: bool = False
     state_mode: str = "ledger"
     alternatives_mode: str = "off"
     question_policy: str = "other"
@@ -115,7 +116,8 @@ class Config:
                     "profile_prior", "soft_preference_decay", "scoped_preferences",
                     "retrieval_sufficiency_gate", "compute_cascade", "multi_hypothesis_retrieval",
                     "semantic_question_goals", "require_positive_question_value", "role_evidence",
-                    "composition_evidence", "source_alias_retrieval", "neural_margin_fusion"):
+                    "composition_evidence", "source_alias_retrieval", "neural_margin_fusion",
+                    "slate_reset_on_override"):
             if type(getattr(self, key)) is not bool:
                 raise ValueError(f"{key} must be a boolean")
         if self.role_evidence and self.composition_evidence:

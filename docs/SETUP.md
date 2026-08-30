@@ -39,7 +39,8 @@ Required assets live in `artifacts/models/reranker/`. The selected model is `cro
 
 The selected configuration uses grouped explicit alternatives, four CPU threads,
 120 retained candidates, a 30-candidate reranking prefix, and unchanged-rank
-slate paging from turn 5. The original grouped-alternatives selection receipt is
+slate paging from the first repeated ranking with a page-1 reset on detected
+intent overrides. The original grouped-alternatives selection receipt is
 historical; the paging promotion and current settings are recorded in
 [the merged refinement results](PIPELINE_REFINEMENT_RESULTS.md). No dense index
 or contrast sidecar is required. Missing or invalid optional assets trigger a
@@ -91,7 +92,7 @@ The showcase is the recommended judge walkthrough. It executes the real selected
 
 ## Completed comparison and validation boundary
 
-The alternatives comparison is complete under [its registered protocol](CYCLE2_ALTERNATIVES_PROTOCOL.md). [The final report](CYCLE2_RESULTS.md) and [aggregate evidence](cycle2-summary.json) distinguish developer correctness, target recovery, capability failures and resources. Grouped passed the release gates but did not improve target scores or locked capability passes. Its historical fixed-slate public score is 0.786724; the current paging implementation scores 0.839176 on that consumed set. The latter is an implementation check, not a fresh private-performance estimate.
+The alternatives comparison is complete under [its registered protocol](CYCLE2_ALTERNATIVES_PROTOCOL.md). [The final report](CYCLE2_RESULTS.md) and [aggregate evidence](cycle2-summary.json) distinguish developer correctness, target recovery, capability failures and resources. Grouped passed the release gates but did not improve target scores or locked capability passes. Its historical fixed-slate public score is 0.786724; the current guarded-paging implementation scores 0.839390 on that consumed set. The latter is an implementation check, not a fresh private-performance estimate.
 
 Reproduce a control on released development data with a fresh name:
 

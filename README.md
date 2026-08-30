@@ -67,11 +67,13 @@ The codebase also contains independently gated pipeline-evolution experiments:
 None passed the repository's promotion rule, so they are not enabled by the public entrypoint. See [the measured evolution report](docs/PIPELINE_EVOLUTION_RESULTS.md).
 The newer robustness candidates were also rejected for promotion on frozen unseen-target development evidence; see [the roadmap results](docs/ROADMAP_IMPLEMENTATION_RESULTS.md).
 Margin-aware neural fusion was similarly rejected after a preregistered Cycle 5 screening loss and remains disabled; see [its result](docs/MARGIN_FUSION_RESULTS.md).
+Paging from the first repeated ranking was also rejected: it improved some ordinary-session turns but hid pre-override targets that were not yet eligible to score, reducing TechnicalScore from `0.839176` to `0.829540`. See [the early-paging result](docs/EARLY_PAGING_RESULTS.md).
+A guarded follow-up fixes that failure by resetting to page 1 on detected intent overrides. It preserves 0.97 HitRate and raises TechnicalScore slightly to `0.839390`, so it is selected under the registered non-decline rule. See [the guarded result](docs/EARLY_PAGING_OVERRIDE_RESET_RESULTS.md).
 Direct neural-weight tuning over `0.60`–`0.90` also found no candidate that cleared the registered practical-gain gate, so the selected `0.75` weight remains unchanged; see [the tuning result](docs/NEURAL_WEIGHT_TUNING_RESULTS.md).
 
 Release and experiment interpretation is fixed as follows:
 
-- Submission/reliability: the selected 30-candidate architecture with unchanged-slate paging from turn 5.
+- Submission/reliability: the selected 30-candidate architecture with paging from the first repeated ranking and an intent-override reset to page 1.
 - Public-score demonstration only: D120's recorded `0.807170`; it is not the selected release.
 - Future candidates must pass a registered evaluation on new unseen sessions before promotion.
 
@@ -191,7 +193,7 @@ Recent local public-set metrics:
 | Original baseline | 0.125000 | 0.068034 | 9.810000 | 0.106710 |
 | Mercury sparse fallback | 0.850000 | 0.535673 | 3.745000 | 0.730802 |
 | Mercury selected neural, historical fixed slate | 0.895000 | 0.613746 | 3.245000 | 0.786724 |
-| Mercury selected neural, current paging release | 0.970000 | 0.645919 | 2.980000 | 0.839176 |
+| Mercury selected neural, current guarded-paging release | 0.970000 | 0.641633 | 2.905000 | 0.839390 |
 
 The current result was reproduced on 30 August from the hardened source with 0 fallbacks and 0 agent-error turns. Public-set results are consumed development evidence, not private-test performance. The tracked [machine-readable result](docs/current-results.json) is the single current headline; historical rows remain tied to their original source/configuration.
 
@@ -241,7 +243,7 @@ python -m pip check
 Recent verification:
 
 ```text
-535 tests passed
+539 tests passed
 ruff passed
 pip check passed
 ```

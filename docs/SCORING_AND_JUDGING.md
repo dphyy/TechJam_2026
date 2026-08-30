@@ -10,19 +10,19 @@ The four scenarios are buying, browsing, intent changes and no-preference bounda
 
 The technical deliverable is a Python `Agent`, helper modules, setup instructions and a method/resource report. A frontend is not required. The event additionally asks for written submission material, a public repository and a public three-minute YouTube demo; an API/results walkthrough fits the supplied backend-track brief. [Event requirements](https://tiktoktechjam2026.devpost.com/), [backend submission contract](submission_rules.md).
 
-## Current selected result: 0.839176
+## Current selected result: 0.839390
 
 The 30 August hardened paging release reproduced the following result on all 200 released public development sessions:
 
 | Component | Current result | Weight |
 |---|---:|---:|
 | HitRate@10 | 194/200 = 0.970000 | 50% |
-| MRR | 0.645919 | 30% |
-| Efficiency | 0.802000, from MTTC 2.980 | 20% |
+| MRR | 0.641633 | 30% |
+| Efficiency | 0.809500, from MTTC 2.905 | 20% |
 
 ```text
-TechnicalScore = 0.50 × 0.970000 + 0.30 × 0.645919 + 0.20 × 0.802000
-               = 0.839176, rounded to six decimals
+TechnicalScore = 0.50 × 0.970000 + 0.30 × 0.641633 + 0.20 × 0.809500
+               = 0.839390, rounded to six decimals
 ```
 
 This is consumed public development evidence. It is neither a private-test forecast nor 83.92% accuracy; HitRate@10 is the accuracy-like 97% value. The complete aggregate and claim boundary are in [current-results.json](current-results.json).
@@ -81,7 +81,7 @@ The present bottleneck is mainly getting retrieved candidates into the right ord
 
 ## Is the result impressive?
 
-Yes as a measured engineering result; not yet as proof of a novel winning algorithm. The original weak starter found 25/200 targets at 0.106710. The current selected release finds 194/200 at 0.839176; the historical fixed-slate neural release found 179/200 at 0.786724. The stronger historical development comparison is 0.699945 for corrected stateful sparse search versus 0.775118 with the selected reranker: +0.075173, paired bootstrap 95% interval [0.039850, 0.111205]. See [the full report](../REPORT.md).
+Yes as a measured engineering result; not yet as proof of a novel winning algorithm. The original weak starter found 25/200 targets at 0.106710. The current guarded-paging release finds 194/200 at 0.839390; the historical fixed-slate neural release found 179/200 at 0.786724. The stronger historical development comparison is 0.699945 for corrected stateful sparse search versus 0.775118 with the selected reranker: +0.075173, paired bootstrap 95% interval [0.039850, 0.111205]. See [the full report](../REPORT.md).
 
 The credible work is reversible preference state, conservative evidence handling, offline reproducibility, failure tests, frozen selection and openly reported failed experiments. BM25 plus a cross-encoder is established technology. The contrast and adaptive-question experiments did not justify inclusion. The 40-session reserve is public development, not an untouched private benchmark. No competitive placement or real-user conversion improvement has been measured.
 

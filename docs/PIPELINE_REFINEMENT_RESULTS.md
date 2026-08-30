@@ -7,8 +7,11 @@ experiments, reranker selection, turn-budget fallback, and slate paging.
 
 ## Selection outcome
 
-The selected runtime remains the reliable sparse/D30 MiniLM pipeline, with one
-promotion: unchanged-rank slate paging begins on turn 5. Intent classification
+The selected runtime remains the reliable sparse/D30 MiniLM pipeline. A later
+registered follow-up advances an unchanged ranking from the first repeat and
+resets to page 1 whenever the runtime classifier detects an intent override.
+This supersedes the original turn-5 paging boundary while preserving its
+eligibility protection. Intent classification
 uses dataset-tuned interpretable weights for diagnostics, but intent-routed
 retrieval remains disabled because it did not improve downstream output.
 
@@ -22,7 +25,7 @@ reversible grouped-alternative ledger
   -> MiniLM rerank of the first 30 at weight 0.75
   -> guard again
   -> simple non-repeating `other` questions, capped at four
-  -> Top 10; advance one page from turn 5 only when the full ranking is unchanged
+  -> Top 10; advance on each unchanged ranking, reset to page 1 on intent override
 ```
 
 Dense retrieval, routed retrieval, positive evidence boosts, role/composition
@@ -71,12 +74,19 @@ cleared the development and correctness gates.
 | Final control, fixed slate | 0.950000 | 0.655119 | 2.675000 | 0.838036 | 423,141 |
 | Final candidate, paging | 0.975000 | 0.658244 | 2.650000 | 0.851973 | 423,141 |
 | Consumed public, paging (descriptive) | 0.970000 | 0.645919 | 2.980000 | 0.839176 | 2,375,008 |
+| Consumed public, early paging + override reset | 0.970000 | 0.641633 | 2.905000 | 0.839390 | 2,372,103 |
 
 Paging improves TechnicalScore by `+0.018536` on unseen development and
 `+0.013937` on the final split, with `+0.025` Hit@10 on both. It performs no
 extra retrieval or inference and uses identical model tokens. The final run had
 zero fallbacks and unchanged source throughout. The authored private-like pack
 also passed 19/19 assertions with zero API errors or fallbacks.
+
+The guarded early-paging follow-up is descriptive public-development evidence.
+Against a fresh same-source turn-5 control it changes TechnicalScore by
+`+0.000214`, preserves HitRate, reduces MTTC by `0.075`, and lowers MRR by
+`0.004286`. It is selected under the owner's TechnicalScore non-decline rule;
+the component trade-off remains explicit.
 
 ## Strategy trade-offs
 

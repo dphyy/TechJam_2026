@@ -4,15 +4,17 @@ Preparation build, 26 August 2026. Not submitted to the competition. This report
 
 ## Current release addendum — 30 August 2026
 
-The historical frozen-selection study below remains intact, but it no longer describes the current source exactly. The selected 30-candidate MiniLM pipeline now pages an unchanged ranking from turn 5 and recognizes a broader set of direct corrections, replacement phrases, generic slate rejection, and excess-feedback language. The parser changes are covered by invented-data regression tests rather than public target-specific rules.
+The historical frozen-selection study below remains intact, but it no longer describes the current source exactly. The selected 30-candidate MiniLM pipeline now pages from the first repeated ranking and resets to page 1 whenever the runtime intent classifier detects an override. It also recognizes a broader set of direct corrections, replacement phrases, generic slate rejection, and excess-feedback language. The parser changes are covered by invented-data regression tests rather than public target-specific rules.
 
 | Current selected release | n | HitRate@10 | MRR | MTTC | Efficiency | TechnicalScore |
 |---|---:|---:|---:|---:|---:|---:|
-| Released public development set | 200 | 0.970000 | 0.645919 | 2.980000 | 0.802000 | 0.839176 |
+| Released public development set | 200 | 0.970000 | 0.641633 | 2.905000 | 0.809500 | 0.839390 |
 
-The 30 August reproduction recorded 2,375,969 local prompt tokens, p95 turn latency of 0.555 seconds, zero fallback turns and zero agent-error turns. Its source/config/data receipts are in `runs/hardened-selected-public-20260830/`, with the aggregate in [current-results.json](docs/current-results.json). Because these 200 sessions have been used throughout development, this is an implementation reproduction—not a private-set prediction.
+The selected guarded-paging reproduction recorded 2,372,103 local prompt tokens, p95 turn latency of 0.583 seconds, zero fallback turns and zero agent-error turns. Its source/config/data receipts are in `runs/override-reset-candidate-20260830/`, with the aggregate in [current-results.json](docs/current-results.json). Because these 200 sessions have been used throughout development, this is an implementation reproduction—not a private-set prediction.
 
 A preregistered low-margin neural-fusion candidate was rejected on a separate 160-session popularity-matched Cycle 5 screening pack: hit rate tied, while MRR fell by 0.005546 and TechnicalScore fell by 0.003038. It remains disabled. See [the screening result](docs/MARGIN_FUSION_RESULTS.md).
+
+Unguarded paging from the first repeated ranking reduced TechnicalScore from 0.839176 to 0.829540 and intent-override HitRate from 0.900000 to 0.833333. Some override messages restate an already-active preference, leaving the ranking unchanged even though the target only becomes eligible on that turn. A separately registered runtime override reset recovers those sessions, preserves 0.97 overall HitRate and raises TechnicalScore slightly to 0.839390, so the guarded form is selected. MRR falls by 0.004286 while MTTC improves by 0.075; the promotion follows the owner's TechnicalScore non-decline rule. See [the guarded result](docs/EARLY_PAGING_OVERRIDE_RESET_RESULTS.md).
 
 For presentation, `python -m demo.showcase --results docs/current-results.json --output artifacts/judge-showcase` creates an inspectable HTML report from real agent calls. It exposes corrections, retained/retracted state, routing, paging, fallbacks, catalog IDs and conservative evidence labels. Missing catalog evidence remains unknown.
 

@@ -30,7 +30,8 @@ class ShowcaseTests(unittest.TestCase):
         ]
         self.catalog.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
         self.agent = Agent(self.catalog, Config(neural_rerank=False, question_policy="none", slate_size=3,
-                                               slate_paging_first_turn=3))
+                                               slate_paging_first_turn=1,
+                                               slate_reset_on_override=True))
         self.addCleanup(self.agent.close)
 
     def test_generates_portable_real_agent_evidence_report(self):
@@ -42,6 +43,7 @@ class ShowcaseTests(unittest.TestCase):
         self.assertTrue(report["generated_from_real_agent"])
         self.assertEqual(len(report["turns"]), 5)
         self.assertGreaterEqual(report["turns"][4]["slate_page"], 1)
+        self.assertEqual(report["turns"][1]["slate_page_reset"], "intent_override")
         self.assertTrue(any(item["value"] == "leather"
                             for item in report["turns"][1]["retracted_preferences"]))
         self.assertFalse(any(item["value"] == "adjustable"

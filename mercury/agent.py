@@ -284,18 +284,21 @@ class Agent:
             fallbacks.append("no_matches")
         return candidates, routes, weights
 
-    def _slate_page(self, session_id: str, ordered: list[str], turn: int, limit: int) -> int:
+    def _slate_page(self, session_id: str, ordered: list[str], turn: int, limit: int,
+                    reset_page: bool = False) -> int:
         """Advance past an unchanged slate; any ranking change returns to the top.
 
         Re-serving an identical slate cannot score, because the session would
-        already have ended had the wanted product been in it. Paging waits until
-        no intent override can still be pending, so a shown-but-not-yet-scorable
-        product is never discarded.
+        already have ended had the wanted product been in it. A detected intent
+        override can explicitly reset paging because earlier slates may have
+        contained a target that was not eligible to score yet.
         """
         first_turn = self.config.slate_paging_first_turn
         previous = self._last_ranked.get(session_id)
         page = self._pages.get(session_id, 0)
-        if previous is not None and ordered == previous:
+        if reset_page:
+            page = 0
+        elif previous is not None and ordered == previous:
             if first_turn and turn >= first_turn:
                 page += 1
         else:
@@ -547,7 +550,10 @@ class Agent:
         state.record_question(decision.ask_attribute, decision.question_goal)
         limit = min(top_k, max(0, decision.slate_size))
         ordered = list(dict.fromkeys(item.product.parent_asin for item in candidates))
-        page = self._slate_page(session_id, ordered, turn, limit)
+        override_page_reset = (
+            self.config.slate_reset_on_override and "intent_override" in intent.reasons
+        )
+        page = self._slate_page(session_id, ordered, turn, limit, override_page_reset)
         ranked = ordered[page * limit:page * limit + limit] if limit else []
         neural_scores = _neural_score_summary(candidates)
         if neural_scores["logit_margin"] is not None:
@@ -556,6 +562,7 @@ class Agent:
         self.last_diagnostics = {
             "query": query, "source_alias_query": source_alias_query,
             "revision": state.revision, "cache_hit": cache_hit, "slate_page": page,
+            "slate_page_reset": "intent_override" if override_page_reset else None,
             "retrieval_sufficiency": {
                 "action": sufficiency.action, "sufficient": sufficiency.sufficient,
                 "reasons": list(sufficiency.reasons),

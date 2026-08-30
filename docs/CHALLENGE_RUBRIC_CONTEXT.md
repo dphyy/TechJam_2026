@@ -33,7 +33,7 @@ features.
 The evaluator separately reports HitRate@10, MRR, MTTC, Efficiency, and the
 combined TechnicalScore. These measurements are technical evidence; they are not
 the human rubric itself. See [the scoring guide](SCORING_AND_JUDGING.md) for the
-formula, the current `0.839176` selected result, and the rubric discrepancy.
+formula, the current `0.839390` selected result, and the rubric discrepancy.
 
 ## Challenge Boundaries That Must Persist
 
@@ -97,12 +97,18 @@ when it supports reproducibility, ablation, or a documented negative result.
 The persistent release decision is:
 
 - **Submission/reliability:** `configs/selected.json`, using the 30-candidate
-  MiniLM rerank prefix and unchanged-slate paging from turn 5. It reproduces
-  `0.839176` on the consumed 200-session public development set.
+  MiniLM rerank prefix, paging from the first repeated ranking, and a page-1
+  reset on detected intent overrides. It reproduces `0.839390` on the consumed
+  200-session public development set.
 - **Historical public-score experiment:** D120 measured `0.807170` on an older
   fixed-slate source and failed fresh screening and latency criteria. It is not selected.
 - **Rejected current experiment:** low-margin neural fusion reduced MRR and
   TechnicalScore on its preregistered Cycle 5 screening pack. It remains disabled.
+- **Rejected unguarded early paging:** starting on the first repeated ranking reduced
+  TechnicalScore to `0.829540` and intent-override HitRate to `0.833333`.
+  Override messages can restate existing preferences without changing the ranking.
+- **Selected guarded early paging:** resetting to page 1 on a runtime-detected
+  override restores intent-override metrics and reaches `0.839390` overall.
 - **Future candidates:** consider only after a registered evaluation on new unseen sessions.
 
 The selected configuration keeps grouped alternatives, neural weight `0.75`, a

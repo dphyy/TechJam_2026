@@ -962,7 +962,7 @@ class AgentTest(unittest.TestCase):
                 config = Config.load(root / f"cycle2_{name}.json")
                 self.assertEqual(config, replace(selected, alternatives_mode=mode))
 
-    def test_selected_config_promotes_only_paging_over_the_historical_d30_release(self):
+    def test_selected_config_promotes_guarded_early_paging_over_the_historical_d30_release(self):
         root = Path(__file__).resolve().parents[1] / "configs"
         historical = Config.load(root / "cycle2_grouped.json")
         selected = Config.load(root / "selected.json")
@@ -973,10 +973,11 @@ class AgentTest(unittest.TestCase):
             "intent_sparse_request_weight", "router_buying_threshold",
             "router_browsing_threshold",
         }
-        self.assertEqual(selected.slate_paging_first_turn, 5)
+        self.assertEqual(selected.slate_paging_first_turn, 1)
+        self.assertTrue(selected.slate_reset_on_override)
         self.assertFalse(selected.routed_retrieval)
         for field in Config.__dataclass_fields__:
-            if field not in tuned_fields | {"slate_paging_first_turn"}:
+            if field not in tuned_fields | {"slate_paging_first_turn", "slate_reset_on_override"}:
                 self.assertEqual(getattr(selected, field), getattr(historical, field), field)
 
     def test_cycle3_admission_configs_only_change_admission_mode(self):
@@ -1001,13 +1002,30 @@ class AgentTest(unittest.TestCase):
         self.assertEqual(Config.load(root / "cycle4_source_alias.json"),
                          replace(selected, source_alias_retrieval=True))
 
-    def test_margin_fusion_config_only_changes_registered_confidence_fields(self):
+    def test_historical_margin_fusion_config_preserves_its_registered_paging_fields(self):
         root = Path(__file__).resolve().parents[1] / "configs"
         selected = Config.load(root / "selected.json")
         self.assertEqual(
             Config.load(root / "margin_fusion.json"),
             replace(selected, neural_margin_fusion=True,
-                    neural_low_margin_weight=.50, neural_margin_threshold=1.0),
+                    neural_low_margin_weight=.50, neural_margin_threshold=1.0,
+                    slate_paging_first_turn=5, slate_reset_on_override=False),
+        )
+
+    def test_early_paging_candidate_only_changes_the_registered_start_turn(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "selected.json")
+        self.assertEqual(
+            Config.load(root / "paging_from_start.json"),
+            replace(selected, slate_reset_on_override=False),
+        )
+
+    def test_early_paging_override_reset_candidate_only_changes_registered_paging_fields(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "selected.json")
+        self.assertEqual(
+            Config.load(root / "paging_from_start_override_reset.json"),
+            selected,
         )
 
     def test_cycle3_document_configs_only_change_document_mode(self):
@@ -1149,6 +1167,37 @@ class AgentTest(unittest.TestCase):
                 self.assertEqual(slate, seen[0], "paging must not start before its turn")
             self.assertEqual(seen[4], full[10:20])
             self.assertEqual(seen[5], full[20:30])
+        finally:
+            agent.close()
+
+    def test_paging_from_start_advances_on_the_second_unchanged_turn(self):
+        agent = Agent(self.paging_catalog(), Config(slate_paging_first_turn=1))
+        try:
+            seen = self.slates(agent, 3)
+            full = agent.last_diagnostics["ranked_ids"]
+            self.assertEqual(seen[0], full[:10])
+            self.assertEqual(seen[1], full[10:20])
+            self.assertEqual(seen[2], full[20:30])
+        finally:
+            agent.close()
+
+    def test_detected_override_resets_early_paging_when_ranking_is_unchanged(self):
+        agent = Agent(self.paging_catalog(), Config(
+            slate_paging_first_turn=1, slate_reset_on_override=True,
+        ))
+        try:
+            agent.reset("override-reset", {})
+            first = agent.respond("override-reset", "blue cotton shirt", 1, 10)
+            second = agent.respond("override-reset", "blue cotton shirt", 2, 10)
+            third = agent.respond(
+                "override-reset", "Actually, make that a blue cotton shirt", 3, 10,
+            )
+            def ids(response):
+                return [item["parent_asin"] for item in response["recommendations"]]
+            self.assertNotEqual(ids(first), ids(second))
+            self.assertEqual(ids(third), ids(first))
+            self.assertEqual(agent.last_diagnostics["slate_page"], 0)
+            self.assertEqual(agent.last_diagnostics["slate_page_reset"], "intent_override")
         finally:
             agent.close()
 
