@@ -293,6 +293,30 @@ calibration, latency, RSS, and end-to-end metrics.
 - Private-like correctness and deterministic guard tests remain clean.
 - The model remains optional, pinned, local, and failure-safe.
 
+### Phase 3 execution status — 30 August 2026
+
+Phase 3 was implemented and measured, then rejected. On group-held-out training
+proxy evidence, the frozen regularized linear scorer improved admission
+Recall@20 from `0.829653` to `0.880126` and Recall@30 from `0.876972` to
+`0.914826`; deterministic fusion also improved both. On the first frozen
+screening opening, fusion improved TechnicalScore from `0.798906` to `0.804234`
+with no scenario HitRate loss, and linear improved it to `0.819922` but lost one
+browsing hit.
+
+Neither candidate met the runtime gate: p95 rose from `0.356s` to `0.586s` for
+fusion and `0.590s` for linear, increases of roughly 65% against a 10% cap. The
+candidate is optional, pinned, local, catalog-hash-bound, and failure-safe, but
+it is not promoted. Confirmation remains sealed and `configs/selected.json` is
+unchanged. See [the admission protocol](docs/ADMISSION_SCORER_PROTOCOL.md).
+
+### Phase 4 dependency decision — 30 August 2026
+
+Phase 4 is skipped. Its prerequisite is a calibrated, source-frozen Phase 3
+admission scorer that passes correctness and resource gates. Phase 3 did not
+pass, so opening confirmation or tuning a D20/D30 threshold would violate the
+registered dependency. Phase 5 remains independent and is the next active
+phase.
+
 ## Phase 4: Confidence-Gated D20/D30 Reranking
 
 Only begin after Phase 3 produces a calibrated, source-frozen admission scorer.

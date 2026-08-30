@@ -73,3 +73,27 @@ training-proxy results, not promotion evidence.
 - Deterministic, metamorphic, legality, and failure tests must remain clean.
 - Confirmation opens only if the committed linear candidate passes screening.
 - `configs/selected.json` remains unchanged until both fresh gates pass.
+
+## Frozen screening result
+
+Screening opened once at source commit `41a4cb6` against dataset SHA-256
+`9d470a74b28231d680ae7d0d71fd75751792ff9b051f8e773df559951a8331ba`.
+There were no startup or turn fallbacks.
+
+| Arm | HitRate@10 | MRR | MTTC | TechnicalScore | p95 |
+|---|---:|---:|---:|---:|---:|
+| Selected BM25 prefix | 0.956250 | 0.558435 | 3.337500 | 0.798906 | 0.356s |
+| Deterministic fusion | 0.962500 | 0.563279 | 3.300000 | 0.804234 | 0.586s |
+| Regularized linear | 0.968750 | 0.588906 | 3.056250 | 0.819922 | 0.590s |
+
+Both all-pool arms improved overall technical quality. Fusion preserved or
+improved scenario HitRate, while linear lost one browsing hit despite stronger
+overall results. However, fusion increased p95 by about 64.6% and linear by
+about 65.7%, both far beyond the registered 10% ceiling. The repeated cost in
+full catalog-field and preference-evidence extraction dominates the inexpensive
+linear arithmetic.
+
+Phase 3 is rejected on its resource gate. Confirmation was not opened, the
+candidate configurations remain diagnostic only, and `configs/selected.json`
+is unchanged. Because Phase 4 requires a passing calibrated Phase 3 scorer,
+adaptive D20/D30 evaluation is not authorized from this branch of evidence.
