@@ -3,7 +3,8 @@ import unittest
 from mercury.catalog import product_from_dict
 from mercury.intent import decide_intent
 from mercury.planning import build_retrieval_plan
-from mercury.ranking import (evidence_score, preference_evidence, rank_candidates, rank_constraints,
+from mercury.ranking import (evidence_score, hard_plan_evidence, preference_evidence,
+                             rank_candidates, rank_constraints, rank_hard_plan,
                              budget_preference_score, rank_product_compatibility, rank_soft_negatives,
                              rank_soft_prices,
                              rank_typed_plan, typed_plan_evidence, value_matches)
@@ -119,6 +120,22 @@ class RankingTest(unittest.TestCase):
         active = rank_typed_plan(shadow, plan, .1, active=True)
         self.assertEqual([item.product.parent_asin for item in active], ["match", "mismatch"])
         self.assertEqual(rank_typed_plan(active, plan, .1, active=True), active)
+
+    def test_hard_plan_ranking_ignores_soft_preferences_and_is_idempotent(self):
+        state = SessionState({})
+        message = "I need a cotton shirt, ideally blue."
+        state.update(message, 1)
+        plan = build_retrieval_plan(state, decide_intent(state, message))
+        self.assertTrue(plan.hard_constraints)
+        self.assertTrue(plan.soft_preferences)
+        hard_match = product_from_dict({"parent_asin": "hard", "title": "Red cotton shirt"})
+        hard_and_soft = product_from_dict({"parent_asin": "both", "title": "Blue cotton shirt"})
+        unknown = product_from_dict({"parent_asin": "unknown", "title": "Everyday product"})
+        self.assertEqual(hard_plan_evidence(hard_match, plan), hard_plan_evidence(hard_and_soft, plan))
+        candidates = [Candidate(unknown, 1.0), Candidate(hard_match, 1.0)]
+        ranked = rank_hard_plan(candidates, plan, .1)
+        self.assertEqual(ranked[0].product.parent_asin, "hard")
+        self.assertEqual(rank_hard_plan(ranked, plan, .1), ranked)
 
     def test_negated_material_is_not_positive_support(self):
         product = product_from_dict({"parent_asin": "a", "title": "Faux leather bag"})

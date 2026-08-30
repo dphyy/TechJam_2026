@@ -25,7 +25,12 @@ def diversify_candidates(candidates: list[Candidate], strength: float,
     """
     if len(candidates) < 2 or strength <= 0 or pool_limit < 2:
         return list(candidates)
-    head = list(candidates[:pool_limit])
+    protected = next((index for index, candidate in enumerate(candidates)
+                      if "constraint_penalty" in candidate.route_scores
+                      or "object_penalty" in candidate.route_scores), len(candidates))
+    head = list(candidates[:min(pool_limit, protected)])
+    if len(head) < 2:
+        return list(candidates)
     ranks = {candidate.product.parent_asin: index for index, candidate in enumerate(head)}
     signatures = {candidate.product.parent_asin: facet_signature(candidate.product) for candidate in head}
     selected = [head[0]]

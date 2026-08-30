@@ -37,6 +37,11 @@ class DiversityTest(unittest.TestCase):
         diversified = diversify_candidates(candidates, .5)
         self.assertGreater(diversified.index(candidates[-1]), 0)
 
+    def test_diversity_cannot_cross_a_hard_guard_boundary(self):
+        candidates = self.candidates()
+        candidates[1].route_scores["constraint_penalty"] = 10.0
+        self.assertEqual(diversify_candidates(candidates, .9), candidates)
+
 
 if __name__ == "__main__":
     unittest.main()
