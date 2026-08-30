@@ -116,6 +116,41 @@ def _entropy(pool: list[Candidate], attribute: str) -> tuple[float, float]:
     return max(0.0, entropy), mass.get(None, 0.0)
 
 
+def _discriminating_attribute(
+    pool: list[Candidate], eligible: list[str], state: SessionState,
+) -> tuple[str | None, dict[str, dict[str, float | int]]]:
+    """Find one well-supported typed split without inventing missing facets."""
+    if any(state.asked_counts.get(attribute, 0) for attribute in _ATTRIBUTES):
+        return None, {}
+    rows = pool[:30]
+    diagnostics = {}
+    scored = []
+    for attribute in eligible:
+        counts: dict[str, int] = defaultdict(int)
+        present = 0
+        for candidate in rows:
+            answers = _answers(candidate, attribute)
+            if answers:
+                present += 1
+                for answer in answers:
+                    counts[answer] += 1
+        ordered = sorted(counts.values(), reverse=True)
+        coverage = present / len(rows) if rows else 0.0
+        second_share = ordered[1] / len(rows) if len(ordered) > 1 and rows else 0.0
+        largest_share = ordered[0] / present if ordered and present else 1.0
+        diagnostics[attribute] = {
+            "coverage": coverage,
+            "groups": len(ordered),
+            "second_group_share": second_share,
+            "largest_supported_share": largest_share,
+        }
+        if coverage >= 0.60 and len(ordered) >= 2 and second_share >= 0.15 \
+                and largest_share <= 0.75:
+            scored.append((coverage * (1.0 - largest_share), attribute))
+    best = max(scored, default=None)
+    return (best[1] if best else None), diagnostics
+
+
 def _rank_weights(pool: list[Candidate]) -> list[float]:
     """A rank-only heuristic, never a calibrated probability of correctness."""
     raw = [1.0 / math.sqrt(index + 1) for index in range(len(pool))]
@@ -315,6 +350,14 @@ def choose_policy(state: SessionState, candidates: list[Candidate], config: Conf
                     question == "other" or question is None or scores.get(question, 0.0) <= 0):
                 question = None
                 diagnostics["decision"] = "question_value_below_turn_cost"
+        elif config.question_policy == "discriminating":
+            question, split_diagnostics = _discriminating_attribute(pool, eligible, state)
+            diagnostics["discriminating_attributes"] = split_diagnostics
+            if question is not None:
+                diagnostics["decision"] = "well_supported_top30_split"
+            else:
+                question = _fallback_question(state, eligible, config)
+                diagnostics["decision"] = "bounded_other_fallback"
         else:
             question = _fallback_question(state, eligible, config)
     goal = _question_goal(question, state, config)

@@ -789,6 +789,16 @@ as a preference.
 - No added neural pairs and no material latency or token increase.
 - Reject either arm independently; do not combine two non-passing policy arms.
 
+### Phase 12 execution status — 30 August 2026
+
+Both arms were frozen and screened independently against the Phase 10 D30
+control. 12A correctly anchors continuity to the exact rejected slate and live
+semantic signature, but loses one buying hit and lowers TechnicalScore to
+`0.862694`; it is rejected. 12B asks 120 catalog-supported typed questions and
+reduces repeated attributes, but lowers MRR to `0.616019`, worsens MTTC, and
+reduces TechnicalScore to `0.852306`; it is rejected. Neither arm advances to
+confirmation or combination.
+
 ## Candidate Combination and Release Rule
 
 If two candidates independently pass, freeze a small factorial interaction check

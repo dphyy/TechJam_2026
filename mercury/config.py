@@ -38,6 +38,7 @@ class Config:
     catalog_vocabulary: bool = False
     canonical_state_semantics: bool = False
     adaptive_rerank_depth: bool = False
+    explicit_rejection_continuity: bool = False
     state_mode: str = "ledger"
     alternatives_mode: str = "off"
     question_policy: str = "other"
@@ -114,7 +115,9 @@ class Config:
         choices = {
             "state_mode": {"ledger", "latest", "history"},
             "alternatives_mode": {"off", "parse", "grouped"},
-            "question_policy": {"other", "schedule", "entropy", "rank_value", "intent", "none"},
+            "question_policy": {
+                "other", "schedule", "entropy", "rank_value", "intent", "discriminating", "none",
+            },
             "slate_policy": {"fixed", "gap", "lookahead"},
             "rerank_admission": {"prefix", "stratified", "cover", "fusion", "linear", "linear_v2"},
             "retrieval_mode": {"broad", "field_union", "factored"},
@@ -136,7 +139,8 @@ class Config:
                     "composition_evidence", "source_alias_retrieval", "neural_margin_fusion",
                     "slate_reset_on_override", "seen_aware_slate", "progressive_frontier_rerank",
                     "page_local_rerank", "neural_logit_cache", "catalog_vocabulary",
-                    "canonical_state_semantics", "adaptive_rerank_depth"):
+                    "canonical_state_semantics", "adaptive_rerank_depth",
+                    "explicit_rejection_continuity"):
             if type(getattr(self, key)) is not bool:
                 raise ValueError(f"{key} must be a boolean")
         if self.role_evidence and self.composition_evidence:

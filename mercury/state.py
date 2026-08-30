@@ -209,7 +209,8 @@ _ITEM_REJECTION = re.compile(
     r"\b(?:(?:not|don't want|do not want) (?:this|that|these|those) "
     r"(?:item|items|one|ones|option|options|product|products)|"
     r"none of (?:these|those)(?: (?:is|are) right| (?:work|works|fit|fits)| (?:feel|feels) right)?|"
-    r"(?:these|those) (?:aren't|are not|don't|do not) (?:right|working|work))\b"
+    r"(?:these|those) (?:aren't|are not|don't|do not) (?:right|working|work)|"
+    r"(?:these|those) (?:items?|ones?|options?|products?) (?:aren't|are not) (?:quite )?right)\b"
 )
 _ATTRIBUTE_REJECTION = re.compile(
     r"\b(?:not|don't want|do not want) (?:this|that) "

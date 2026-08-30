@@ -121,6 +121,11 @@ class ConfigTest(unittest.TestCase):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 Config.from_dict(values)
 
+    def test_explicit_rejection_continuity_is_boolean_gated(self):
+        self.assertTrue(Config(explicit_rejection_continuity=True).explicit_rejection_continuity)
+        with self.assertRaises(ValueError):
+            Config(explicit_rejection_continuity=1)
+
     def test_multi_hypothesis_retrieval_is_gated_and_shares_one_budget(self):
         config = Config(multi_hypothesis_retrieval=True, max_intent_hypotheses=2,
                         hypothesis_candidate_budget=120)

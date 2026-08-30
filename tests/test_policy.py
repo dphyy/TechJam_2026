@@ -83,6 +83,27 @@ class PolicyTest(unittest.TestCase):
         self.assertIn("?", decision.message)
         self.assertNotIn("P000", decision.message)
 
+    def test_discriminating_policy_asks_one_well_supported_top30_split(self):
+        pool = [candidate(index, facets={"color": ("blue" if index < 15 else "red",)})
+                for index in range(30)]
+        state = SessionState({})
+        config = Config(question_policy="discriminating")
+        first = choose_policy(state, pool, config, 1, 10)
+        self.assertEqual(first.ask_attribute, "color")
+        self.assertEqual(first.diagnostics["decision"], "well_supported_top30_split")
+        state.record_question(first.ask_attribute)
+        second = choose_policy(state, pool, config, 2, 10)
+        self.assertEqual(second.ask_attribute, "other")
+
+    def test_discriminating_policy_falls_back_when_facets_are_sparse(self):
+        pool = [candidate(index, facets={"color": ("blue",)} if index < 10 else {})
+                for index in range(30)]
+        decision = choose_policy(
+            SessionState({}), pool, Config(question_policy="discriminating"), 1, 10,
+        )
+        self.assertEqual(decision.ask_attribute, "other")
+        self.assertEqual(decision.diagnostics["decision"], "bounded_other_fallback")
+
     def test_slate_respects_available_candidates_and_requested_cap(self):
         for top_k, count, expected in ((50, 12, 10), (3, 12, 3), (10, 2, 2),
                                        (0, 12, 0), (-1, 12, 0), (10, 0, 0)):

@@ -122,6 +122,8 @@ class Agent:
         self._last_neural_margin: dict[str, float | None] = {}
         self._pages: dict[str, int] = {}
         self._last_ranked: dict[str, list[str]] = {}
+        self._last_returned_slate: dict[str, list[str]] = {}
+        self._continuity_signature: dict[str, tuple[tuple, ...]] = {}
         self._shown_ids: dict[str, set[str]] = {}
         self._frontier_revision: dict[str, int] = {}
         self._frontier_base: dict[str, list[Candidate]] = {}
@@ -203,6 +205,8 @@ class Agent:
         self._last_neural_margin[session_id] = None
         self._pages.pop(session_id, None)
         self._last_ranked.pop(session_id, None)
+        self._last_returned_slate.pop(session_id, None)
+        self._continuity_signature.pop(session_id, None)
         self._shown_ids[session_id] = set()
         self._frontier_revision.pop(session_id, None)
         self._frontier_base.pop(session_id, None)
@@ -221,6 +225,8 @@ class Agent:
             self._last_neural_margin.pop(old, None)
             self._pages.pop(old, None)
             self._last_ranked.pop(old, None)
+            self._last_returned_slate.pop(old, None)
+            self._continuity_signature.pop(old, None)
             self._shown_ids.pop(old, None)
             self._frontier_revision.pop(old, None)
             self._frontier_base.pop(old, None)
@@ -378,6 +384,32 @@ class Agent:
         self._pages[session_id] = page
         self._last_ranked[session_id] = ordered
         return page
+
+    def _explicit_rejection_slate(
+        self, session_id: str, ordered: list[str], limit: int, state: SessionState,
+        reset_page: bool,
+    ) -> tuple[int, list[str], str]:
+        """Continue past only the exact rejected slate under the same live intent."""
+        signature = state.semantic_signature()
+        previous_signature = self._continuity_signature.get(session_id)
+        previous_slate = self._last_returned_slate.get(session_id, [])
+        if reset_page or state.last_override.detected:
+            page, reason = 0, "intent_override"
+            ranked = ordered[:limit]
+        elif previous_signature is not None and signature != previous_signature:
+            page, reason = 0, "active_fact_change"
+            ranked = ordered[:limit]
+        elif state.last_feedback.scope == "item" and previous_slate:
+            rejected = set(previous_slate)
+            ranked = [identifier for identifier in ordered if identifier not in rejected][:limit]
+            page = self._pages.get(session_id, 0) + 1
+            reason = "explicit_rejection"
+        else:
+            page, reason = 0, "no_explicit_rejection"
+            ranked = ordered[:limit]
+        self._pages[session_id] = page
+        self._last_ranked[session_id] = ordered
+        return page, ranked, reason
 
     def _seen_aware_selection(self, session_id: str, ordered: list[str], limit: int,
                               reset_seen: bool = False) -> tuple[int, list[str], int]:
@@ -880,10 +912,16 @@ class Agent:
             self.config.slate_reset_on_override and "intent_override" in intent.reasons
         )
         shown_before = len(self._shown_ids.get(session_id, set()))
+        continuity_reason = "disabled"
         if self.config.seen_aware_slate:
             page, ranked, newly_shown = self._seen_aware_selection(
                 session_id, ordered, limit, override_page_reset,
             ) if limit else (0, [], 0)
+        elif self.config.explicit_rejection_continuity:
+            page, ranked, continuity_reason = self._explicit_rejection_slate(
+                session_id, ordered, limit, state, override_page_reset,
+            ) if limit else (0, [], "empty_slate")
+            newly_shown = 0
         else:
             page = self._slate_page(session_id, ordered, turn, limit, override_page_reset)
             ranked = ordered[page * limit:page * limit + limit] if limit else []
@@ -1006,6 +1044,9 @@ class Agent:
             for key in ("hits", "misses", "evictions", "evaluated_pairs")
         }
         semantic_state_signature = state.semantic_signature()
+        if self.config.explicit_rejection_continuity:
+            self._last_returned_slate[session_id] = list(ranked)
+            self._continuity_signature[session_id] = semantic_state_signature
         plan_signature_payload = {
             "mode": plan.mode,
             "object_types": sorted(plan.object_types),
@@ -1033,6 +1074,7 @@ class Agent:
             "query": query, "source_alias_query": source_alias_query,
             "vocabulary_expansion_query": vocabulary_expansion_query,
             "revision": state.revision, "cache_hit": cache_hit, "slate_page": page,
+            "slate_continuity_reason": continuity_reason,
             "slate_page_reset": "intent_override" if override_page_reset else None,
             "slate_exposure": {
                 "seen_aware": self.config.seen_aware_slate,
@@ -1198,6 +1240,8 @@ class Agent:
         self._last_neural_margin.clear()
         self._pages.clear()
         self._last_ranked.clear()
+        self._last_returned_slate.clear()
+        self._continuity_signature.clear()
         self._shown_ids.clear()
         self._frontier_revision.clear()
         self._frontier_base.clear()

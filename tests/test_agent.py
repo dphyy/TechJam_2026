@@ -1300,6 +1300,50 @@ class AgentTest(unittest.TestCase):
         finally:
             agent.close()
 
+    def test_explicit_rejection_continuity_ignores_only_the_rejected_slate(self):
+        agent = Agent(self.paging_catalog(), Config(
+            slate_paging_first_turn=1, explicit_rejection_continuity=True,
+        ))
+        try:
+            agent.reset("rejection-continuity", {})
+            first = agent.respond("rejection-continuity", "blue cotton shirt", 1, 10)
+            first_ids = [item["parent_asin"] for item in first["recommendations"]]
+            second = agent.respond(
+                "rejection-continuity", "Those options are not quite right yet.", 2, 10,
+            )
+            second_ids = [item["parent_asin"] for item in second["recommendations"]]
+            self.assertFalse(set(first_ids) & set(second_ids))
+            self.assertEqual(agent.last_diagnostics["slate_continuity_reason"],
+                             "explicit_rejection")
+
+            filler = agent.respond("rejection-continuity", "Okay", 3, 10)
+            filler_ids = [item["parent_asin"] for item in filler["recommendations"]]
+            self.assertEqual(filler_ids, first_ids)
+            self.assertEqual(agent.last_diagnostics["slate_continuity_reason"],
+                             "no_explicit_rejection")
+        finally:
+            agent.close()
+
+    def test_explicit_rejection_continuity_resets_on_active_fact_change(self):
+        agent = Agent(self.paging_catalog(), Config(
+            slate_paging_first_turn=1, slate_reset_on_override=True,
+            explicit_rejection_continuity=True,
+        ))
+        try:
+            agent.reset("continuity-reset", {})
+            agent.respond("continuity-reset", "blue cotton shirt", 1, 10)
+            agent.respond("continuity-reset", "Those options are not quite right yet.", 2, 10)
+            changed = agent.respond("continuity-reset", "It also needs to be waterproof", 3, 10)
+            self.assertEqual(
+                [item["parent_asin"] for item in changed["recommendations"]],
+                agent.last_diagnostics["ranked_ids"][:10],
+            )
+            self.assertEqual(agent.last_diagnostics["slate_page"], 0)
+            self.assertEqual(agent.last_diagnostics["slate_continuity_reason"],
+                             "active_fact_change")
+        finally:
+            agent.close()
+
     def test_seen_aware_slates_follow_the_new_ranking_without_repeating_products(self):
         agent = Agent(self.paging_catalog(), Config(seen_aware_slate=True))
         try:
