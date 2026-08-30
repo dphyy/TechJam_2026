@@ -88,3 +88,24 @@ Ever-observed ranked recall was `0.86875` at 10, `0.88750` at 30,
 targets never retrieved and eight ranking-or-policy misses; seven missed targets
 never entered the reranker prefix. These diagnostics are evaluator-owned and
 are not available to runtime behavior.
+
+## Stage 1A: parser cue cleanup — keep
+
+Branch `exp/01a-parser-cue-cleanup`, implementation commit `25ed673`, removes
+preference discourse cues such as `preferably` and `leaning toward` from the
+open-vocabulary lexical residual. A focused regression test proves that useful
+values (`waterproof`, `canvas`) remain in the query while the cue words do not.
+The complete suite passed with 525 tests and Ruff passed.
+
+The source-matched screening candidate was exactly neutral:
+
+| Variant | HitRate@10 | MRR | MTTC | TechnicalScore | Tokens | warm p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| C0 control | 0.937500 | 0.575444 | 3.131250 | 0.798758 | 1,826,142 | 0.712695 s |
+| Stage 1A | 0.937500 | 0.575444 | 3.131250 | 0.798758 | 1,826,142 | 0.557279 s |
+
+All 491 paired turn responses were identical. The lexical query, preferences,
+ranked IDs, and slate page also had zero paired changes, showing that the frozen
+simulator did not exercise these cue forms. The lower observed latency is treated
+as run-to-run noise, not an improvement. This stage is kept as a targeted,
+tested correctness fix with no screening or resource regression.
