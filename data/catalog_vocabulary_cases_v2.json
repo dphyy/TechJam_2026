@@ -1,0 +1,1303 @@
+{
+  "cases": [
+    {
+      "attribute": "material",
+      "canonical": "wool",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_001",
+      "kind": "state_positive",
+      "message": "Material: wools."
+    },
+    {
+      "attribute": "category",
+      "canonical": "jiu jitsu",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_002",
+      "kind": "state_positive",
+      "message": "I need jiu jitsu."
+    },
+    {
+      "attribute": "material",
+      "canonical": "silicone",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_003",
+      "kind": "state_positive",
+      "message": "Material: silicones."
+    },
+    {
+      "attribute": "category",
+      "canonical": "checkbook covers",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_004",
+      "kind": "state_positive",
+      "message": "I need checkbook cover."
+    },
+    {
+      "attribute": "category",
+      "canonical": "half slips",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_005",
+      "kind": "state_positive",
+      "message": "I need half slip."
+    },
+    {
+      "attribute": "category",
+      "canonical": "breast petals",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_006",
+      "kind": "state_positive",
+      "message": "I need breast petals."
+    },
+    {
+      "attribute": "category",
+      "canonical": "equestrian sports",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_007",
+      "kind": "state_positive",
+      "message": "I need equestrian sports."
+    },
+    {
+      "attribute": "category",
+      "canonical": "luggage tags",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_008",
+      "kind": "state_positive",
+      "message": "I need luggage tags."
+    },
+    {
+      "attribute": "color",
+      "canonical": "blue",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_009",
+      "kind": "state_positive",
+      "message": "Color: blues."
+    },
+    {
+      "attribute": "material",
+      "canonical": "resin",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_010",
+      "kind": "state_positive",
+      "message": "Material: resin."
+    },
+    {
+      "attribute": "color",
+      "canonical": "tan",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_011",
+      "kind": "state_positive",
+      "message": "Color: tans."
+    },
+    {
+      "attribute": "category",
+      "canonical": "baby boys",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_012",
+      "kind": "state_positive",
+      "message": "I need baby boys."
+    },
+    {
+      "attribute": "category",
+      "canonical": "active performance",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_013",
+      "kind": "state_positive",
+      "message": "I need active performance."
+    },
+    {
+      "attribute": "color",
+      "canonical": "rose",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_014",
+      "kind": "state_positive",
+      "message": "Color: roses."
+    },
+    {
+      "attribute": "category",
+      "canonical": "base layers compression",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_015",
+      "kind": "state_positive",
+      "message": "I need base layers compressions."
+    },
+    {
+      "attribute": "category",
+      "canonical": "pattyboutik apparel",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_016",
+      "kind": "state_positive",
+      "message": "I need pattyboutik apparels."
+    },
+    {
+      "attribute": "category",
+      "canonical": "suit separates",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_017",
+      "kind": "state_positive",
+      "message": "I need suit separate."
+    },
+    {
+      "attribute": "category",
+      "canonical": "under 30",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_018",
+      "kind": "state_positive",
+      "message": "I need under 30."
+    },
+    {
+      "attribute": "category",
+      "canonical": "cabinets cases",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_019",
+      "kind": "state_positive",
+      "message": "I need cabinets case."
+    },
+    {
+      "attribute": "category",
+      "canonical": "oxford derby",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_020",
+      "kind": "state_positive",
+      "message": "I need oxford derby."
+    },
+    {
+      "attribute": "category",
+      "canonical": "soccer futsal",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_021",
+      "kind": "state_positive",
+      "message": "I need soccer futsals."
+    },
+    {
+      "attribute": "category",
+      "canonical": "over the knee",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_022",
+      "kind": "state_positive",
+      "message": "I need over the knee."
+    },
+    {
+      "attribute": "material",
+      "canonical": "vinyl",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_023",
+      "kind": "state_positive",
+      "message": "Material: vinyl."
+    },
+    {
+      "attribute": "category",
+      "canonical": "mfn only v2",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_024",
+      "kind": "state_positive",
+      "message": "I need mfn only v2."
+    },
+    {
+      "attribute": "color",
+      "canonical": "rose",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_025",
+      "kind": "state_positive",
+      "message": "Color: rose."
+    },
+    {
+      "attribute": "material",
+      "canonical": "nylon",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_026",
+      "kind": "state_positive",
+      "message": "Material: nylons."
+    },
+    {
+      "attribute": "category",
+      "canonical": "night out",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_027",
+      "kind": "state_positive",
+      "message": "I need night out."
+    },
+    {
+      "attribute": "category",
+      "canonical": "clothing sets",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_028",
+      "kind": "state_positive",
+      "message": "I need clothing set."
+    },
+    {
+      "attribute": "category",
+      "canonical": "eyeglass cases",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_029",
+      "kind": "state_positive",
+      "message": "I need eyeglass cases."
+    },
+    {
+      "attribute": "category",
+      "canonical": "military tactical",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_030",
+      "kind": "state_positive",
+      "message": "I need military tacticals."
+    },
+    {
+      "attribute": "style",
+      "canonical": "letter print",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_031",
+      "kind": "state_positive",
+      "message": "Style: letter print."
+    },
+    {
+      "attribute": "category",
+      "canonical": "snow rainwear",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_032",
+      "kind": "state_positive",
+      "message": "I need snow rainwears."
+    },
+    {
+      "attribute": "material",
+      "canonical": "blend",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_033",
+      "kind": "state_positive",
+      "message": "Material: blend."
+    },
+    {
+      "attribute": "style",
+      "canonical": "chain charm",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_034",
+      "kind": "state_positive",
+      "message": "Style: chain charms."
+    },
+    {
+      "attribute": "category",
+      "canonical": "healthcare uniforms",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_035",
+      "kind": "state_positive",
+      "message": "I need healthcare uniforms."
+    },
+    {
+      "attribute": "category",
+      "canonical": "business card cases",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_036",
+      "kind": "state_positive",
+      "message": "I need business card cases."
+    },
+    {
+      "attribute": "category",
+      "canonical": "track pants",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_037",
+      "kind": "state_positive",
+      "message": "I need track pant."
+    },
+    {
+      "attribute": "category",
+      "canonical": "tanks camis",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_038",
+      "kind": "state_positive",
+      "message": "I need tanks camis."
+    },
+    {
+      "attribute": "style",
+      "canonical": "straight",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_039",
+      "kind": "state_positive",
+      "message": "Style: straight."
+    },
+    {
+      "attribute": "category",
+      "canonical": "tennis racquet sports",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_040",
+      "kind": "state_positive",
+      "message": "I need tennis racquet sport."
+    },
+    {
+      "attribute": "category",
+      "canonical": "cabinets cases",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_041",
+      "kind": "state_positive",
+      "message": "I need cabinets cases."
+    },
+    {
+      "attribute": "category",
+      "canonical": "fitness cross training",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_042",
+      "kind": "state_positive",
+      "message": "I need fitness cross trainings."
+    },
+    {
+      "attribute": "material",
+      "canonical": "suede",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_043",
+      "kind": "state_positive",
+      "message": "Material: suedes."
+    },
+    {
+      "attribute": "category",
+      "canonical": "fur faux fur",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_044",
+      "kind": "state_positive",
+      "message": "I need fur faux fur."
+    },
+    {
+      "attribute": "material",
+      "canonical": "100 polyester",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_045",
+      "kind": "state_positive",
+      "message": "Material: 100 polyesters."
+    },
+    {
+      "attribute": "category",
+      "canonical": "luggage tags handle wraps",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_046",
+      "kind": "state_positive",
+      "message": "I need luggage tags handle wraps."
+    },
+    {
+      "attribute": "category",
+      "canonical": "plus size fashion",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_047",
+      "kind": "state_positive",
+      "message": "I need plus size fashion."
+    },
+    {
+      "attribute": "category",
+      "canonical": "bustiers corsets",
+      "expect_expansion": true,
+      "expect_state": true,
+      "id": "state_048",
+      "kind": "state_positive",
+      "message": "I need bustiers corset."
+    },
+    {
+      "attribute": "category",
+      "canonical": "link",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_001",
+      "kind": "retrieval_positive",
+      "message": "Please explore link options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "panties",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_002",
+      "kind": "retrieval_positive",
+      "message": "Please explore panty options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "suitcases",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_003",
+      "kind": "retrieval_positive",
+      "message": "Please explore suitcase options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "aprons",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_004",
+      "kind": "retrieval_positive",
+      "message": "Please explore apron options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "shrugs",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_005",
+      "kind": "retrieval_positive",
+      "message": "Please explore shrug options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "nightgowns",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_006",
+      "kind": "retrieval_positive",
+      "message": "Please explore nightgown options."
+    },
+    {
+      "attribute": "color",
+      "canonical": "clear",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_007",
+      "kind": "retrieval_positive",
+      "message": "Please explore clears options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "chains",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_008",
+      "kind": "retrieval_positive",
+      "message": "Please explore chains options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "props",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_009",
+      "kind": "retrieval_positive",
+      "message": "Please explore props options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "tracksuits",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_010",
+      "kind": "retrieval_positive",
+      "message": "Please explore tracksuits options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "special occasion accessories",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_011",
+      "kind": "retrieval_positive",
+      "message": "Please explore special occasion accessories options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "windbreakers",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_012",
+      "kind": "retrieval_positive",
+      "message": "Please explore windbreaker options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "sunsuits",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_013",
+      "kind": "retrieval_positive",
+      "message": "Please explore sunsuit options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "shells",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_014",
+      "kind": "retrieval_positive",
+      "message": "Please explore shell options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "slides",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_015",
+      "kind": "retrieval_positive",
+      "message": "Please explore slide options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "snake",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_016",
+      "kind": "retrieval_positive",
+      "message": "Please explore snakes options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "vests",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_017",
+      "kind": "retrieval_positive",
+      "message": "Please explore vests options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "stud",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_018",
+      "kind": "retrieval_positive",
+      "message": "Please explore studs options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "underwear",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_019",
+      "kind": "retrieval_positive",
+      "message": "Please explore underwears options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "intimates",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_020",
+      "kind": "retrieval_positive",
+      "message": "Please explore intimate options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "baby",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_021",
+      "kind": "retrieval_positive",
+      "message": "Please explore babys options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "western",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_022",
+      "kind": "retrieval_positive",
+      "message": "Please explore western options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "nursing",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_023",
+      "kind": "retrieval_positive",
+      "message": "Please explore nursing options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "shearling",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_024",
+      "kind": "retrieval_positive",
+      "message": "Please explore shearling options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "cardigans",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_025",
+      "kind": "retrieval_positive",
+      "message": "Please explore cardigans options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "yoga",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_026",
+      "kind": "retrieval_positive",
+      "message": "Please explore yogas options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "chukka",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_027",
+      "kind": "retrieval_positive",
+      "message": "Please explore chukkas options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "athletic",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_028",
+      "kind": "retrieval_positive",
+      "message": "Please explore athletics options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "overalls",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_029",
+      "kind": "retrieval_positive",
+      "message": "Please explore overalls options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "aprons",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_030",
+      "kind": "retrieval_positive",
+      "message": "Please explore aprons options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "charms",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_031",
+      "kind": "retrieval_positive",
+      "message": "Please explore charm options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "hipsters",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_032",
+      "kind": "retrieval_positive",
+      "message": "Please explore hipster options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "clutches",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_033",
+      "kind": "retrieval_positive",
+      "message": "Please explore clutches options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "costumes accessories",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_034",
+      "kind": "retrieval_positive",
+      "message": "Please explore costumes accessory options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "fleece",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_035",
+      "kind": "retrieval_positive",
+      "message": "Please explore fleeces options."
+    },
+    {
+      "attribute": "material",
+      "canonical": "steel",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_036",
+      "kind": "retrieval_positive",
+      "message": "Please explore steels options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "briefcases",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_037",
+      "kind": "retrieval_positive",
+      "message": "Please explore briefcase options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "statement",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_038",
+      "kind": "retrieval_positive",
+      "message": "Please explore statements options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "sunglasses",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_039",
+      "kind": "retrieval_positive",
+      "message": "Please explore sunglasse options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "shapewear",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_040",
+      "kind": "retrieval_positive",
+      "message": "Please explore shapewears options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "barbells",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_041",
+      "kind": "retrieval_positive",
+      "message": "Please explore barbell options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "link",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_042",
+      "kind": "retrieval_positive",
+      "message": "Please explore links options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "clearance",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_043",
+      "kind": "retrieval_positive",
+      "message": "Please explore clearance options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "tapers",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_044",
+      "kind": "retrieval_positive",
+      "message": "Please explore tapers options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "balaclavas",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_045",
+      "kind": "retrieval_positive",
+      "message": "Please explore balaclava options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "dance",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_046",
+      "kind": "retrieval_positive",
+      "message": "Please explore dances options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "bibs",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_047",
+      "kind": "retrieval_positive",
+      "message": "Please explore bib options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "fascinators",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "retrieval_048",
+      "kind": "retrieval_positive",
+      "message": "Please explore fascinator options."
+    },
+    {
+      "attribute": "category",
+      "canonical": "oxford derby",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_001",
+      "kind": "negated_alias",
+      "message": "Please avoid oxford derby."
+    },
+    {
+      "attribute": "category",
+      "canonical": "link",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_002",
+      "kind": "ordinary_context",
+      "message": "The phrase links is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "statement",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_003",
+      "kind": "negated_alias",
+      "message": "Please avoid statements."
+    },
+    {
+      "attribute": "category",
+      "canonical": "underwear",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_004",
+      "kind": "ordinary_context",
+      "message": "The phrase underwears is just background conversation."
+    },
+    {
+      "attribute": "material",
+      "canonical": "blend",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_005",
+      "kind": "negated_alias",
+      "message": "Please avoid blend."
+    },
+    {
+      "attribute": "color",
+      "canonical": "tan",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_006",
+      "kind": "ordinary_context",
+      "message": "The phrase tans is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "shrugs",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_007",
+      "kind": "negated_alias",
+      "message": "Please avoid shrug."
+    },
+    {
+      "attribute": "style",
+      "canonical": "straight",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_008",
+      "kind": "ordinary_context",
+      "message": "The phrase straight is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "slides",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_009",
+      "kind": "negated_alias",
+      "message": "Please avoid slide."
+    },
+    {
+      "attribute": "category",
+      "canonical": "western",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_010",
+      "kind": "ordinary_context",
+      "message": "The phrase western is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "sunsuits",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_011",
+      "kind": "negated_alias",
+      "message": "Please avoid sunsuit."
+    },
+    {
+      "attribute": "category",
+      "canonical": "tennis racquet sports",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_012",
+      "kind": "ordinary_context",
+      "message": "The phrase tennis racquet sport is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "equestrian sports",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_013",
+      "kind": "negated_alias",
+      "message": "Please avoid equestrian sports."
+    },
+    {
+      "attribute": "category",
+      "canonical": "snake",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_014",
+      "kind": "ordinary_context",
+      "message": "The phrase snakes is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "plus size fashion",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_015",
+      "kind": "negated_alias",
+      "message": "Please avoid plus size fashion."
+    },
+    {
+      "attribute": "category",
+      "canonical": "cabinets cases",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_016",
+      "kind": "ordinary_context",
+      "message": "The phrase cabinets cases is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "barbells",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_017",
+      "kind": "negated_alias",
+      "message": "Please avoid barbell."
+    },
+    {
+      "attribute": "category",
+      "canonical": "baby boys",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_018",
+      "kind": "ordinary_context",
+      "message": "The phrase baby boys is just background conversation."
+    },
+    {
+      "attribute": "material",
+      "canonical": "resin",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_019",
+      "kind": "negated_alias",
+      "message": "Please avoid resin."
+    },
+    {
+      "attribute": "category",
+      "canonical": "night out",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_020",
+      "kind": "ordinary_context",
+      "message": "The phrase night out is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "costumes accessories",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_021",
+      "kind": "negated_alias",
+      "message": "Please avoid costumes accessory."
+    },
+    {
+      "attribute": "category",
+      "canonical": "fitness cross training",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_022",
+      "kind": "ordinary_context",
+      "message": "The phrase fitness cross trainings is just background conversation."
+    },
+    {
+      "attribute": "material",
+      "canonical": "wool",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_023",
+      "kind": "negated_alias",
+      "message": "Please avoid wools."
+    },
+    {
+      "attribute": "color",
+      "canonical": "rose",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_024",
+      "kind": "ordinary_context",
+      "message": "The phrase roses is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "fleece",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_025",
+      "kind": "negated_alias",
+      "message": "Please avoid fleeces."
+    },
+    {
+      "attribute": "category",
+      "canonical": "over the knee",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_026",
+      "kind": "ordinary_context",
+      "message": "The phrase over the knee is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "aprons",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_027",
+      "kind": "negated_alias",
+      "message": "Please avoid aprons."
+    },
+    {
+      "attribute": "category",
+      "canonical": "healthcare uniforms",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_028",
+      "kind": "ordinary_context",
+      "message": "The phrase healthcare uniforms is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "props",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_029",
+      "kind": "negated_alias",
+      "message": "Please avoid props."
+    },
+    {
+      "attribute": "material",
+      "canonical": "vinyl",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_030",
+      "kind": "ordinary_context",
+      "message": "The phrase vinyl is just background conversation."
+    },
+    {
+      "attribute": "color",
+      "canonical": "blue",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_031",
+      "kind": "negated_alias",
+      "message": "Please avoid blues."
+    },
+    {
+      "attribute": "category",
+      "canonical": "nursing",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_032",
+      "kind": "ordinary_context",
+      "message": "The phrase nursing is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "overalls",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_033",
+      "kind": "negated_alias",
+      "message": "Please avoid overalls."
+    },
+    {
+      "attribute": "category",
+      "canonical": "base layers compression",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_034",
+      "kind": "ordinary_context",
+      "message": "The phrase base layers compressions is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "nightgowns",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_035",
+      "kind": "negated_alias",
+      "message": "Please avoid nightgown."
+    },
+    {
+      "attribute": "category",
+      "canonical": "tanks camis",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_036",
+      "kind": "ordinary_context",
+      "message": "The phrase tanks camis is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "athletic",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_037",
+      "kind": "negated_alias",
+      "message": "Please avoid athletics."
+    },
+    {
+      "attribute": "category",
+      "canonical": "under 30",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_038",
+      "kind": "ordinary_context",
+      "message": "The phrase under 30 is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "tracksuits",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_039",
+      "kind": "negated_alias",
+      "message": "Please avoid tracksuits."
+    },
+    {
+      "attribute": "category",
+      "canonical": "vests",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_040",
+      "kind": "ordinary_context",
+      "message": "The phrase vests is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "suitcases",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_041",
+      "kind": "negated_alias",
+      "message": "Please avoid suitcase."
+    },
+    {
+      "attribute": "color",
+      "canonical": "rose",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_042",
+      "kind": "ordinary_context",
+      "message": "The phrase rose is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "shearling",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_043",
+      "kind": "negated_alias",
+      "message": "Please avoid shearling."
+    },
+    {
+      "attribute": "category",
+      "canonical": "suit separates",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_044",
+      "kind": "ordinary_context",
+      "message": "The phrase suit separate is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "cabinets cases",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_045",
+      "kind": "negated_alias",
+      "message": "Please avoid cabinets case."
+    },
+    {
+      "attribute": "category",
+      "canonical": "business card cases",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_046",
+      "kind": "ordinary_context",
+      "message": "The phrase business card cases is just background conversation."
+    },
+    {
+      "attribute": "category",
+      "canonical": "bustiers corsets",
+      "expect_expansion": false,
+      "expect_state": false,
+      "id": "adversarial_047",
+      "kind": "negated_alias",
+      "message": "Please avoid bustiers corset."
+    },
+    {
+      "attribute": "category",
+      "canonical": "fascinators",
+      "expect_expansion": true,
+      "expect_state": false,
+      "id": "adversarial_048",
+      "kind": "ordinary_context",
+      "message": "The phrase fascinator is just background conversation."
+    }
+  ],
+  "evidence_kind": "catalog-derived dual-lane cases frozen without runtime rankings",
+  "schema": "mercury-catalog-vocabulary-cases-v2",
+  "seed": "catalog-vocabulary-cases-20260830-v2"
+}

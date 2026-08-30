@@ -222,7 +222,7 @@ class Agent:
             self._page_rerank_pairs.pop(old, None)
 
     def _retrieve(self, plan: RetrievalPlan, state: SessionState, fallbacks: list[str],
-                  source_alias_query: str = ""
+                  source_alias_query: str = "", vocabulary_expansion_query: str = ""
                   ) -> tuple[list[Candidate], dict[str, list[str]], dict[str, float]]:
         config = self.config
         if config.multi_hypothesis_retrieval:
@@ -272,6 +272,12 @@ class Agent:
             routes["source_alias"] = self.sparse.search(source_alias_query, config.sparse_limit)
             weights = {name: weight * 0.85 for name, weight in weights.items()}
             weights["source_alias"] = 0.15
+        if vocabulary_expansion_query:
+            routes["catalog_expansion"] = self.sparse.search(
+                vocabulary_expansion_query, config.sparse_limit,
+            )
+            weights = {name: weight * 0.85 for name, weight in weights.items()}
+            weights["catalog_expansion"] = 0.15
         if self.dense is not None:
             try:
                 semantic_query = plan.semantic_queries[0] if config.routed_retrieval and plan.semantic_queries else query
@@ -497,8 +503,11 @@ class Agent:
         if not query and turn == 1:
             query = " ".join(terms(user_message))
         source_alias_query = state.source_alias_query() if self.config.source_alias_retrieval else ""
+        vocabulary_expansion_query = (
+            state.vocabulary_expansion_query() if self.catalog_vocabulary is not None else ""
+        )
         cache_key = (
-            query, source_alias_query, state.revision,
+            query, source_alias_query, vocabulary_expansion_query, state.revision,
             plan.mode if self.config.routed_retrieval else None,
             turn if self.config.soft_preference_decay else None,
             sufficiency.action,
@@ -542,7 +551,7 @@ class Agent:
                 candidates, routes, route_weights = self._minimal_probe(query, fallbacks)
             else:
                 candidates, routes, route_weights = self._retrieve(
-                    plan, state, fallbacks, source_alias_query,
+                    plan, state, fallbacks, source_alias_query, vocabulary_expansion_query,
                 )
             component_latency["retrieval"] = time.perf_counter() - retrieval_started
             retrieved_ids = [item.product.parent_asin for item in candidates
@@ -995,6 +1004,7 @@ class Agent:
         component_latency["response_assembly"] = time.perf_counter() - assembly_started
         self.last_diagnostics = {
             "query": query, "source_alias_query": source_alias_query,
+            "vocabulary_expansion_query": vocabulary_expansion_query,
             "revision": state.revision, "cache_hit": cache_hit, "slate_page": page,
             "slate_page_reset": "intent_override" if override_page_reset else None,
             "slate_exposure": {
@@ -1114,6 +1124,13 @@ class Agent:
                 "enabled": self.catalog_vocabulary is not None,
                 "version": getattr(self.catalog_vocabulary, "version", None),
                 "model_sha256": getattr(self.catalog_vocabulary, "model_sha256", None),
+                "dual_lane": bool(getattr(self.catalog_vocabulary, "dual_lane", False)),
+                "retrieval_expansions": [
+                    {"attribute": item.attribute, "canonical": item.canonical,
+                     "confidence": item.confidence, "provenance": item.provenance,
+                     "role": item.role}
+                    for item in state.last_vocabulary_expansions
+                ],
             },
             "rerank_document_mode": self.config.rerank_document_mode, "rerank_prefix_ids": rerank_prefix_ids,
             "rerank_serialization": {

@@ -451,6 +451,7 @@ class SessionState:
         self.catalog_vocabulary = catalog_vocabulary
         self.canonical_state_semantics = canonical_state_semantics
         self.unsupported_alternatives: list[dict[str, str]] = []
+        self.last_vocabulary_expansions: list[VocabularyMatch] = []
         self.history: list[SourceRecord] = []
         self.preferences: list[Preference] = []
         self.last_question: str | None = None
@@ -588,6 +589,15 @@ class SessionState:
         before = self._signature()
         override_before = self._override_facts()
         normalized = _normalize(user_message)
+        self.last_vocabulary_expansions = []
+        if self.catalog_vocabulary is not None and self.catalog_vocabulary.dual_lane:
+            occupied = [
+                (match.start(), match.end())
+                for pattern in _PATTERNS.values() for match in pattern.finditer(normalized)
+            ]
+            self.last_vocabulary_expansions = self.catalog_vocabulary.find_expansions(
+                normalized, occupied,
+            )
         no_change_guard = bool(_NO_CHANGE_GUARD.search(normalized))
         attribute_change_match = None if no_change_guard else _ATTRIBUTE_CHANGE_REQUEST.search(normalized)
         requested_attribute = self._attribute_change(attribute_change_match)
@@ -1041,3 +1051,10 @@ class SessionState:
                 if re.search(r"(?<!\w)" + re.escape(alias) + r"(?!\w)", _normalize(preference.source_text)):
                     aliases.setdefault(alias, None)
         return " ".join(aliases)
+
+    def vocabulary_expansion_query(self) -> str:
+        """Return current-turn retrieval-only aliases; never persistent state."""
+        values: dict[str, None] = {}
+        for match in self.last_vocabulary_expansions:
+            values.setdefault(match.canonical, None)
+        return " ".join(values)

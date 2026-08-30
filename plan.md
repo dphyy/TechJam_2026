@@ -635,6 +635,23 @@ Report state precision/recall and retrieval Recall@30/@120 before end-to-end sco
 - p95 and RSS each increase no more than 5%, and serialized neural tokens increase
   no more than 3%.
 
+### Phase 9 execution status — 30 August 2026
+
+Phase 9 was implemented and rejected at screening. The v2 artifact contains
+1,414 ambiguity-scored aliases and a category-derived role taxonomy. Only 980
+high-confidence aliases are state-eligible, and runtime still requires an
+explicit local cue; all other accepted aliases are bounded current-turn BM25
+expansions that never become preferences or direct rank boosts. Negated aliases
+and static-parser overlaps are suppressed.
+
+The frozen 144-case suite achieved `1.0` state precision/recall and `1.0`
+combined lane precision/recall. Against the canonical Phase 8 control, screening
+HitRate remained `0.981250` with no critical-slice loss, but TechnicalScore fell
+from `0.862582` to `0.861683` and prompt tokens rose 13.09%, exceeding the 3%
+cap. The p95 improvement cannot rescue those failures. Confirmation remains
+sealed, the candidate stays opt-in, and it cannot enter a combination. See
+[the vocabulary v2 result](docs/CATALOG_VOCABULARY_V2_RESULTS.md).
+
 ## Phase 10: Admission v2 With Reused and Precomputed Features
 
 The v1 linear arithmetic was cheap; repeated construction of catalog-field and

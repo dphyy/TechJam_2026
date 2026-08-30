@@ -22,11 +22,15 @@ def _preferences(state: SessionState) -> list[dict]:
 
 def evaluate(catalog: Path, model: Path, cases: Path) -> dict:
     fixture = json.loads(cases.read_text(encoding="utf-8"))
-    if fixture.get("schema") != "mercury-catalog-vocabulary-cases-v1" \
+    if fixture.get("schema") not in {
+        "mercury-catalog-vocabulary-cases-v1", "mercury-catalog-vocabulary-cases-v2",
+    } \
             or not isinstance(fixture.get("cases"), list) or not fixture["cases"]:
         raise ValueError("Unsupported catalog vocabulary cases")
     catalog_object = Catalog(catalog)
     vocabulary = CatalogVocabulary(model, catalog_object.sha256)
+    if fixture["schema"] == "mercury-catalog-vocabulary-cases-v2":
+        return evaluate_v2(catalog, model, cases, fixture, vocabulary)
     arms = {"selected": None, "catalog_vocabulary": vocabulary}
     results = []
     for name, source in arms.items():
@@ -63,6 +67,63 @@ def evaluate(catalog: Path, model: Path, cases: Path) -> dict:
         "model_sha256": file_sha256(model),
         "cases_sha256": file_sha256(cases),
         "results": results,
+    }
+
+
+def evaluate_v2(catalog: Path, model: Path, cases: Path, fixture: dict,
+                vocabulary: CatalogVocabulary) -> dict:
+    state_tp = state_fp = state_fn = 0
+    coverage_tp = coverage_fp = coverage_fn = 0
+    rows = []
+    for case in fixture["cases"]:
+        state = SessionState({}, "ledger", "grouped", False, vocabulary, True)
+        state.update(case["message"], 1)
+        state_matches = {
+            (item.attribute, item.value)
+            for item in state.active_preferences()
+            if item.polarity == 1 and item.source_kind.startswith("catalog_alias:")
+        }
+        expansion_matches = {
+            (item.attribute, item.canonical) for item in state.last_vocabulary_expansions
+        }
+        expected = (case["attribute"], case["canonical"])
+        state_matched = expected in state_matches
+        expansion_matched = expected in expansion_matches
+        expect_state = bool(case["expect_state"])
+        expect_expansion = bool(case["expect_expansion"])
+        state_tp += int(expect_state and state_matched)
+        state_fn += int(expect_state and not state_matched)
+        state_fp += int(not expect_state and bool(state_matches)) + len(state_matches - {expected})
+        expected_coverage = expect_state or expect_expansion
+        covered = state_matched or expansion_matched
+        coverage_tp += int(expected_coverage and covered)
+        coverage_fn += int(expected_coverage and not covered)
+        coverage_fp += int(not expected_coverage and covered)
+        rows.append({
+            "id": case["id"], "kind": case["kind"],
+            "state_matched": state_matched, "expansion_matched": expansion_matched,
+            "state_proposal_count": len(state_matches),
+            "expansion_count": len(expansion_matches),
+        })
+    return {
+        "schema": "mercury-catalog-vocabulary-result-v2",
+        "catalog_sha256": file_sha256(catalog),
+        "model_sha256": file_sha256(model),
+        "cases_sha256": file_sha256(cases),
+        "state": {
+            "true_positive": state_tp, "false_positive": state_fp, "false_negative": state_fn,
+            "precision": state_tp / (state_tp + state_fp) if state_tp + state_fp else 1.0,
+            "recall": state_tp / (state_tp + state_fn) if state_tp + state_fn else 0.0,
+        },
+        "dual_lane_coverage": {
+            "true_positive": coverage_tp, "false_positive": coverage_fp,
+            "false_negative": coverage_fn,
+            "precision": coverage_tp / (coverage_tp + coverage_fp)
+            if coverage_tp + coverage_fp else 1.0,
+            "recall": coverage_tp / (coverage_tp + coverage_fn)
+            if coverage_tp + coverage_fn else 0.0,
+        },
+        "cases": rows,
     }
 
 
