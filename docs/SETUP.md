@@ -1,6 +1,6 @@
 # Backend setup
 
-Run commands from the repository root. Keep `README.md` empty until the owner approves the final project presentation; this file supplies the required reproducibility instructions meanwhile.
+Run commands from the repository root. The landing README provides the short path; this file contains the detailed reproducibility instructions.
 
 ## Python and dependencies
 
@@ -78,15 +78,16 @@ python -m experiments.run --name local-selected-repro --config configs/selected.
 
 Keep benchmarks serial and retain their manifests. The runner records source/configuration/data hashes, package versions, actual tokens, fallbacks, cold start, response latency and peak process memory. It does not charge or use a hosted inference API. Local compute still consumes time, electricity and storage.
 
-## Tests and recorded API replay
+## Tests and judge-facing replay
 
 ```bash
 python -m unittest discover -s tests -q
 python -m ruff check .
+python -m demo.showcase --results docs/current-results.json --output artifacts/judge-showcase
 python -m demo.alternatives --catalog data/catalog.jsonl --selected-mode grouped --output artifacts/local-alternatives-replay
 ```
 
-The alternatives replay executes all three fixed controls; `--selected-mode` chooses narration, not which controls run. It retains the three declared real-catalog probes and an explicitly invented three-product example. Use an unused output directory. Replay output is actual response evidence plus an asciicast, not a video. Presentation pacing is not a latency measurement. Record/export and approve a public three-minute video separately. No publication or competition submission follows from these commands. See [the demo guide](DEMO_SCRIPT.md).
+The showcase is the recommended judge walkthrough. It executes the real selected agent and writes a portable `index.html` plus machine-readable `evidence.json`; use an unused output directory. The alternatives replay is retained as historical Cycle 2 evidence and executes all three fixed controls. Neither command uploads or submits anything. See [the demo guide](DEMO_SCRIPT.md).
 
 ## Completed comparison and validation boundary
 

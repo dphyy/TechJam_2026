@@ -1001,6 +1001,15 @@ class AgentTest(unittest.TestCase):
         self.assertEqual(Config.load(root / "cycle4_source_alias.json"),
                          replace(selected, source_alias_retrieval=True))
 
+    def test_margin_fusion_config_only_changes_registered_confidence_fields(self):
+        root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "selected.json")
+        self.assertEqual(
+            Config.load(root / "margin_fusion.json"),
+            replace(selected, neural_margin_fusion=True,
+                    neural_low_margin_weight=.50, neural_margin_threshold=1.0),
+        )
+
     def test_cycle3_document_configs_only_change_document_mode(self):
         root = Path(__file__).resolve().parents[1] / "configs"
         selected = Config.load(root / "cycle2_grouped.json")

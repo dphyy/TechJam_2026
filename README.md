@@ -13,6 +13,7 @@ The repository keeps the original weak baseline for comparison and exposes the i
 - `evaluator/local_evaluator.py`: unchanged public-set evaluator.
 - `experiments/evaluate_suite.py`: concise comparison harness for baseline, sparse Mercury, selected Mercury, and candidate configs.
 - `experiments/private_like_validate.py`: authored engineering validation runner for private-like robustness cases.
+- `demo/showcase.py`: generates a portable judge-facing evidence viewer from real agent turns.
 - `data/private_like_capabilities.json`: small mini-catalog validation pack for known risk areas.
 - `docs/`: design notes, setup details, scoring explanation, historical experiment records, and release caveats.
 - `plan.md`: phased architecture and promotion gates for the intent-routed pipeline.
@@ -65,12 +66,13 @@ The codebase also contains independently gated pipeline-evolution experiments:
 
 None passed the repository's promotion rule, so they are not enabled by the public entrypoint. See [the measured evolution report](docs/PIPELINE_EVOLUTION_RESULTS.md).
 The newer robustness candidates were also rejected for promotion on frozen unseen-target development evidence; see [the roadmap results](docs/ROADMAP_IMPLEMENTATION_RESULTS.md).
+Margin-aware neural fusion was similarly rejected after a preregistered Cycle 5 screening loss and remains disabled; see [its result](docs/MARGIN_FUSION_RESULTS.md).
 
 Release and experiment interpretation is fixed as follows:
 
-- Submission/reliability: the selected 30-candidate architecture.
+- Submission/reliability: the selected 30-candidate architecture with unchanged-slate paging from turn 5.
 - Public-score demonstration only: D120's recorded `0.807170`; it is not the selected release.
-- Future candidate: D60, which must pass a new unseen-session evaluation before promotion.
+- Future candidates must pass a registered evaluation on new unseen sessions before promotion.
 
 See [the post-merge decisions](docs/MERGE_DECISIONS.md).
 
@@ -187,9 +189,22 @@ Recent local public-set metrics:
 |---|---:|---:|---:|---:|
 | Original baseline | 0.125000 | 0.068034 | 9.810000 | 0.106710 |
 | Mercury sparse fallback | 0.850000 | 0.535673 | 3.745000 | 0.730802 |
-| Mercury selected neural | 0.895000 | 0.613746 | 3.245000 | 0.786724 |
+| Mercury selected neural, historical fixed slate | 0.895000 | 0.613746 | 3.245000 | 0.786724 |
+| Mercury selected neural, current paging release | 0.970000 | 0.645919 | 2.980000 | 0.839176 |
 
-Public-set results are development evidence, not private-test performance. The D120 `0.807170` result is an experimental public-set demonstration and does not replace the selected 30-candidate release.
+The current result was reproduced on 30 August from the hardened source with 0 fallbacks and 0 agent-error turns. Public-set results are consumed development evidence, not private-test performance. The tracked [machine-readable result](docs/current-results.json) is the single current headline; historical rows remain tied to their original source/configuration.
+
+## Judge Showcase
+
+Generate a portable evidence viewer from real selected-agent outputs:
+
+```bash
+python -m demo.showcase \
+  --results docs/current-results.json \
+  --output artifacts/judge-showcase
+```
+
+Open `artifacts/judge-showcase/index.html`. The five-turn story shows a shopper changing black leather to blue canvas while retaining an adjustable strap, declining extra questions, then rejecting the current slate at the real paging boundary. Judges can inspect active and retracted preferences, routing rationale, result paging, fallbacks, real catalog IDs, and supported/contradicted/unknown evidence. The adjacent `evidence.json` contains the complete machine-readable trace. Use a new output directory for each run; the generator refuses to overwrite prior evidence.
 
 ## Private-Like Engineering Validation
 
@@ -225,7 +240,7 @@ python -m pip check
 Recent verification:
 
 ```text
-419 tests passed
+535 tests passed
 ruff passed
 pip check passed
 ```

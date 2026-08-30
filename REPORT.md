@@ -2,6 +2,20 @@
 
 Preparation build, 26 August 2026. Not submitted to the competition. This report distinguishes measured public-session results from unknown private-test performance and does not claim a prize outcome or real purchase uplift.
 
+## Current release addendum — 30 August 2026
+
+The historical frozen-selection study below remains intact, but it no longer describes the current source exactly. The selected 30-candidate MiniLM pipeline now pages an unchanged ranking from turn 5 and recognizes a broader set of direct corrections, replacement phrases, generic slate rejection, and excess-feedback language. The parser changes are covered by invented-data regression tests rather than public target-specific rules.
+
+| Current selected release | n | HitRate@10 | MRR | MTTC | Efficiency | TechnicalScore |
+|---|---:|---:|---:|---:|---:|---:|
+| Released public development set | 200 | 0.970000 | 0.645919 | 2.980000 | 0.802000 | 0.839176 |
+
+The 30 August reproduction recorded 2,375,969 local prompt tokens, p95 turn latency of 0.555 seconds, zero fallback turns and zero agent-error turns. Its source/config/data receipts are in `runs/hardened-selected-public-20260830/`, with the aggregate in [current-results.json](docs/current-results.json). Because these 200 sessions have been used throughout development, this is an implementation reproduction—not a private-set prediction.
+
+A preregistered low-margin neural-fusion candidate was rejected on a separate 160-session popularity-matched Cycle 5 screening pack: hit rate tied, while MRR fell by 0.005546 and TechnicalScore fell by 0.003038. It remains disabled. See [the screening result](docs/MARGIN_FUSION_RESULTS.md).
+
+For presentation, `python -m demo.showcase --results docs/current-results.json --output artifacts/judge-showcase` creates an inspectable HTML report from real agent calls. It exposes corrections, retained/retracted state, routing, paging, fallbacks, catalog IDs and conservative evidence labels. Missing catalog evidence remains unknown.
+
 ## Method and product
 
 Mercury is a backend shopping copilot that can revise its understanding without losing useful context. A user can switch from black leather to blue canvas while retaining a shoulder-bag and zipper requirement. A source-linked preference ledger retracts affected assertions; broad lexical retrieval keeps recall; explicit contradictions are demoted while missing metadata stays unknown. A compact, local cross-encoder can reorder the strongest candidates. Recommendations are real, unique catalog IDs, optionally accompanied by one allowed follow-up question.

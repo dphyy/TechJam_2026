@@ -1,0 +1,17 @@
+{
+  "measured_at": "2026-08-30",
+  "dataset": "released public development set",
+  "sample_count": 200,
+  "hit_rate_at_10": 0.97,
+  "mrr": 0.645919,
+  "mttc": 2.98,
+  "efficiency": 0.802,
+  "technical_score": 0.839176,
+  "prompt_tokens": 2375969,
+  "completion_tokens": 0,
+  "fallback_turns": 0,
+  "agent_error_turns": 0,
+  "p95_turn_latency_seconds": 0.555121,
+  "run_receipt": "runs/hardened-selected-public-20260830",
+  "claim_boundary": "Consumed public development evidence; not a private-test prediction or real-user outcome."
+}

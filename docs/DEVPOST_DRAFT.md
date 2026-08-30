@@ -18,7 +18,7 @@ The submitted interface is the participant kit's Python `Agent`, not a shopping 
 
 ## What is distinctive
 
-The contribution is an evidence-led combination of reversible query state, unknown-safe constraints and measured question/ranking decisions in a small offline backend. We do not claim that BM25, neural reranking, contrastive retrieval or conversational memory were invented here. The compelling demo is a visible correction that retracts only the affected facts, followed by a reproducible evaluation and an actual offline replay.
+The contribution is an evidence-led combination of reversible query state, unknown-safe constraints and measured question/ranking decisions in a small offline backend. We do not claim that BM25, neural reranking, contrastive retrieval or conversational memory were invented here. The compelling demo is a visible correction that retracts only the affected facts, followed by a judge-facing evidence viewer generated from real agent calls.
 
 ## Challenges and lessons
 
@@ -28,14 +28,15 @@ More components did not consistently mean better search. Positive-evidence boost
 
 | Evidence | HitRate@10 | TechnicalScore |
 |---|---:|---:|
+| Current selected paging release, whole public development set | 97.00% | 0.839176 |
 | Frozen selected agent, 160 development sessions | 88.75% | 0.775118 |
 | Frozen selected agent, 40 reserved public sessions | 92.50% | 0.833146 |
 | Selected agent, descriptive whole-public offline reproduction | 89.50% | 0.786724 |
 | Original starter, same whole-public set | 12.50% | 0.106710 |
 
-Both frozen 30- and 60-candidate variants found 37/40 reserved targets; the 30-candidate version was selected for equal hit rate, slightly higher score and approximately half the reranking work. Reserved p95 response latency was 0.388 seconds, with no fallbacks. The whole-public reproduction ran with OS networking denied and provider credentials removed. Runtime paid API/compute cost was US$0, excluding existing hardware and utilities.
+The current 30 August reproduction found 194/200 public targets, with MRR 0.645919, MTTC 2.98, p95 turn latency 0.555 seconds and no fallbacks. The improvement over the historical fixed-slate release comes primarily from paging an unchanged slate late in the conversation. Both frozen 30- and 60-candidate variants previously found 37/40 reserved targets; the 30-candidate version was selected for equal hit rate, slightly higher score and approximately half the reranking work. Runtime paid API/compute cost was US$0, excluding existing hardware and utilities.
 
-These numbers are public simulator evidence, not a private-test forecast or real purchase uplift. The report includes stronger ordinary baselines, paired uncertainty and failed ablations. Next steps are broader independent conversational testing, explicit negative-feedback handling, final host/data-packaging confirmation and significant eligible work during the official build window.
+These numbers are consumed public simulator evidence, not a private-test forecast or real purchase uplift. Broader correction phrasing and generic negative-feedback handling are now regression-tested. A preregistered low-margin ranking experiment was rejected after MRR and score declined, so the public entrypoint was not changed. Next steps are broader independent conversational testing and final host/data-packaging confirmation.
 
 ## Attribution and team
 
@@ -47,7 +48,7 @@ These numbers are public simulator evidence, not a private-test forecast or real
 
 ## Publication fields
 
-- Private working branch: [Mercury development](https://github.com/SaaiAravindhRaja/mercury-techjam-2026/tree/feat/track4-decision-proof), not a public submission URL
+- Working repository: [TechJam_2026](https://github.com/dphyy/TechJam_2026)
 - Public submission source: [owner-approved public URL after final publication; not yet authorized]
 - Three-minute YouTube demo: [public video URL after approved upload]
 - Build-window contribution record: [significant work completed during the official window]

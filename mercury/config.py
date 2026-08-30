@@ -29,6 +29,7 @@ class Config:
     role_evidence: bool = False
     composition_evidence: bool = False
     source_alias_retrieval: bool = False
+    neural_margin_fusion: bool = False
     state_mode: str = "ledger"
     alternatives_mode: str = "off"
     question_policy: str = "other"
@@ -59,6 +60,8 @@ class Config:
     max_sessions: int = 256
     dense_weight: float = 0.35
     neural_weight: float = 0.25
+    neural_low_margin_weight: float = 0.50
+    neural_margin_threshold: float = 1.00
     contrast_weight: float = 0.12
     router_buying_threshold: float = 0.50
     router_browsing_threshold: float = 0.50
@@ -112,7 +115,7 @@ class Config:
                     "profile_prior", "soft_preference_decay", "scoped_preferences",
                     "retrieval_sufficiency_gate", "compute_cascade", "multi_hypothesis_retrieval",
                     "semantic_question_goals", "require_positive_question_value", "role_evidence",
-                    "composition_evidence", "source_alias_retrieval"):
+                    "composition_evidence", "source_alias_retrieval", "neural_margin_fusion"):
             if type(getattr(self, key)) is not bool:
                 raise ValueError(f"{key} must be a boolean")
         if self.role_evidence and self.composition_evidence:
@@ -141,10 +144,16 @@ class Config:
                     "mixed_scoped_weight",
                     "buying_dense_weight", "browsing_dense_weight", "mixed_dense_weight", "question_turn_cost",
                     "profile_weight", "soft_price_weight", "minimum_retrieval_specificity",
-                    "cascade_threshold", "cascade_low_overlap", "cascade_low_confidence"):
+                    "cascade_threshold", "cascade_low_overlap", "cascade_low_confidence",
+                    "neural_low_margin_weight"):
             value = getattr(self, key)
             if type(value) not in (int, float) or not 0 <= value <= 1:
                 raise ValueError(f"{key} must be a finite number in [0, 1]")
+        if type(self.neural_margin_threshold) not in (int, float) \
+                or not math.isfinite(self.neural_margin_threshold) or self.neural_margin_threshold < 0:
+            raise ValueError("neural_margin_threshold must be a finite number >= 0")
+        if self.neural_margin_fusion and self.neural_low_margin_weight > self.neural_weight:
+            raise ValueError("Low-margin neural weight cannot exceed the configured neural weight")
         if self.compute_cascade and not (
                 self.rerank_limit <= self.cascade_max_rerank_limit <= 60
                 and self.cascade_max_rerank_limit <= self.candidate_limit

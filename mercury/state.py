@@ -155,11 +155,20 @@ _UNPRODUCTIVE = re.compile(
     r"can't (?:say|answer)|cannot (?:say|answer)|not (?:sharing|comfortable (?:sharing|answering|discussing))|"
     r"no (?:new|more|additional) (?:preferences|details|information)|"
     r"(?:nothing|no more|anything else|any more preferences) to add|"
-    r"none of (?:these|those)|not (?:these|those)|different options|keep looking|surprise me)\b"
+    r"none of (?:these|those)|not (?:these|those)|(?:these|those) (?:aren't|are not|don't|do not) "
+    r"(?:right|working|work)|different options|another (?:set|batch)|keep looking|surprise me)\b"
 )
-_ACTIONABLE_REJECTION = re.compile(r"\bnot (?:these|those)\b")
+_ACTIONABLE_REJECTION = re.compile(
+    r"\b(?:not (?:these|those)|none of (?:these|those)(?: (?:is|are) right| (?:work|works|fit|fits)|"
+    r" (?:feel|feels) right)?|"
+    r"(?:these|those) (?:aren't|are not|don't|do not) "
+    r"(?:right|working|work))\b"
+)
 _NOT_JUST_COMPONENT = re.compile(r"\bnot\s+(?:just|only|merely)\b")
-_REPLACEMENT = re.compile(r"\b(?:actually|instead|rather than|after all|on second thought|change|switch|replace)\b")
+_REPLACEMENT = re.compile(
+    r"\b(?:actually|instead|rather than|after all|on second thought|change|switch|replace|"
+    r"make that|go with|changed my mind|scratch that|swap(?: it| that)?)\b"
+)
 _ADDITIVE = re.compile(r"\b(?:also|as well|in addition|either|or|too)\b")
 _SOFT = re.compile(r"\b(?:prefer|preference|ideally|maybe|perhaps|would be nice|if possible|leaning|nice to have)\b")
 _HARD = re.compile(r"\b(?:must|need|needs|required|only|essential|have to|has to|cannot|can't)\b")
@@ -167,8 +176,10 @@ _PRODUCT_TYPE_REJECTION = re.compile(
     r"\b(?:not|don't want|do not want) (?:this|that) (?:product )?(?:type|category|kind)\b"
 )
 _ITEM_REJECTION = re.compile(
-    r"\b(?:not|don't want|do not want) (?:this|that|these|those) "
-    r"(?:item|items|one|ones|option|options|product|products)\b"
+    r"\b(?:(?:not|don't want|do not want) (?:this|that|these|those) "
+    r"(?:item|items|one|ones|option|options|product|products)|"
+    r"none of (?:these|those)(?: (?:is|are) right| (?:work|works|fit|fits)| (?:feel|feels) right)?|"
+    r"(?:these|those) (?:aren't|are not|don't|do not) (?:right|working|work))\b"
 )
 _ATTRIBUTE_REJECTION = re.compile(
     r"\b(?:not|don't want|do not want) (?:this|that) "
@@ -204,8 +215,8 @@ _RESIDUAL_STOPWORDS = frozenset("""
     thanks thank just really very quite maybe perhaps ideally actually also too well
     want wants wanted need needs needed like liked prefer preferred preference preferences
     looking look find searching search shop shopping buy buying browse browsing after
-    get give show see pick choose keep continue try trying use wear wearing made make
-    meant mean thought second instead rather change switch replace add answer say tell
+    get give show see pick choose keep continue try trying use wear wearing made make go
+    meant mean thought second instead rather change changed switch replace add answer say tell
     know discuss share provide more less most much many few only still yet already now
     then again ever always never possible fine nice good great right wrong better best longer
     different same previous next options option choices choice recommendations recommendation
@@ -216,7 +227,7 @@ _RESIDUAL_STOPWORDS = frozenset("""
     brand material fabric color colour style size feature features category occasion
     avoid excluding exclude hate dislike ask asked asking attribute attributes
     earlier ignore ignoring explore exploring requirement requirements require another
-    matter matters judgment judgement
+    matter matters mind scratch swap judgment judgement
 """.split())
 
 
@@ -238,6 +249,14 @@ def _polarity(clause: str, start: int, end: int) -> int:
     # The last contrast/replacement boundary defines the negation's scope.
     prefix = re.split(r"\b(?:but|however|except)\b", prefix)[-1]
     if re.search(r"\b(?:instead of|rather than)\s*(?:the\s+)?$", prefix):
+        return -1
+    if re.search(
+        r"(?:^|\b(?:actually|please|and|but)\s+)(?:scratch|ditch|drop|remove|skip|"
+        r"forget(?: about)?|leave out)\s+(?:the\s+)?$",
+        prefix,
+    ):
+        return -1
+    if re.search(r"\b(?:is|are|feel|feels|seem|seems|look|looks)\s+too\s+$", prefix):
         return -1
     if re.match(r"(?:[- ]free\b|\s+(?:is|are)\s+(?:not (?:okay|ok|fine|wanted)|out)\b)", suffix):
         return -1
@@ -452,6 +471,7 @@ class SessionState:
             parse_message = _PRODUCT_TYPE_REJECTION.sub("", normalized)
         elif _ITEM_REJECTION.search(normalized):
             self.last_feedback = FeedbackDecision("item", None, "item_only_rejection")
+            parse_message = _ITEM_REJECTION.sub("", normalized)
         elif attribute_rejection:
             attribute = {"fabric": "material", "colour": "color"}.get(
                 attribute_rejection.group(1), attribute_rejection.group(1),

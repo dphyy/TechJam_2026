@@ -138,6 +138,21 @@ class ConfigTest(unittest.TestCase):
             with self.subTest(mode=mode), self.assertRaises(ValueError):
                 Config(source_alias_retrieval=True, retrieval_mode=mode)
 
+    def test_margin_fusion_is_gated_and_conservative(self):
+        config = Config(neural_rerank=True, neural_weight=.75, neural_margin_fusion=True,
+                        neural_low_margin_weight=.50, neural_margin_threshold=1.0)
+        self.assertTrue(config.neural_margin_fusion)
+        self.assertEqual(config.neural_low_margin_weight, .50)
+        for values in (
+            {"neural_margin_fusion": 1},
+            {"neural_low_margin_weight": -0.1},
+            {"neural_margin_threshold": -0.1},
+            {"neural_margin_threshold": float("inf")},
+            {"neural_margin_fusion": True, "neural_weight": .5, "neural_low_margin_weight": .75},
+        ):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                Config.from_dict(values)
+
     def test_alternatives_are_explicitly_opt_in(self):
         self.assertEqual(Config().alternatives_mode, "off")
         for mode in ("off", "parse", "grouped"):

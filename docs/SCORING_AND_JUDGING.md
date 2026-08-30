@@ -10,7 +10,24 @@ The four scenarios are buying, browsing, intent changes and no-preference bounda
 
 The technical deliverable is a Python `Agent`, helper modules, setup instructions and a method/resource report. A frontend is not required. The event additionally asks for written submission material, a public repository and a public three-minute YouTube demo; an API/results walkthrough fits the supplied backend-track brief. [Event requirements](https://tiktoktechjam2026.devpost.com/), [backend submission contract](submission_rules.md).
 
-## What 0.786724 means
+## Current selected result: 0.839176
+
+The 30 August hardened paging release reproduced the following result on all 200 released public development sessions:
+
+| Component | Current result | Weight |
+|---|---:|---:|
+| HitRate@10 | 194/200 = 0.970000 | 50% |
+| MRR | 0.645919 | 30% |
+| Efficiency | 0.802000, from MTTC 2.980 | 20% |
+
+```text
+TechnicalScore = 0.50 × 0.970000 + 0.30 × 0.645919 + 0.20 × 0.802000
+               = 0.839176, rounded to six decimals
+```
+
+This is consumed public development evidence. It is neither a private-test forecast nor 83.92% accuracy; HitRate@10 is the accuracy-like 97% value. The complete aggregate and claim boundary are in [current-results.json](current-results.json).
+
+## Historical fixed-slate result: what 0.786724 meant
 
 | Component | Definition | Selected whole-public result | Weight |
 |---|---|---:|---:|
@@ -64,7 +81,7 @@ The present bottleneck is mainly getting retrieved candidates into the right ord
 
 ## Is the result impressive?
 
-Yes as a measured engineering result; not yet as proof of a novel winning algorithm. The original weak starter found 25/200 targets at 0.106710; Mercury found 179/200 at 0.786724 using the unchanged harness with networking denied. The stronger development comparison is 0.699945 for corrected stateful sparse search versus 0.775118 with the selected reranker: +0.075173, paired bootstrap 95% interval [0.039850, 0.111205]. See [the full report](../REPORT.md).
+Yes as a measured engineering result; not yet as proof of a novel winning algorithm. The original weak starter found 25/200 targets at 0.106710. The current selected release finds 194/200 at 0.839176; the historical fixed-slate neural release found 179/200 at 0.786724. The stronger historical development comparison is 0.699945 for corrected stateful sparse search versus 0.775118 with the selected reranker: +0.075173, paired bootstrap 95% interval [0.039850, 0.111205]. See [the full report](../REPORT.md).
 
 The credible work is reversible preference state, conservative evidence handling, offline reproducibility, failure tests, frozen selection and openly reported failed experiments. BM25 plus a cross-encoder is established technology. The contrast and adaptive-question experiments did not justify inclusion. The 40-session reserve is public development, not an untouched private benchmark. No competitive placement or real-user conversion improvement has been measured.
 
@@ -83,7 +100,7 @@ Recommended direction, not work claimed complete: make reversible intent visible
 3. Show an unknown-price or conflicting-material case. Make supported, contradicted and unknown evidence visibly different. Product metadata must justify the explanation.
 4. Finish with the unchanged-harness result, honest ablations, CPU latency and a real offline/fallback run. State public/private uncertainty explicitly.
 
-A small replay/evidence view can make the backend understandable without becoming a separate storefront project. The current terminal demo already records real outputs, but still returns some weak soft-preference matches/accessories; it is not yet a flawless showcase. Improve that behavior through a new, separately registered development cycle rather than silently rewriting the frozen result.
+The judge showcase now makes the backend understandable without becoming a separate storefront project. It records real outputs and exposes retained/retracted state, intent rationale, paging, fallbacks and supported/contradicted/unknown catalog evidence. Weak soft-preference matches can still appear and remain visibly unknown rather than being disguised as verified matches.
 
 For score improvement, prioritize ranking quality, explicit negative-feedback handling and robust correction parsing on independently authored conversations. Measure against the strong baseline, with held-out evidence and latency/cost caps. The existing 40-session reserve is now consumed; it must not be presented as fresh validation for future tuning. More public-set optimization alone will weaken the credibility of generalization claims.
 

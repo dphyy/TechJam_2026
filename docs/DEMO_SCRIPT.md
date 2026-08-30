@@ -1,8 +1,32 @@
 # Three-minute backend demonstration
 
-Lead with one shopping decision and its evidence: “cotton or linen” must not become “cotton and linen”, and “actually, no linen” must retract the right option. Show actual API results, the controlled repair and the unchanged benchmark. This is a preparation build, not an uploaded submission or a claim of first-place novelty.
+Lead with one simple claim: Mercury can change its mind without forgetting what still matters, and it will not invent evidence when catalog metadata is missing. This is a preparation build, not an uploaded submission or a claim of first-place novelty.
 
-## Recorded evidence and reproduction
+## Current recommended walkthrough
+
+Generate the judge view from the real selected agent in a new directory:
+
+```bash
+.venv/bin/python -m demo.showcase \
+  --results docs/current-results.json \
+  --output artifacts/judge-showcase
+```
+
+Open `artifacts/judge-showcase/index.html` in a browser. Keep `evidence.json` beside it for technical questions.
+
+| Time | Show | Say |
+|---|---|---|
+| 0:00–0:25 | Hero, 50,000-product count and current metric cards | “Mercury is an offline search backend for changing shopping intent. These are real agent outputs over the supplied catalog, not a mocked storefront.” |
+| 0:25–0:55 | Turn 1: black leather shoulder bag, active preference chips and catalog IDs | “It turns the request into a source-linked preference ledger and returns legal product IDs. Catalog mentions are labeled supported; missing details remain unknown.” |
+| 0:55–1:30 | Turn 2: blue canvas correction; retracted black/leather and retained shoulder bag/adjustable strap | “A replacement changes only the affected facts. The old color and material are visibly retracted, while the bag type and strap requirement survive.” |
+| 1:30–1:55 | Expand “Why this response?” and one product evidence list | “Judges can inspect the retrieval query, buying/browsing route, feedback scope, page, fallback state and the evidence boundary behind each result.” |
+| 1:55–2:15 | Turn 5: reject slate and show paging/result change | “Generic negative feedback does not pollute the query. When the ranking is unchanged late in a session, Mercury advances to a new result page instead of repeating a failed slate.” |
+| 2:15–2:40 | Current result and margin-fusion rejection | “On the consumed 200-session public development set, it finds 194 targets: 0.97 HitRate@10 and 0.839176 TechnicalScore. A new low-confidence fusion idea reduced MRR, so it was measured, documented and left disabled.” |
+| 2:40–3:00 | Evidence boundary and reliability notes | “The run had zero fallbacks and zero agent errors. Missing model assets still produce a legal sparse fallback. Public data is development evidence, not a prediction of the private set or real purchases.” |
+
+Do not claim that every recommendation satisfies every preference. The page intentionally exposes `unknown` when the catalog cannot establish a fact. Do not call TechnicalScore “accuracy”; HitRate@10 is the 97% accuracy-like metric.
+
+## Historical Cycle 2 recorded evidence
 
 The final cycle-2 replay is `artifacts/cycle2/alternatives-demo-v2/`: `replay.cast`, `transcript.txt`, `responses.json`, `manifest.json` and a labeled invented catalog. It records 24 real API calls under all three controls, with actual local model inference and networking denied. All response contracts pass; all six agents close; no fallback occurs. Source, model, catalog and configuration inventories match before and after.
 
@@ -38,7 +62,7 @@ Its `manifest.json`, `responses.json`, `transcript.txt`, and invented catalog ar
 bounded source-span and correction-safety proof only, never score, hidden-set,
 shopper, or organizer-private performance evidence.
 
-## Narration and shots
+## Historical Cycle 2 narration and shots
 
 Use the saved responses for API shots and [the final report](CYCLE2_RESULTS.md) for result shots. Do not fabricate a frontend, successful purchase or extra catalog evidence.
 
@@ -75,4 +99,4 @@ Use the saved responses for API shots and [the final report](CYCLE2_RESULTS.md) 
 - Keep preparation dates visible and record significant official-window work separately.
 - Keep credentials, personal profiles and unrelated desktop content out of the recording.
 - Video export and an approved public YouTube upload are still pending. No encoder was on the checked shell PATH; the existing terminal replay is not an uploaded video.
-- Keep the source private and the README empty until the owner authorizes the remaining publication steps. See [the release checklist](RELEASE_CHECKLIST.md).
+- Keep publication, video upload and submission as explicit owner-approved steps. See [the release checklist](RELEASE_CHECKLIST.md).

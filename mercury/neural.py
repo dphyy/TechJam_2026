@@ -210,7 +210,8 @@ class NeuralRanker:
 
     def rank(self, query: str, candidates: list[Candidate], limit: int, weight: float,
              preferences: list[Preference] | None = None, document_mode: str = "head",
-             *, structured: bool = False) -> list[Candidate]:
+             *, structured: bool = False, low_margin_weight: float | None = None,
+             margin_threshold: float = 0.0) -> list[Candidate]:
         import numpy as np
 
         prefix, tail = candidates[:limit], candidates[limit:]
@@ -230,13 +231,23 @@ class NeuralRanker:
             raise ValueError("Reranker returned malformed or non-finite scores")
         neural_order = np.argsort(-logits, kind="stable")
         neural_ranks = {int(index): rank for rank, index in enumerate(neural_order, 1)}
+        ordered_logits = np.sort(logits)[::-1]
+        margin = float(ordered_logits[0] - ordered_logits[1]) if len(ordered_logits) > 1 else float("inf")
+        applied_weight = (
+            low_margin_weight
+            if low_margin_weight is not None and margin < margin_threshold
+            else weight
+        )
         result = []
         for index, item in enumerate(prefix):
-            score = (1.0 - weight) * 61.0 / (61.0 + index) + weight * 61.0 / (60.0 + neural_ranks[index])
+            score = ((1.0 - applied_weight) * 61.0 / (61.0 + index)
+                     + applied_weight * 61.0 / (60.0 + neural_ranks[index]))
             parts = {key: value for key, value in item.route_scores.items() if key != "constraint_penalty"}
             result.append(Candidate(item.product, score,
                                     {**parts, "neural_logit": float(logits[index]),
-                                     "neural_rank": float(neural_ranks[index])}))
+                                     "neural_rank": float(neural_ranks[index]),
+                                     "neural_margin": margin,
+                                     "neural_fusion_weight": float(applied_weight)}))
         result.sort(key=lambda item: (-item.score, item.product.parent_asin))
         # The unreranked tail must remain below the bounded prefix on the same
         # score scale; question lookahead consumes these scores downstream.

@@ -33,7 +33,7 @@ features.
 The evaluator separately reports HitRate@10, MRR, MTTC, Efficiency, and the
 combined TechnicalScore. These measurements are technical evidence; they are not
 the human rubric itself. See [the scoring guide](SCORING_AND_JUDGING.md) for the
-formula, the current `0.786724` selected result, and the rubric discrepancy.
+formula, the current `0.839176` selected result, and the rubric discrepancy.
 
 ## Challenge Boundaries That Must Persist
 
@@ -79,13 +79,14 @@ upstream Amazon dataset is unnecessary.
 | Buying/Browsing intent detection | Implemented and active diagnostically | `mercury/intent.py` emits Buying, Browsing, or Mixed decisions; typed plans live in `mercury/planning.py`. The selected release does not enable the score-regressing routed behavior. |
 | Multi-route hybrid retrieval | Implemented, independently gated | Sparse broad and category-scoped routes are selected. Conditional routed/dense retrieval exists behind configuration; the measured routed candidate did not pass promotion, and dense routed assets were not evaluated in that cycle. |
 | Semantic ranking | Implemented and selected | A pinned local MiniLM cross-encoder reranks 30 candidates. This is neural semantic ranking, not a generative LLM. Optional LLM use remains unjustified and disabled. |
-| Information accumulation and intent override | Implemented and selected | The source-linked preference ledger retracts stale assertions, preserves unrelated constraints, records polarity/hardness/provenance, and handles no-preference replies. |
+| Information accumulation and intent override | Implemented and selected | The source-linked preference ledger retracts stale assertions, preserves unrelated constraints, records polarity/hardness/provenance, and handles no-preference replies. New regression cases cover direct replacements, “changed my mind”, “scratch that”, generic slate rejection and excess-feedback language. |
 | Proactive clarification | Partly implemented, gated candidate rejected | Named attributes are single-use; generic prompts vary and stop after an unproductive reply. Intent-aware question selection exists but did not pass promotion. |
 | Immediate retrieval cutoff for over-generality | Implemented and gated; candidate rejected | A target-independent pre-expensive-retrieval gate can use a sparse minimal probe or clarify before catalog access. The minimal-probe unseen-development arm reduced score/MTTC and remains disabled. The older cutoff still only reduces post-retrieval reranking. |
 | Runtime context adaptation | Implemented as gated deterministic orchestration | Profile priors, inferred-soft decay, route changes, and policy changes are configurable. The combined adaptation candidate did not pass promotion; explicit session intent remains authoritative. |
 | Dynamic truncation | Implemented in gated retrieval/rerank controls | Candidate and rerank budgets are bounded and configurable. Dynamic rerank expansion beyond the selected 30-prefix is not selected. |
 | Unknown-safe price handling | Implemented and selected | Price is a bounded soft ranking preference. Missing, malformed, lower-bound, or inconsistent evidence is neutral and never excludes a product. |
-| Metrics and reproducibility | Implemented | The unchanged evaluator, comparison suite, stage diagnostics, private-like capabilities, model pinning, checksums, and fallback checks are documented in the repository. |
+| Metrics and reproducibility | Implemented | The unchanged evaluator, comparison suite, stage diagnostics, private-like capabilities, model pinning, checksums, and fallback checks are documented in the repository. The current aggregate is machine-readable in `docs/current-results.json`. |
+| Judge-facing explanation | Implemented | `demo/showcase.py` runs the real agent and writes a portable HTML plus JSON evidence trace showing state changes, routing, catalog IDs, paging, fallbacks and conservative evidence labels. |
 
 Do not re-add rows marked implemented as generic TODOs. Improve them only through
 a named, gated hypothesis with new evidence. Keep gated code and configuration
@@ -96,11 +97,13 @@ when it supports reproducibility, ablation, or a documented negative result.
 The persistent release decision is:
 
 - **Submission/reliability:** `configs/selected.json`, using the 30-candidate
-  MiniLM rerank prefix.
-- **Public-score demonstration only:** D120 measured `0.807170` on the already-used
-  public set but failed fresh screening and latency criteria. It is not selected.
-- **Potential future candidate:** D60 may be considered only after a registered
-  evaluation on new unseen sessions.
+  MiniLM rerank prefix and unchanged-slate paging from turn 5. It reproduces
+  `0.839176` on the consumed 200-session public development set.
+- **Historical public-score experiment:** D120 measured `0.807170` on an older
+  fixed-slate source and failed fresh screening and latency criteria. It is not selected.
+- **Rejected current experiment:** low-margin neural fusion reduced MRR and
+  TechnicalScore on its preregistered Cycle 5 screening pack. It remains disabled.
+- **Future candidates:** consider only after a registered evaluation on new unseen sessions.
 
 The selected configuration keeps grouped alternatives, neural weight `0.75`, a
 four-question bounded `other` policy, rerank depth 30, and soft-price weight

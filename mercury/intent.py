@@ -17,7 +17,8 @@ _BROWSING = re.compile(
     re.I,
 )
 _OVERRIDE = re.compile(
-    r"\b(?:actually|instead|switch|change (?:that|it)|no longer|rather than|on second thought)\b",
+    r"\b(?:actually|instead|switch|change (?:that|it)|no longer|rather than|on second thought|"
+    r"make that|go with|changed my mind|scratch that|swap(?: it| that)?)\b",
     re.I,
 )
 

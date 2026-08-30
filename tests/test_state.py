@@ -4,6 +4,43 @@ from mercury.state import SessionState
 
 
 class SessionStateTest(unittest.TestCase):
+    def test_newer_override_phrasing_retracts_only_changed_preferences(self):
+        state = SessionState({}, alternatives_mode="grouped")
+        state.update("I need a black leather shoulder bag with an adjustable strap.", 1)
+        state.update("I've changed my mind; make that blue canvas, but keep the adjustable strap.", 2)
+        active = {(item.attribute, item.value, item.polarity) for item in state.active_preferences()}
+        self.assertIn(("material", "canvas", 1), active)
+        self.assertIn(("color", "blue", 1), active)
+        self.assertIn(("feature", "adjustable", 1), active)
+        self.assertIn(("other", "strap", 1), active)
+        self.assertNotIn(("material", "leather", 1), active)
+        self.assertNotIn(("color", "black", 1), active)
+
+    def test_direct_scratch_and_excess_feedback_are_explicit_rejections(self):
+        state = SessionState({})
+        state.update("A formal leather jacket.", 1)
+        state.update("Scratch leather; go with canvas.", 2)
+        active = {(item.attribute, item.value, item.polarity) for item in state.active_preferences()}
+        self.assertIn(("material", "leather", -1), active)
+        self.assertIn(("material", "canvas", 1), active)
+        self.assertNotIn(("other", "go", 1), active)
+        state.update("These look too formal; make that casual.", 3)
+        active = {(item.attribute, item.value, item.polarity) for item in state.active_preferences()}
+        self.assertIn(("style", "formal", -1), active)
+        self.assertIn(("style", "casual", 1), active)
+
+    def test_generic_new_data_feedback_does_not_pollute_the_query(self):
+        state = SessionState({})
+        state.update("A formal leather jacket.", 1)
+        before = state.query()
+        for turn, message in enumerate((
+            "None of these work; show another set.",
+            "Those aren't right; keep looking.",
+        ), 2):
+            state.update(message, turn)
+            self.assertEqual(state.last_feedback.scope, "item")
+            self.assertEqual(state.query(), before)
+
     def test_negative_feedback_scope_is_narrow_and_explicit(self):
         state = SessionState({})
         state.update("I need a blue canvas bag.", 1)

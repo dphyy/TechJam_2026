@@ -36,6 +36,47 @@ class NeuralAssetsTest(unittest.TestCase):
         ranked = ranker.rank("shirt", candidates, 2, .25)
         self.assertTrue(all("constraint_penalty" not in item.route_scores for item in ranked))
 
+    def test_low_neural_margin_conservatively_reduces_fusion_weight(self):
+        from mercury.neural import NeuralRanker
+        from mercury.types import Candidate
+
+        class FakeModel:
+            def tokenizer(self, left, right, **kwargs):
+                return {"input_ids": [[1, 2] for _ in left]}
+
+            def predict(self, pairs, **kwargs):
+                return np.array([0.20, 0.25, 0.22])
+
+        ranker = NeuralRanker.__new__(NeuralRanker)
+        ranker.model, ranker.prompt_tokens = FakeModel(), 0
+        candidates = [Candidate(product_from_dict({"parent_asin": str(i), "title": "shirt"}), 3.0 - i)
+                      for i in range(3)]
+        ranked = ranker.rank(
+            "shirt", candidates, 3, .75, low_margin_weight=.50, margin_threshold=1.0,
+        )
+        self.assertEqual({item.route_scores["neural_fusion_weight"] for item in ranked}, {.50})
+        self.assertTrue(all(abs(item.route_scores["neural_margin"] - .03) < 1e-9 for item in ranked))
+
+    def test_confident_neural_margin_keeps_selected_fusion_weight(self):
+        from mercury.neural import NeuralRanker
+        from mercury.types import Candidate
+
+        class FakeModel:
+            def tokenizer(self, left, right, **kwargs):
+                return {"input_ids": [[1, 2] for _ in left]}
+
+            def predict(self, pairs, **kwargs):
+                return np.array([3.0, 1.0])
+
+        ranker = NeuralRanker.__new__(NeuralRanker)
+        ranker.model, ranker.prompt_tokens = FakeModel(), 0
+        candidates = [Candidate(product_from_dict({"parent_asin": str(i), "title": "shirt"}), 2.0 - i)
+                      for i in range(2)]
+        ranked = ranker.rank(
+            "shirt", candidates, 2, .75, low_margin_weight=.50, margin_threshold=1.0,
+        )
+        self.assertEqual({item.route_scores["neural_fusion_weight"] for item in ranked}, {.75})
+
     def test_document_view_is_bounded_and_grounded(self):
         product = product_from_dict({"parent_asin": "a", "title": "Cotton shirt",
                                      "description": "word " * 2000})

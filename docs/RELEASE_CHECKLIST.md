@@ -16,7 +16,9 @@ This is a preparation build dated 26 August 2026, not a submitted entry or a cla
 - [x] Complete cycle-2 three-control development and one-shot locked validation after review fixes; select the exact frozen grouped config under the registered no-regression/resource gates. All 347 tests pass. Target scores and locked capability passes do not improve over frozen behavior.
 - [x] Preserve all five capability-validation failures, the absence of a real-catalog grouped intervention, source/config/consumption receipts and actual offline fault evidence in [the cycle-2 report](CYCLE2_RESULTS.md) and [aggregate](cycle2-summary.json).
 - [x] Produce the final 24-call alternatives comparison replay and [recording guide](DEMO_SCRIPT.md), clearly separating real catalog exchanges from the invented correctness witness. Encoding and public upload remain pending.
-- [ ] Restore the landing README only when the owner is ready at project completion. It was intentionally emptied in `1af7785`; current setup instructions are in [SETUP.md](SETUP.md).
+- [x] Restore the landing README with current setup, evaluation, caveats and the judge-showcase command.
+- [x] Harden correction and generic-negative-feedback parsing with invented-data regressions; reproduce the current selected release at 0.839176 with zero fallbacks and agent errors.
+- [x] Screen preregistered low-margin neural fusion; reject it after MRR and TechnicalScore declined, preserving the receipts and disabled implementation.
 
 ## Organizer decisions still required
 
@@ -43,10 +45,9 @@ Questions are drafted, not sent. See the [score and judging guide](SCORING_AND_J
 ## Publication history and current boundary
 
 - The original preparation branch was published to the public fork on 26 August 2026. That historical exposure is not erased by making a separate private repository.
-- Current work is integrated into private `SaaiAravindhRaja/mercury-techjam-2026` on `main`, now the default branch. The private repository is independent, not a fork. The old public remote's push URL is disabled locally.
+- The current personal repository remote is `dphyy/TechJam_2026`, with local work on `main`. The older Mercury repository remains configured as `upstream` for provenance.
 - The owner authorized verified, atomic private checkpoints and integration into `main`. Merge `fabc7ed` preserves all 32 existing implementation and evidence commits without rewriting them. Use normal history-preserving merges for pull requests, never squash the work into one commit.
-- Use the configured owner identity, concise lowercase imperative commit subjects and explicit file staging. Keep each commit meaningful; do not pad the history. Do not include private datasets, traces, model caches, credentials or planning-only files.
-- Keep both local and private `main`'s `README.md` empty until the owner is ready to write it at completion.
+- Use the configured owner identity, natural commit subjects whose first word is capitalized, and explicit file staging. Avoid conventional prefixes such as `docs:` and `feat:`. Keep each commit meaningful; do not pad the history. Do not include private datasets, traces, model caches, credentials or planning-only files.
 
 ## Remaining submission actions
 

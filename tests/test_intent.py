@@ -35,6 +35,17 @@ class IntentTest(unittest.TestCase):
         self.assertIn("intent_override", decision.reasons)
         self.assertIn("explicit_object", decision.reasons)
 
+    def test_newer_override_phrasing_is_reported_without_changing_the_route_contract(self):
+        prior = ("I need a black leather shoulder bag.",)
+        for message in (
+            "Make that blue canvas.",
+            "I've changed my mind; go with blue canvas.",
+            "Scratch that and swap it for blue canvas.",
+        ):
+            with self.subTest(message=message):
+                decision = self.decision(message, prior)
+                self.assertIn("intent_override", decision.reasons)
+
     def test_rephrasing_preserves_route(self):
         variants = ("I need running shoes under $80.", "Running shoes, maximum budget $80.")
         self.assertEqual({self.decision(text).mode for text in variants}, {"buying"})

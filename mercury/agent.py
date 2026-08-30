@@ -57,12 +57,15 @@ def _neural_score_summary(candidates: list[Candidate]) -> dict:
               if type(item.route_scores.get("neural_logit")) in (int, float)
               and math.isfinite(item.route_scores["neural_logit"])]
     ordered = sorted(logits, reverse=True)
+    weights = sorted({item.route_scores.get("neural_fusion_weight") for item in candidates
+                      if type(item.route_scores.get("neural_fusion_weight")) in (int, float)})
     return {
         "scored_pairs": len(ordered),
         "top_logit": ordered[0] if ordered else None,
         "second_logit": ordered[1] if len(ordered) > 1 else None,
         "logit_margin": ordered[0] - ordered[1] if len(ordered) > 1 else None,
         "logit_range": ordered[0] - ordered[-1] if len(ordered) > 1 else None,
+        "fusion_weight": weights[0] if len(weights) == 1 else None,
     }
 
 
@@ -492,6 +495,12 @@ class Agent:
                         ranked = self.reranker.rank(
                             rerank_query, ordered, rerank_limit, self.config.neural_weight,
                             preferences, self.config.rerank_document_mode,
+                        )
+                    elif self.config.neural_margin_fusion:
+                        ranked = self.reranker.rank(
+                            rerank_query, ordered, rerank_limit, self.config.neural_weight,
+                            low_margin_weight=self.config.neural_low_margin_weight,
+                            margin_threshold=self.config.neural_margin_threshold,
                         )
                     else:
                         # Keep the selected 30-prefix release on the original
