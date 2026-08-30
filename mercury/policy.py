@@ -284,7 +284,7 @@ def choose_policy(state: SessionState, candidates: list[Candidate], config: Conf
             best = max(eligible, key=lambda attribute: models[attribute]["value"], default=None)
             question = best if best is not None and models[best]["value"] > 1e-12 else _fallback_question(state, eligible, config)
         elif config.question_policy == "intent":
-            mode = intent.mode if intent is not None else "mixed"
+            mode = intent.effective_mode if intent is not None else "mixed"
             diagnostics["intent_mode"] = mode
             diagnostics["over_general"] = bool(intent and intent.over_general)
             models = {attribute: _outcome_model(pool, attribute, capacity, turn) for attribute in eligible}

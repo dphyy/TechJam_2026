@@ -39,7 +39,7 @@ def build_retrieval_plan(state: SessionState, intent: IntentDecision) -> Retriev
     lexical_query = state.query()
     semantic_parts = _unique((*objects, *use_cases, *positive_terms))
     semantic_query = " ".join(semantic_parts)
-    context_lines = [f"Mode: {intent.mode}"]
+    context_lines = [f"Mode: {intent.effective_mode}"]
     if objects:
         context_lines.append("Object: " + "; ".join(objects))
     must = _unique(signal.value for signal in hard if signal.polarity == 1 and signal.attribute != "budget")
@@ -64,7 +64,7 @@ def build_retrieval_plan(state: SessionState, intent: IntentDecision) -> Retriev
     for signal in scoped:
         context_lines.append(f"Scoped {signal.attribute}: {signal.value} -> {signal.scope}")
     return RetrievalPlan(
-        intent.mode,
+        intent.effective_mode,
         objects,
         objects,
         positive_terms,
