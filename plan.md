@@ -226,6 +226,21 @@ Assert properties rather than target-specific outputs:
 - The suite detects known selected-runtime limitations without using runtime labels.
 - Confirmation and final outcomes remain unopened until source/config freeze.
 
+### Phase 2 execution status — 30 August 2026
+
+Phase 2 is complete. The source-independent lock contains 480 training, 160
+screening, 80 confirmation, and 80 final rows. Target IDs, loose-title families,
+whole category groups, authors/users, dialogue templates, paraphrase families,
+and unseen-wording families have zero cross-split overlap. Every source and
+generated file is hashed under seed `robustness-matrix-20260830-v1`, and the
+consumption ledger enforces screening → confirmation → final opening order.
+
+The authored metamorphic suite keeps assertions target-independent. The selected
+release passed legality and candidate-membership checks but exposed four active-
+state equivalence limitations, so the suite is discriminating rather than a
+collection of already-passing examples. Confirmation and final remain sealed.
+See [the matrix protocol](docs/PRIVATE_ROBUSTNESS_MATRIX_PROTOCOL.md).
+
 ## Phase 3: Cheap Admission Scorer Over All 120 Candidates
 
 The main robustness hypothesis is that a lightweight target-independent scorer
