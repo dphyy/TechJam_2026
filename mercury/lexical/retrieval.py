@@ -331,6 +331,10 @@ class CatalogSearch:
     def search(self, state: SessionState, limit: int = 10) -> list[tuple[str, float]]:
         return self.search_with_context(state, limit).recommendations
 
+    def _additional_routes(self, state: SessionState) -> list[tuple[float, list[dict]]]:
+        """Optional admission routes; the standard backend adds none."""
+        return []
+
     def search_with_context(self, state: SessionState, limit: int = 10) -> SearchResult:
         if not state.evidence:
             return SearchResult(recommendations=[], candidates=[])
@@ -367,6 +371,7 @@ class CatalogSearch:
             if hard_constraint_route:
                 routes.append((HARD_CONSTRAINT_AND_ROUTE_WEIGHT, hard_constraint_route))
 
+        routes.extend(self._additional_routes(state))
         rrf: defaultdict[str, float] = defaultdict(float)
         candidates: dict[str, dict] = {}
         for route_weight, route in routes:

@@ -5,14 +5,15 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from .memory import LongTermUserProfile
-from .product_features import FACET_PATTERNS, alternative_values, component_scope
+from .product_features import FACET_PATTERNS, alternative_values, component_scope, component_value
 
 
 OVERRIDE_RE = re.compile(
     r"\b(actually|instead|changed my mind|ignore|no longer|rather than)\b", re.I
 )
 NO_PREFERENCE_RE = re.compile(
-    r"\b(?:do not|don't|dont|no)\s+(?:have\s+)?(?:an?\s+)?(?:additional\s+)?preference\b",
+    r"\b(?:do not|don't|dont|no)\s+(?:have\s+)?(?:an?\s+)?(?:additional\s+)?"
+    r"(?:(?:material|colo[u]?r|size|style|fit|budget|lining|upper)\s+){0,2}preference\b",
     re.I,
 )
 LOOKING_FOR_RE = re.compile(r"\blooking for\s+(.+?)(?:[,.]|$)", re.I)
@@ -24,7 +25,7 @@ NEGATIVE_CLAUSE_RE = re.compile(
     r"^(?:(?:i\s+)?(?:do not|don't|dont|no longer)\s+(?:want|like|need|prefer)\s+|"
     r"(?:(?:i\s+)?(?:want|need|prefer)\s+)?(?:no|not|without|avoid|anything but)\s+)(.+)$", re.I,
 )
-UNCERTAIN_RE = re.compile(r"\b(?:maybe|perhaps|not sure|unsure|undecided)\b", re.I)
+UNCERTAIN_RE = re.compile(r"^(?:i(?:'m| am)?\s+)?(?:maybe|perhaps|not sure|unsure|undecided)\b", re.I)
 DURABLE_PREFERENCE_RE = re.compile(r"\b(?:always|generally|usually)\b", re.I)
 EXPLORING_RE = re.compile(r"\bi(?:'m| am) still exploring\b", re.I)
 QUESTION_BOILERPLATE_RE = re.compile(
@@ -78,9 +79,15 @@ def _infer_attribute(value: str, fallback: str | None = None) -> str:
     """Infer the facet named by a value, preserving a specific asked facet."""
     lowered = value.casefold()
     tokens = set(re.findall(r"[a-z0-9]+", lowered))
+    label = re.match(r"^([a-z][a-z ]{0,48})\s*:", lowered)
+    if label and not component_scope(value):
+        name = "_".join(label.group(1).split())
+        aliases = {"fabric_type": "material", "fabric": "material", "colour": "color", "price": "budget"}
+        if name not in {"feature", "features", "requirement"}:
+            return aliases.get(name, name)
     if "budget" in tokens or re.search(r"(?:\$|<=|under|below|around)\s*\$?\d", lowered):
         return "budget"
-    if tokens & MATERIAL_TERMS or "material" in tokens:
+    if FACET_PATTERNS["material"].search(value) or "material" in tokens:
         return "material"
     if tokens & COLOR_TERMS or "color" in tokens or "colour" in tokens:
         return "color"
@@ -114,9 +121,6 @@ class SessionState:
         message = _clean(str(message))
         self.messages.append(message)
 
-        if self._observe_special_clauses(message, turn):
-            return
-
         is_override = bool(OVERRIDE_RE.search(message))
         if is_override and re.search(r"ignore my earlier preference", message, re.I):
             # "Ignore my earlier preference" explicitly retires the opening
@@ -136,6 +140,14 @@ class SessionState:
                     [self.category_text], "category", 1.4, "category", turn,
                     PreferenceOperation.REPLACE,
                 )
+
+        special_message = message
+        source, weight = "clarification", 2.5 if turn > 1 else 2.0
+        if category_match and not any(pattern.search(message) for pattern in (NEED_RE, REQUIREMENT_RE, MATTERS_RE)):
+            special_message = _clean(message[category_match.end():])
+            source, weight = "initial_preference", 1.8
+        if self._observe_special_clauses(special_message, turn, source=source, weight=weight):
+            return
 
         match = NEED_RE.search(message)
         if match:
@@ -183,19 +195,9 @@ class SessionState:
                 PreferenceOperation.REPLACE if is_override else PreferenceOperation.APPEND,
             )
 
-    def _observe_special_clauses(self, message: str, turn: int) -> bool:
+    def _observe_special_clauses(self, message: str, turn: int, *, source: str, weight: float) -> bool:
         """Handle local polarity and retractions without rewriting ordinary positives."""
-        quoted = re.sub(r'"[^"\n]*"|“[^”\n]*”|(?<!\w)\x27[^\x27\n]+\x27(?!\w)', "", message)
-        special = bool(quoted != message or NO_PREFERENCE_RE.search(message)
-                       or UNCERTAIN_RE.search(message)
-                       or re.search(r"\b(?:no|not|without|avoid|anything but|don't|dont|rather than|instead of)\b", message, re.I))
-        if not special:
-            return False
-        content = quoted
-        contrast = re.match(r"(.+?)\s+(?:rather than|instead of)\s+(.+)$", content, re.I)
-        if contrast:
-            content = f"not {contrast.group(2)}; {contrast.group(1)}"
-        source, weight = "clarification", 2.5 if turn > 1 else 2.0
+        content = message
         for pattern, candidate_source, candidate_weight in (
             (NEED_RE, "override", 6.0), (REQUIREMENT_RE, "hard_constraint", 3.8),
             (MATTERS_RE, "clarification", 3.3),
@@ -203,14 +205,27 @@ class SessionState:
             if match := pattern.search(content):
                 content, source, weight = match.group(1), candidate_source, candidate_weight
                 break
-        clauses = re.split(r"\s*(?:[;,]|\bbut\b|\band\s+(?=(?:no|not|without)\b))\s*", content, flags=re.I)
+        contrast = re.match(r"(.+?)\s+(?:rather than|instead of)\s+(.+)$", content, re.I)
+        if contrast:
+            content = f"not {contrast.group(2)}; {contrast.group(1)}"
+        clauses = [_clean(value) for value in re.split(
+            r"\s*(?:;|\bbut\b|\band\s+(?=(?:no|not|without)\b)|,\s*(?=(?:no|not|without|maybe|perhaps)\b))\s*",
+            content, flags=re.I,
+        )]
+        reported = re.compile(r"\b(?:label|description|listing|package|tag)\s+(?:says|reads|states)\b", re.I)
+        quote = re.compile(r'"[^"\n]*"|“[^”\n]*”|(?<!\w)\x27[^\x27\n]+\x27(?!\w)')
+        explicit_requirement = source in {"hard_constraint", "override"}
+        if not any(NO_PREFERENCE_RE.search(quote.sub("", clause)) or NEGATIVE_CLAUSE_RE.match(clause)
+                   or not explicit_requirement and (UNCERTAIN_RE.match(clause) or reported.search(clause))
+                   for clause in clauses):
+            return False
         for raw in clauses:
             clause = _clean(raw)
             if not clause:
                 continue
-            if UNCERTAIN_RE.search(clause):
+            if not explicit_requirement and (UNCERTAIN_RE.match(clause) or reported.search(clause)):
                 continue
-            if NO_PREFERENCE_RE.search(clause):
+            if NO_PREFERENCE_RE.search(quote.sub("", clause)):
                 attribute = _infer_attribute(clause, self._answer_attribute())
                 owner = component_scope(clause)
                 self._retire(attribute, owner)
@@ -223,8 +238,6 @@ class SessionState:
                 self._apply_values([value], _infer_attribute(value, self._answer_attribute()),
                                    3.8, "exclusion", turn, PreferenceOperation.EXCLUDE)
                 continue
-            if quoted != message and not re.search(r"\b(?:want|need|prefer|require)\b", clause, re.I):
-                continue
             if re.search(r"options are not quite right|ask me about", clause, re.I):
                 continue
             if NO_PREFERENCE_RE.search(message) and not re.search(
@@ -235,7 +248,8 @@ class SessionState:
             self._apply_grouped_values([clause], weight, source, turn, operation)
         return True
 
-    def _retire(self, attribute: str | None, owner: str | None) -> None:
+    def _retire(self, attribute: str | None, owner: str | None,
+                replacement_values: list[str] | None = None) -> None:
         retained: list[Evidence] = []
         for item in self.evidence:
             if item.source == "category":
@@ -250,6 +264,32 @@ class SessionState:
             if inferred != attribute and not (pattern and pattern.search(item.text)):
                 retained.append(item)
                 continue
+            if replacement_values is not None:
+                if attribute in {"feature", "other", None}:
+                    retained.append(item)
+                    continue
+                if pattern:
+                    old_values = {value.lower() for value in pattern.findall(item.text)}
+                    new_values = {value.lower() for value in pattern.findall(" ".join(replacement_values))}
+                    overlap = bool(old_values & new_values)
+                    changed_percentage = False
+                    if attribute == "material":
+                        def percentages(text: str) -> dict[str, float]:
+                            values = {}
+                            for match in pattern.finditer(text):
+                                amount = re.search(r"(\d+(?:\.\d+)?)\s*%\s*$", text[:match.start()])
+                                if amount:
+                                    values[match.group().lower()] = float(amount.group(1))
+                            return values
+                        old_percentages = percentages(item.text)
+                        new_percentages = percentages(" ".join(replacement_values))
+                        changed_percentage = any(old_percentages[value] != new_percentages[value]
+                                                 for value in old_percentages.keys() & new_percentages.keys())
+                    if (item.source == "exclusion" and old_values and new_values and not overlap
+                            or item.source != "exclusion" and overlap and not changed_percentage
+                            and len(alternative_values(item.text)) == 1):
+                        retained.append(item)
+                        continue
             other_facets = [name for name, candidate in FACET_PATTERNS.items()
                             if name != attribute and candidate.search(item.text)]
             if pattern and other_facets:
@@ -296,7 +336,7 @@ class SessionState:
             return
         if operation == PreferenceOperation.REPLACE:
             for owner in {component_scope(value) for value in cleaned}:
-                self._retire(attribute, owner)
+                self._retire(attribute, owner, [value for value in cleaned if component_scope(value) == owner])
         elif operation == PreferenceOperation.EXCLUDE:
             for value in cleaned:
                 retained: list[Evidence] = []
@@ -332,8 +372,8 @@ class SessionState:
         owner = component_scope(value)
         if owner is not None and component_scope(item.text) != owner:
             return False
-        excluded = value.casefold()
-        positive = item.text.casefold()
+        excluded = (component_value(value) if owner else value).casefold()
+        positive = (component_value(item.text) if component_scope(item.text) else item.text).casefold()
         return excluded in positive or positive in excluded
 
     def _answer_attribute(self) -> str | None:

@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from copy import deepcopy
+import math
 from pathlib import Path
 
 from .config import AgentConfig, DEFAULT_AGENT_CONFIG
@@ -28,6 +29,7 @@ class Agent:
         catalog_index_path: str | Path | None = None,
         max_sessions: int = 256,
         share_profile_memory: bool = False,
+        search_factory=CatalogSearch,
     ) -> None:
         if type(max_sessions) is not int or max_sessions < 1:
             raise ValueError("max_sessions must be a positive integer")
@@ -35,7 +37,7 @@ class Agent:
         self.config = config
         self.max_sessions = max_sessions
         self.share_profile_memory = share_profile_memory
-        self.search = CatalogSearch(
+        self.search = search_factory(
             self.catalog_path,
             feature_cache_size=feature_cache_size,
             enable_vector_reranker=config.enable_vector_reranker,
@@ -123,8 +125,8 @@ class Agent:
             return deepcopy(previous[1])
         if turn <= state.last_turn:
             raise ValueError("turn must advance; conflicting or stale retries are not accepted")
-        self._sessions.move_to_end(session_id)
-
+        original_state = state
+        state = deepcopy(original_state)
         state.observe(user_message, turn)
         result = self.search.search_with_context(
             state, limit=max(1, min(int(top_k), 10))
@@ -184,8 +186,6 @@ class Agent:
             and result.candidates[0].get("_category_leaf_match")
             == result.candidates[1].get("_category_leaf_match")
         )
-        if unresolved_siblings:
-            self._ambiguity_deferred.add(session_id)
         ranked = (
             []
             if unresolved_siblings
@@ -203,5 +203,34 @@ class Agent:
                 "completion_tokens": 0,
             },
         }
-        self._responses[session_id] = (request, deepcopy(response))
+        self._validate_response(response, top_k)
+        cached_response = deepcopy(response)
+        # Commit only after search, planning and response validation succeed.
+        # Shared sessions keep the same profile object rather than a detached copy.
+        original_profile = original_state.long_term_profile
+        if original_profile is not None and state.long_term_profile is not None:
+            original_profile.learned.clear()
+            original_profile.learned.update(state.long_term_profile.learned)
+            original_profile._observations.clear()
+            original_profile._observations.update(state.long_term_profile._observations)
+            state.long_term_profile = original_profile
+        original_state.__dict__.update(state.__dict__)
+        self._sessions.move_to_end(session_id)
+        if unresolved_siblings:
+            self._ambiguity_deferred.add(session_id)
+        self._responses[session_id] = (request, cached_response)
         return response
+
+    def _validate_response(self, response: dict, top_k: int) -> None:
+        if not isinstance(response["message"], str) or (
+            response["ask_attribute"] is not None and not isinstance(response["ask_attribute"], str)
+        ):
+            raise ValueError("invalid clarification response")
+        rows = response["recommendations"]
+        identifiers = [row["parent_asin"] for row in rows]
+        if (len(rows) > top_k or len(set(identifiers)) != len(rows)
+                or any(not isinstance(value, str) or value not in self.search._row_id_by_asin for value in identifiers)
+                or any(type(row["score"]) not in {int, float} or not math.isfinite(row["score"]) for row in rows)):
+            raise ValueError("invalid recommendation response")
+        if any(type(value) is not int or value < 0 for value in response["usage"].values()):
+            raise ValueError("invalid response usage")

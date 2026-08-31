@@ -16,6 +16,64 @@ from mercury.lexical.retrieval import CatalogSearch, _hard_constraint_and_expres
 
 
 class ActiveEvidenceTest(unittest.TestCase):
+    def test_absence_word_in_category_does_not_destroy_category(self):
+        state = SessionState({})
+        state.observe("I'm looking for no show socks. I prefer cotton.", 1)
+        self.assertEqual(state.category_text, "no show socks")
+        self.assertTrue(any(item.text == "I prefer cotton" for item in state.evidence))
+
+    def test_explicit_literal_quote_is_a_requirement_not_uncertainty(self):
+        state = SessionState({})
+        message = 'I am looking for shirts. A key requirement is: a graphic reading "maybe later".'
+        state.observe(message, 1)
+        self.assertEqual(state.category_text, "shirts")
+        self.assertTrue(any(item.text == 'a graphic reading "maybe later"' and item.source == "hard_constraint"
+                            for item in state.evidence))
+
+    def test_incidental_hedge_after_conjunction_preserves_explicit_raw_requirement(self):
+        state = SessionState({})
+        phrase = 'Printed text says "ready now", but maybe tomorrow is the next line'
+        state.observe(f"A key requirement is: {phrase}.", 1)
+        self.assertEqual([item.text for item in state.evidence], [phrase])
+
+    def test_mixed_uncertainty_does_not_erase_clear_clause(self):
+        state = SessionState({})
+        state.observe("I want cotton; maybe wool.", 1)
+        self.assertTrue(any("cotton" in item.text for item in state.evidence))
+        self.assertFalse(any("wool" in item.text for item in state.evidence))
+
+    def test_explicit_opening_retraction_occurs_before_exclusion_handling(self):
+        state = SessionState({})
+        state.observe("I'm looking for shirts. I prefer red.", 1)
+        state.observe("Actually, ignore my earlier preference. What I need is: cotton; no leather.", 2)
+        self.assertFalse(any("red" in item.text for item in state.evidence))
+        self.assertTrue(any(item.text == "cotton" for item in state.evidence))
+        self.assertEqual(state.category_text, "shirts")
+
+    def test_compatible_material_retains_precise_composition(self):
+        state = SessionState({})
+        state.observe("For that, what matters is: 80% cotton and 20% polyester.", 1)
+        state.observe("Actually, what I need is: cotton.", 2)
+        self.assertEqual({item.text for item in state.evidence}, {"80% cotton and 20% polyester", "cotton"})
+
+    def test_changed_material_percentage_retires_incompatible_composition(self):
+        state = SessionState({})
+        state.observe("For that, what matters is: 80% Cotton and 20% Polyester.", 1)
+        state.observe("Actually, what I need is: 100% cotton.", 2)
+        self.assertEqual([item.text for item in state.evidence], ["100% cotton"])
+
+    def test_new_generic_feature_does_not_retract_unrelated_features(self):
+        state = SessionState({})
+        state.observe("For that, what matters is: rounded hem; machine washable.", 1)
+        state.observe("Actually, what I need is: side vents.", 2)
+        self.assertEqual({item.text for item in state.evidence}, {"rounded hem", "machine washable", "side vents"})
+
+    def test_replacing_an_explicit_detail_field_retires_only_that_field(self):
+        state = SessionState({})
+        state.observe("For that, what matters is: closure: zipper; care: machine wash.", 1)
+        state.observe("Actually, what I need is: closure: buttons.", 2)
+        self.assertEqual({item.text for item in state.evidence}, {"closure: buttons", "care: machine wash"})
+
     def test_correction_retires_only_named_facet_after_open_question(self):
         state = SessionState({})
         state.record_question("other")
@@ -56,6 +114,20 @@ class ActiveEvidenceTest(unittest.TestCase):
         state.observe("Key requirement is: blue; cotton.", 1)
         state.observe("No preference for color.", 2)
         self.assertEqual([x.text for x in state.evidence], ["cotton"])
+
+    def test_named_facet_inside_no_preference_retracts_only_that_facet(self):
+        state = SessionState({})
+        state.observe("I'm looking for shirts.", 1)
+        state.observe("For that, what matters is: red; cotton; rounded hem.", 2)
+        state.observe("Actually, what I need is: blue.", 3)
+        state.observe("I don't have a color preference.", 4)
+        self.assertEqual({item.text for item in state.evidence}, {"shirts", "cotton", "rounded hem"})
+
+    def test_scoped_exclusion_retires_a_reordered_alternative(self):
+        state = SessionState({})
+        state.observe("For that, what matters is: lining: cotton or silk.", 1)
+        state.observe("No cotton lining.", 2)
+        self.assertEqual([item.text for item in state.evidence if item.source != "exclusion"], ["lining: silk"])
 
     def test_component_correction_and_neutrality_keep_other_owner(self):
         state = SessionState({})
