@@ -53,6 +53,16 @@ class RetrievalTest(unittest.TestCase):
         self.assertEqual(self.index.search_factored(["shoes"], ["waterproof"], 10), ["shoes"])
         self.assertEqual(self.index.search_factored([], [], 10), [])
 
+    def test_phrase_route_preserves_order_and_is_bounded(self):
+        self.assertEqual(set(self.index.search_phrase("blue cotton", 10)), {"shirt", "dress", "copy"})
+        self.assertEqual(self.index.search_phrase("cotton blue", 10), [])
+        self.assertEqual(len(self.index.search_phrase("blue cotton", 1)), 1)
+
+    def test_phrase_route_treats_query_syntax_as_literal_tokens(self):
+        self.assertEqual(self.index.search_phrase('" OR * : ()', 10), [])
+        self.assertEqual(self.index.search_phrase("", 10), [])
+        self.assertEqual(self.index.search_phrase("blue cotton", 0), [])
+
     def test_close_is_idempotent(self):
         self.index.close()
         self.index.close()

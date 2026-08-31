@@ -72,6 +72,22 @@ class SparseIndex:
         ).fetchall()
         return [row[0] for row in rows]
 
+    def search_phrase(self, phrase: str, limit: int) -> list[str]:
+        """Return bounded same-field phrase postings, retaining token order.
+
+        These are stemmed retrieval hits, not proof of a raw literal match.
+        Callers must verify source spans before assigning evidence.
+        """
+        tokens = TOKEN_RE.findall(phrase.lower())
+        if not tokens or limit <= 0:
+            return []
+        expression = '{title categories features details description} : "' + " ".join(tokens) + '"'
+        rows = self.connection.execute(
+            "SELECT parent_asin FROM products WHERE products MATCH ? ORDER BY rowid LIMIT ?",
+            (expression, limit),
+        ).fetchall()
+        return [row[0] for row in rows]
+
     def close(self) -> None:
         connection = getattr(self, "connection", None)
         if connection is not None:
