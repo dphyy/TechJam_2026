@@ -1,7 +1,7 @@
 # Mercury
 
 <p align="center">
-  <img src="assets/mercury-logo.jpeg" alt="Mercury" width="760" />
+  <img src="assets/mercury-logo.jpeg" alt="Mercury" width="220" />
 </p>
 
 <p align="center">
