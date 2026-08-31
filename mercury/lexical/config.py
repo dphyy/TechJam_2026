@@ -129,7 +129,7 @@ class AgentConfig:
             raise ValueError("tentative_on_ambiguity must be boolean")
 
 
-DEFAULT_AGENT_CONFIG = AgentConfig()
+DEFAULT_AGENT_CONFIG = AgentConfig(tentative_on_ambiguity=True)
 FULL_BREADTH_POLICY = RecommendationPolicy(adaptive=False)
 FULL_WIDTH_CONFIG = AgentConfig(
     recommendation_policy=FULL_BREADTH_POLICY,

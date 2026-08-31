@@ -50,6 +50,14 @@ class SubmissionPolicyTest(unittest.TestCase):
         self.assertEqual(response["recommendations"], [])
         self.assertEqual(agent.last_diagnostics["output_width"]["reason"], "ambiguity_deferred")
 
+    def test_selected_default_uses_the_guarded_tentative_policy(self):
+        agent = Agent(self.catalog)
+        self.addCleanup(agent.close)
+        agent.reset("selected", {})
+        result = agent.respond("selected", "I'm looking for shirts.", 1, 10)
+        self.assertEqual(len(result["recommendations"]), 1)
+        self.assertEqual(agent.last_diagnostics["output_width"]["reason"], "tentative_ambiguity")
+
     def test_full_width_remains_the_same_raw_prefix(self):
         control = self.agent(FULL_WIDTH_CONFIG)
         candidate = self.agent(replace(FULL_WIDTH_CONFIG, tentative_on_ambiguity=True))

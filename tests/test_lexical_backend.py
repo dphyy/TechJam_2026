@@ -1026,12 +1026,12 @@ class LexicalBackendBoundaryTest(unittest.TestCase):
         return agent
 
     def test_full_width_control_bypasses_independent_sibling_deferral(self) -> None:
-        default = self.agent()
+        deferring = self.agent(config=AgentConfig())
         control = self.agent(config=FULL_WIDTH_CONFIG)
-        for agent in (default, control):
+        for agent in (deferring, control):
             agent.reset("session", {})
         message = "I'm looking for Shirts, but I'm still exploring."
-        self.assertEqual(default.respond("session", message, 1, 10)["recommendations"], [])
+        self.assertEqual(deferring.respond("session", message, 1, 10)["recommendations"], [])
         for turn in range(1, 11):
             response = control.respond("session", message, turn, 10)
             identifiers = [item["parent_asin"] for item in response["recommendations"]]

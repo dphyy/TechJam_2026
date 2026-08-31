@@ -236,7 +236,7 @@ class PresentationPolicyTest(unittest.TestCase):
         path = Path(self.directory.name) / "identical.jsonl"
         path.write_text("".join(json.dumps({"parent_asin": key, "title": "Shirt", "categories": ["shirts"],
                                            "features": ["cotton"]}) + "\n" for key in ("A", "B")))
-        agent = make_agent(path, "tentative_top1")
+        agent = PresentationAgent(path, PRESETS["tentative_top1"], inner=Agent(path, config=AgentConfig()))
         self.addCleanup(agent.close)
         agent.reset("session", {})
         response = agent.respond("session", "I'm looking for shirts.", 1, 10)
