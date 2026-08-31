@@ -1,3 +1,4 @@
+# Historical research demo. Current public pipeline: python -m demo.submission.
 """Create a portable replay of real responses with separately verified metrics."""
 
 from __future__ import annotations

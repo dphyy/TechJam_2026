@@ -61,7 +61,10 @@ class AdaptiveQuestionPlanner:
         candidates: list[dict],
         turn: int,
     ) -> QuestionPlan:
-        if turn >= 10 or not candidates:
+        if not candidates:
+            return QuestionPlan(None, "I couldn't find matching catalog records. Please revise the category or requirements.",
+                                0.0, 0.0, 0.0)
+        if turn >= 10:
             return self._no_question()
 
         facet_scores = self._score_facets(candidates)
@@ -106,7 +109,9 @@ class AdaptiveQuestionPlanner:
 
         attribute = adjusted[0].attribute
         top_facets = adjusted[:3]
-        if self._needs_open_question(candidates, top_facets, state):
+        if ("other" not in state.no_preference_attributes
+                and state.asked_attributes.count("other") < EARLY_OPEN_QUESTION_LIMIT
+                and self._needs_open_question(candidates, top_facets, state)):
             attribute = "other"
             examples = tuple(facet.attribute.replace("_", " ") for facet in top_facets[:2])
             raw_facet = next(

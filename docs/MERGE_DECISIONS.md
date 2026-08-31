@@ -1,3 +1,5 @@
+> **Historical development record — not current release guidance.** Retained to explain implementation progress and earlier experiment decisions. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Main-to-generalization merge decisions
 
 Recorded 28 August 2026 after merging `main` into `feat/improve-generalization`.

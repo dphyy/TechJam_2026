@@ -1,3 +1,5 @@
+> **Historical experiment protocol — not current release guidance.** Retained to explain the controls, evaluation order and decision gates behind the improvement comparisons. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Cycle 2 experiment registration
 
 Registered 26 August 2026 before new mechanism implementation or evaluation. The historical report, source freeze and measured configuration remain unchanged. All 200 released public examples are now development data; the old 40-session reserve is consumed.

@@ -1,36 +1,26 @@
-# Private-Like Engineering Validation
+# Authored engineering validation
 
-This pack is for judge-visible engineering confidence, not leaderboard tuning or private-test prediction.
-
-It complements the official public simulator with small authored catalog conversations that target known risk areas:
-
-- vague ordinary queries
-- intent correction
-- explicit negation
-- no-preference replies
-- alternatives
-- body/component evidence
-- accessory versus primary object confusion
-- sparse metadata
-- negative feedback after bad recommendations
-
-The fixture lives at `data/private_like_capabilities.json` and reuses the strict capability-result schema from `experiments.cycle2_capabilities`. Each case has an isolated mini catalog, one to three visible user turns, and explicit assertions over rankings, active preferences, unknown evidence, and hard-exclusion behavior.
-
-Run a config with:
+For the current lexical search with guarded paging, run the authored regressions
+and current API/demo checks from the repository root:
 
 ```bash
-.venv/bin/python -m experiments.private_like_validate \
-  --config configs/selected.json \
-  --output runs/private-like-selected
+python -S -m unittest tests.test_lexical_paging tests.test_lexical_state \
+  tests.test_guarded_paging_evaluate tests.test_submission_demo tests.test_submission_evaluate
 ```
 
-A passing case means the configured runtime satisfied the authored assertion under the fixture catalog. It does not prove broad semantic correctness, real-user usefulness, or organizer-private performance. Failed cases should stay visible until a new registered improvement cycle fixes them and compares against current Mercury on both public and private-like validation.
+The latest recorded verification contains 130 passing checks in that command and
+1,164 passing tests in the complete research environment. See
+[verification](PIPELINE_VERIFICATION.md) for source and measurement boundaries.
+These are invented-catalog correctness and integration checks, not organizer-private
+scores or proof of real-shopper usefulness. The current full-catalog demonstration
+is `python -m demo.submission --output output/current-demo`; use a new output path.
 
-Use the comparison harness for official-style target recovery:
+`data/private_like_capabilities.json`, `experiments.private_like_validate`, and
+`experiments.evaluate_suite` belong to the older configurable neural research
+pipeline. They do not validate the public lexical default merely because their
+command accepts `configs/selected.json`. Prior capability results are preserved
+in the [historical comparison records](RESEARCH_INDEX.md). Use their recorded
+source and configuration when reproducing those experiments.
 
-```bash
-.venv/bin/python -m experiments.evaluate_suite \
-  --output runs/evaluation-suite
-```
-
-That report compares the original baseline, sparse Mercury fallback, selected Mercury, and any `--candidate NAME=PATH` configs on the same catalog/dataset.
+Do not treat a passing fixture, a development target score, or the filename
+“private-like” as independent private-test evidence. See [dataset status](DATASET_STATUS.md).

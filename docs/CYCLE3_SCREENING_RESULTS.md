@@ -1,3 +1,5 @@
+> **Historical comparison — not current release guidance.** Retained to show measured improvements, regressions, rejected approaches or the failure that motivated a change. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Cycle 3 screening result: reranker admission
 
 Recorded 27 August 2026. This is a completed fresh-screening comparison under the registration in [CYCLE3_EXPERIMENT_PROTOCOL.md](CYCLE3_EXPERIMENT_PROTOCOL.md). It is not organizer-private performance, a new public-set result, confirmation, or validation evidence.

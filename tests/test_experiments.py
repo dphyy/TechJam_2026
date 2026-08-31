@@ -135,10 +135,11 @@ class ExperimentTest(unittest.TestCase):
             summarize_traces([], [{"sample_id": "a", "ground_truth": {"parent_asin": "target"}}],
                              [{"sample_id": "a", "hit": False}])
 
-    def test_source_hashes_include_single_requirements_manifest(self):
+    def test_source_hashes_include_runtime_and_optional_dependency_manifests(self):
         hashes = source_hashes()
         self.assertIn("requirements.txt", hashes)
-        self.assertNotIn("requirements-dev.txt", hashes)
+        self.assertIn("requirements-dev.txt", hashes)
+        self.assertIn("requirements-research.txt", hashes)
         self.assertNotIn("requirements-neural.lock.txt", hashes)
         self.assertIn("experiments/freeze.py", hashes)
 

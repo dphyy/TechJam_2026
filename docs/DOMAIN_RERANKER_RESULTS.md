@@ -1,3 +1,5 @@
+> **Historical comparison — not current release guidance.** Retained to show measured improvements, regressions, rejected approaches or the failure that motivated a change. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Product-domain reranker results
 
 Phase 11 trained one local `ms-marco-MiniLM-L6-v2` candidate with seed

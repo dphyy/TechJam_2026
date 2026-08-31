@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from .memory import LongTermUserProfile
+from .feedback import preference_content
 from .product_features import (
     FACET_PATTERNS, alternative_values, component_scope, component_value, exclusive_facet_values,
 )
@@ -207,6 +208,9 @@ class SessionState:
         raw_message = str(message)
         message = _clean(raw_message)
         self.messages.append(message)
+        message = _clean(preference_content(message))
+        if not message:
+            return
 
         if _unasserted_correction(message):
             self._observe_special_clauses(message, turn, source="clarification",

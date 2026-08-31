@@ -1,3 +1,5 @@
+> **Historical experiment protocol — not current release guidance.** Retained to explain the controls, evaluation order and decision gates behind the improvement comparisons. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Cycle 3C full-pool reranking registration
 
 Registered 27 August 2026 after the completed D60 result. D60 increased public Hit@10 and moved the released score to `0.797064`, but it failed fresh-screen promotion and remains unselected. The existing fresh confirmation and validation packs remain unopened.

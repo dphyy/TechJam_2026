@@ -1,0 +1,2 @@
+# Optional lint tooling. Standard-library runtime tests need no installation.
+ruff==0.9.6

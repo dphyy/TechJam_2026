@@ -185,12 +185,13 @@ class PagingAdapterTest(unittest.TestCase):
         b = {p['parent_asin'] for p in second['recommendations']}
         self.assertFalse(a & b)
 
-    def test_rejection_paraphrase_recorded_as_new_evidence_gets_one_guarded_replay(self):
+    def test_rejection_paraphrase_pages_without_false_preference_evidence(self):
         agent = self.fixture()
         first = self.respond(agent, 1)
         second = self.respond(agent, 2, "Those options aren't right.")
-        self.assertEqual(first['recommendations'], second['recommendations'])
-        self.assertEqual(agent.last_diagnostics['paging']['reset'], 'semantic_change')
+        self.assertNotEqual(first['recommendations'], second['recommendations'])
+        self.assertIsNone(agent.last_diagnostics['paging']['reset'])
+        self.assertFalse(any("aren't" in item.text for item in agent.base.inner._sessions['s'].evidence))
         third = self.respond(agent, 3, "Those options aren't right.")
         self.assertNotEqual(second['recommendations'], third['recommendations'])
 

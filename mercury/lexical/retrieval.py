@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import sqlite3
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -179,6 +180,10 @@ class CatalogSearch:
             self.constraint_index = ConstraintIndex()
             self._row_id_by_asin: dict[str, int] = {}
             self._build_index()
+        self._category_vocabulary = {
+            token for (category,) in self.connection.execute("SELECT DISTINCT categories FROM products")
+            for token in self._category_terms(terms(category))
+        }
         self.vector_index = vector_index
         if self.vector_index is None and enable_vector_reranker:
             self.vector_index = CatalogVectorIndex(self.catalog_path)
@@ -378,6 +383,14 @@ class CatalogSearch:
                 rrf[parent_asin] += route_weight / (60.0 + rank)
                 candidates.setdefault(parent_asin, product)
 
+        # Category is an admission constraint, not a late popularity tiebreak.
+        # Keep unknown taxonomy as an explicit fallback, but never pad a bag
+        # search with known shoes merely because they share material/strap text.
+        category_status = {key: self._category_status(product["_features"], state.category_text,
+                                                       self._category_vocabulary)
+                           for key, product in candidates.items()}
+        candidates = {key: product for key, product in candidates.items() if category_status[key] >= 0}
+
         query = self.feature_store.compile_query(state.evidence, state.user_profile)
         routing = self.intent_router.route(state)
         policy = self.ranking_policies.for_mode(routing.mode)
@@ -519,10 +532,10 @@ class CatalogSearch:
             ranked.append((parent_asin, base_score + contribution))
             vector_stage["contribution_count"] += int(contribution != 0.0)
         vector_stage["confidence_gate"] = vector_confident
-        # Exact hard-constraint coverage defines explicit ranking tiers. The
-        # requested leaf category and a cohesive sequence of disclosed details
-        # then break otherwise ambiguous ties before the calibrated score.
+        # Known-compatible categories precede unknown taxonomy. Within a
+        # category tier, contradictions and exact constraints define ranking.
         ranked.sort(key=lambda item: (
+            -category_status[item[0]],
             int(semantic_violations[item[0]]),
             -int(item[0] in exact_constraint_matches),
             -int(
@@ -542,6 +555,7 @@ class CatalogSearch:
             product = dict(candidates[parent_asin])
             product["_rank_score"] = score
             product["_semantic_violation"] = semantic_violations[parent_asin]
+            product["_category_status"] = category_status[parent_asin]
             exact_count, hard_count = hard_constraint_exactness[parent_asin]
             product["_hard_constraint_exact_count"] = exact_count
             product["_hard_constraint_count"] = hard_count
@@ -702,16 +716,55 @@ class CatalogSearch:
         product: ProductFeatures, requested_category: str
     ) -> bool:
         """Prefer an exact catalog leaf over a deeper category containing it."""
-        generic_taxonomy_tokens = {"clothing", "shoes", "jewelry"}
-        requested = tuple(
-            token for token in terms(requested_category)
-            if token not in generic_taxonomy_tokens
-        )
-        category = tuple(
-            token for token in product.category_tokens
-            if token not in generic_taxonomy_tokens
-        )
+        requested = CatalogSearch._category_terms(terms(requested_category))
+        category = CatalogSearch._category_terms(product.category_tokens)
+        generic = {"clothing", "shoe", "jewelry"} - set(requested)
+        category = tuple(token for token in category if token not in generic)
         return bool(requested) and category[-len(requested):] == requested
+
+    @staticmethod
+    def _category_terms(tokens) -> tuple[str, ...]:
+        tokens = tuple(tokens)
+        # The combined Amazon department is not evidence that every product
+        # is simultaneously clothing, shoes and jewelry. Preserve these words
+        # when they identify a real descendant or the requested category.
+        department_end = 0
+        while department_end < len(tokens) and tokens[department_end] in {"clothing", "shoes", "jewelry"}:
+            department_end += 1
+        if department_end >= 2:
+            tokens = tokens[department_end:]
+        aliases = {"women": "woman", "womens": "woman", "men": "man", "mens": "man",
+                   "jewellery": "jewelry"}
+        return tuple(aliases.get(token, token[:-1] if len(token) > 3 and token.endswith("s")
+                                 and not token.endswith(("ss", "us")) else token)
+                     # ProductFeatures.category_tokens also drops short tokens.
+                     # Normalize both sides identically (T-Shirts, ID Cases,
+                     # No Show Socks), or exact taxonomy can never match itself.
+                     for token in tokens if len(token) > 2)
+
+    @staticmethod
+    def _category_status(product: ProductFeatures, requested_category: str,
+                         vocabulary: set[str] | None = None) -> int:
+        """1 compatible, 0 unknown/unconstrained, -1 incompatible taxonomy."""
+        category_phrase = re.split(r"\b(?:with|for|that|having)\b", requested_category, maxsplit=1, flags=re.I)[0]
+        requested = set(CatalogSearch._category_terms(terms(category_phrase)))
+        if vocabulary is not None:
+            # Free-form modifiers are not taxonomy: "blue waterproof bags"
+            # must not require a literal "blue waterproof" category node.
+            requested &= vocabulary
+        category = set(CatalogSearch._category_terms(product.category_tokens))
+        title = " ".join(product.field_sequences[FIELD_ORDER.index("title")])
+        if (requested & {"bag", "handbag", "purse"}
+                and not requested & {"strap", "handle"}
+                and re.search(r"\b(?:replacement\b.{0,40}\b(?:strap|handle)s?\b|"
+                              r"(?:strap|handle)s?\b.{0,30}\breplacement\b)", title)
+                and not re.search(r"\b(?:bag|handbag|purse)\b.{0,30}\bwith\b", title)):
+            # Accessories are sometimes filed in the parent product's category.
+            # Explicit replacement-part titles must not satisfy a whole-bag request.
+            return -1
+        if not requested or not category:
+            return 0
+        return 1 if requested <= category else -1
 
     @staticmethod
     def _constraint_sequence_match(

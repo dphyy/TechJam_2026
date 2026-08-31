@@ -32,7 +32,8 @@ class Agent(LexicalAgent):
         self._traces: dict[str, dict] = {}
         super().__init__(
             catalog_path, feature_cache_size=feature_cache_size,
-            config=replace(DEFAULT_AGENT_CONFIG, full_width=self.fusion_config.fullwidth),
+            config=replace(DEFAULT_AGENT_CONFIG, full_width=self.fusion_config.fullwidth,
+                           guarded_paging=False),
             catalog_index_path=catalog_index_path,
             search_factory=partial(FusionCatalogSearch,
                                    additional_admission=self.fusion_config.additional_admission),

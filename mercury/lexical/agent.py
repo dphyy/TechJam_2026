@@ -9,6 +9,7 @@ from .config import AgentConfig, DEFAULT_AGENT_CONFIG
 from .dialogue import SessionState
 from .diagnostics import capability_receipt, runtime_identity, turn_receipt
 from .memory import UserProfileStore
+from .paging import ContextItem, PagingState, explicit_override, select_page, semantic_signature
 from .question_planner import AdaptiveQuestionPlanner
 from .ranking import DEFAULT_RANKING_POLICIES, RankingPolicies
 from .retrieval import FEATURE_CACHE_SIZE, CatalogSearch
@@ -16,6 +17,7 @@ from .vector_index import VectorIndex
 
 
 AMBIGUOUS_FIELD_SCORE_THRESHOLD = 2.0
+ASK_ATTRIBUTES = {"category", "material", "color", "size", "style", "brand", "budget", "feature", "use_case", "other"}
 
 
 class Agent:
@@ -55,6 +57,8 @@ class Agent:
         self._responses: dict[str, tuple[tuple[int, str, int], dict]] = {}
         self._diagnostics: dict[str, dict] = {}
         self._sources: dict[str, dict[int, dict]] = {}
+        self._pages: dict[str, PagingState] = {}
+        self._closed = False
         self._last_diagnostics: dict = {}
         self.profile_store = UserProfileStore()
         try:
@@ -84,12 +88,16 @@ class Agent:
         self._last_diagnostics = deepcopy(value)
 
     def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
         self._sessions.clear()
         self._profile_ids.clear()
         self._ambiguity_deferred.clear()
         self._responses.clear()
         self._diagnostics.clear()
         self._sources.clear()
+        self._pages.clear()
         self._last_diagnostics.clear()
         self.profile_store.profiles.clear()
         self.search.close()
@@ -100,12 +108,15 @@ class Agent:
         self._responses.pop(session_id, None)
         self._diagnostics.pop(session_id, None)
         self._sources.pop(session_id, None)
+        self._pages.pop(session_id, None)
         self._last_diagnostics = {}
         profile_id = self._profile_ids.pop(session_id, None)
         if profile_id is not None and profile_id not in self._profile_ids.values():
             self.profile_store.forget(profile_id)
 
     def reset(self, session_id: str, user_profile: dict) -> None:
+        if self._closed:
+            raise RuntimeError("Agent is closed")
         if not isinstance(session_id, str) or not session_id or not isinstance(user_profile, dict):
             raise ValueError("reset requires a nonempty session ID and profile object")
         user_profile = deepcopy(user_profile)
@@ -140,6 +151,8 @@ class Agent:
             self._responses.pop(session_id, None)
             self._diagnostics.pop(session_id, None)
             self._sources.pop(session_id, None)
+            self._pages.pop(session_id, None)
+            self._ambiguity_deferred.discard(session_id)
         self._last_diagnostics = {}
         self.profile_store.forget(profile_id)
 
@@ -163,6 +176,8 @@ class Agent:
 
     def _respond(self, session_id: str, user_message: str, turn: int, top_k: int) -> dict:
         started = time.perf_counter()
+        if self._closed:
+            raise RuntimeError("Agent is closed")
         if not isinstance(session_id, str) or not session_id:
             raise ValueError("respond requires a nonempty session ID")
         if not isinstance(user_message, str) or type(turn) is not int or not 1 <= turn <= 10:
@@ -258,6 +273,21 @@ class Agent:
                      and bool(result.recommendations))
         ranked = (result.recommendations[:1] if tentative else [] if unresolved_siblings
                   else result.recommendations[:recommendation_limit])
+        # Stage paging with the copied dialogue state. Failed turns and retries
+        # must not consume exposure history or advance to a different page.
+        base_ranked = list(ranked)
+        page_state = None
+        paging_receipt = {"enabled": False, "triggered": False, "reason": "disabled"}
+        if self.config.guarded_paging:
+            context = tuple(ContextItem(product["parent_asin"], product["_rank_score"],
+                                        bool(product.get("_semantic_violation")))
+                            for product in result.candidates)
+            selected, page_state, paging_receipt = select_page(
+                context, tuple(key for key, _ in ranked), semantic_signature(state),
+                explicit_override(user_message, state, turn), self._pages.get(session_id), enabled=True,
+            )
+            scores = {item.identifier: item.score for item in context}
+            ranked = [(key, scores[key]) for key in selected]
         response = {
             "message": question_plan.message,
             "ask_attribute": question_plan.attribute,
@@ -283,6 +313,10 @@ class Agent:
             latency_seconds=time.perf_counter() - started, deferred=unresolved_siblings and not tentative,
         )
         diagnostics["state_committed"] = True
+        diagnostics["paging"] = paging_receipt
+        diagnostics["base_recommendations"] = [
+            {"parent_asin": key, "score": round(score, 6)} for key, score in base_ranked
+        ]
         diagnostics["output_width"].update(
             policy_limit=1 if tentative else recommendation_limit,
             reason="tentative_ambiguity" if tentative else "ambiguity_deferred" if unresolved_siblings else
@@ -313,12 +347,15 @@ class Agent:
         self._responses[session_id] = (request, cached_response)
         self._diagnostics[session_id] = cached_diagnostics
         self._sources[session_id] = sources
+        if page_state is not None:
+            self._pages[session_id] = page_state
         self._last_diagnostics = diagnostics
         return response
 
     def _validate_response(self, response: dict, top_k: int) -> None:
         if not isinstance(response["message"], str) or (
-            response["ask_attribute"] is not None and not isinstance(response["ask_attribute"], str)
+            response["ask_attribute"] is not None and (
+                not isinstance(response["ask_attribute"], str) or response["ask_attribute"] not in ASK_ATTRIBUTES)
         ):
             raise ValueError("invalid clarification response")
         rows = response["recommendations"]

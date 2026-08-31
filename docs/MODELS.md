@@ -1,3 +1,5 @@
+> Optional research assets only. The current lexical search with guarded paging loads no model and needs no weights, embeddings, API key, NumPy, or Torch. The model selections below describe historical experiments. See [setup](SETUP.md).
+
 # Optional local models
 
 The sparse agent has no neural dependencies. Neural experiments use these immutable, English-language public models; no remote inference service is used.
@@ -11,4 +13,11 @@ Weights are safetensors only; remote code execution is disabled. Acquisition is 
 
 The query-only BGE retrieval prefix is `Represent this sentence for searching relevant passages: `. Product text is not prefixed. Reranking uses raw logits, not calibrated probabilities. Both models were developed outside this shopping task; measure their actual value and limitations rather than assuming a newer model is better.
 
-Pinned library versions are consolidated in `requirements.txt`. It was installed and checked in a fresh CPython 3.12.12 macOS arm64 environment. Both models completed real inference with OS-level network access denied and provider credentials removed. Source APIs: [SentenceTransformer v5.1.2](https://github.com/huggingface/sentence-transformers/blob/v5.1.2/sentence_transformers/SentenceTransformer.py), [CrossEncoder v5.1.2](https://github.com/huggingface/sentence-transformers/blob/v5.1.2/sentence_transformers/cross_encoder/CrossEncoder.py), and [offline mode](https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhuboffline).
+Optional neural/research dependencies are pinned in
+[requirements-research.txt](../requirements-research.txt). The public runtime's
+[requirements.txt](../requirements.txt) has no third-party requirements; optional
+lint tooling is in [requirements-dev.txt](../requirements-dev.txt). Current public
+verification uses Python 3.13.5 and does not load either model. Legacy model runs
+need their recorded source, assets and environment; historical inference checks
+are not evidence that a newly installed environment has been validated. See
+[setup](SETUP.md) and [research comparisons](RESEARCH_INDEX.md).

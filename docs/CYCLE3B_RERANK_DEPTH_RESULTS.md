@@ -1,3 +1,5 @@
+> **Historical comparison — not current release guidance.** Retained to show measured improvements, regressions, rejected approaches or the failure that motivated a change. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Cycle 3B reranker-depth result
 
 Recorded 27 August 2026 under [the registered depth protocol](CYCLE3B_RERANK_DEPTH_PROTOCOL.md). D60 changes only `rerank_limit`, from 30 to 60. It is not selected: it missed the fresh-screening promotion gate, so the confirmation and validation splits remain unopened.

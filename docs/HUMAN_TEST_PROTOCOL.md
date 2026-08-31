@@ -1,28 +1,40 @@
-# Small shopper test: proposed, not yet run
+# Proposed shopper study — not yet run
 
-The current evidence comes from the organizer's simulator and authored synthetic cases. Neither establishes real shopper usefulness. This is a small follow-up study the team can run after obtaining participants' agreement; no participants have been recruited or contacted as part of this work.
+This is future work for the current lexical pipeline, not a completed experiment
+or a claimed result. No participants have been contacted by this documentation
+update. Obtain informed agreement before recruiting or recording anyone.
 
-## Question
+## Question and controls
 
-Does preserving explicit alternatives help a shopper recover from a changed requirement without rejecting an acceptable product or losing an unrelated requirement?
+Does guarded paging help shoppers find an acceptable product without losing
+relevance or mishandling changed requirements?
 
-## Before testing
+Freeze the public `agent.Agent` with `DEFAULT_AGENT_CONFIG` and a matched control
+with `dataclasses.replace(DEFAULT_AGENT_CONFIG, guarded_paging=False)`. Keep the
+same source, catalog, parser, ranking, question policy and output-width policy.
+No neural model is needed. Record configuration/source hashes before any session.
 
-1. Recruit five consenting testers. Do not collect names, purchase histories, account credentials or sensitive personal details; use random tester IDs.
-2. Each tester writes four shopping tasks before seeing any system output: an ordinary request, an explicit choice between acceptable materials/features, a later correction, and a request involving missing catalog information. Let testers use their own wording. Do not give them the developer demonstration phrases.
-3. For each task, record what the tester considers necessary, acceptable alternatives and what would count as success. An unknown catalog fact must not be labeled confirmed. Freeze these criteria before running either system.
-4. Freeze the release candidate and parser-only control. Use the same catalog, model and budgets. Label systems A/B without revealing the mechanism; alternate which is shown first. Preserve all tasks, including ones neither system solves.
+## Proposed method
 
-## Run and record
+Recruit five consenting testers. Each writes four tasks before seeing outputs:
+an ordinary request, acceptable alternatives, a correction, and a request with
+missing catalog information. Record necessary requirements and success criteria
+in their own words. Use random tester IDs; do not collect sensitive details,
+account credentials or purchase histories.
 
-Run both systems on each authored task using isolated sessions. Present actual product titles, IDs, catalog evidence and follow-up questions; do not replace outputs with curated results. Keep the test to ten turns. Allow the tester to correct the intent in their own words, and record the exact visible messages with consent.
+Alternate blinded A/B presentation order and use isolated sessions. Show actual
+product IDs, titles, evidence and questions. Let people accept, reject or revise
+freely; do not curate away failures or require them to purchase anything. Keep
+sessions to ten turns and record exact messages only with consent.
 
-Record task ID, blinded system, shown-first order, accepted-result yes/no, turn of first acceptance, lost unrelated requirement yes/no, contradicted accepted alternative yes/no, unsupported factual claim yes/no, and the tester's short reason. Have a second team member check any catalog-evidence disagreement without seeing which system produced it.
+Record acceptance, turn of first acceptance, repeated products, lost requirements,
+contradictions, unsupported claims, errors, and a short satisfaction rating/reason.
+Describe differences in follow-up histories as part of the end-to-end comparison.
 
-Do not ask testers to purchase anything or equate stated acceptance with a sale. Do not silently exclude a difficult task, an unsupported construction, a fallback or an error.
+## Interpretation
 
-## Report honestly
-
-Report all five testers and twenty paired tasks, including failures and order effects. Task-level examples are useful, but repeated tasks from one person are not twenty independent people. Treat these results as formative evidence, not a population-level conversion claim. If conversational follow-ups differ, describe the comparison as end-to-end task performance rather than a fixed-query ranking experiment.
-
-Publish only anonymized aggregates and separately consented quotations. Keep raw transcripts local, agree on a retention period with participants, and do not include them in a source release by default. Any later code change must be distinguished from the versions tested.
+Report all twenty paired tasks, failures and order effects. Five people doing
+four tasks each are not twenty independent participants. This would be formative
+feedback, not a population estimate or a conversion claim. Publish only anonymized
+aggregates and separately consented quotations; agree on retention and keep raw
+transcripts out of source control. Subsequent code changes need new validation.

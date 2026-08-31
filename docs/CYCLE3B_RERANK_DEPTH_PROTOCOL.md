@@ -1,3 +1,5 @@
+> **Historical experiment protocol — not current release guidance.** Retained to explain the controls, evaluation order and decision gates behind the improvement comparisons. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Cycle 3B reranker-depth registration
 
 Registered 27 August 2026 after the completed Cycle 3 admission, fielded-retrieval, and document-serialization screening results. Those three mechanism families failed their fixed screening gates and remain disabled. Confirmation and validation targets remain unopened.

@@ -83,7 +83,7 @@ def source_hashes() -> dict[str, str]:
     for directory in ("mercury", "experiments", "baselines", "starter", "evaluator", "tests", "demo"):
         paths.extend(sorted(Path(directory).rglob("*.py")))
     paths.extend([Path("agent.py"), Path("docs/evaluation_config.json"), Path("docs/agent_api_contract.json"),
-                  Path("requirements.txt"), Path("requirements-dev.txt"),
+                  Path("requirements.txt"), Path("requirements-dev.txt"), Path("requirements-research.txt"),
                   Path("requirements-neural.txt"), Path("requirements-neural.lock.txt")])
     return {path.as_posix(): file_sha256(path) for path in paths if path.is_file()}
 

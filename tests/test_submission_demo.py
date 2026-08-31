@@ -213,7 +213,7 @@ class SubmissionDemoTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         report = json.loads((output / "evidence.json").read_text())
         self.assertEqual(report["schema"], SCHEMA)
-        self.assertEqual(len(report["turns"]), 3)
+        self.assertEqual(len(report["turns"]), len(MESSAGES))
         self.assertEqual(json.loads(result.stdout)["verified_evaluation_attached"], False)
         before = (output / "evidence.json").read_bytes()
         repeat = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False)

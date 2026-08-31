@@ -5,18 +5,19 @@ import argparse
 import hashlib
 import json
 import math
-import re
 import socket
 import time
 from collections import Counter
 from copy import deepcopy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from unittest.mock import patch
 
 from evaluator.local_evaluator import catalog_index, evaluate, load_jsonl
 from experiments.run import ObservedAgent, peak_rss_bytes, source_hashes
 from experiments.synthesis_evaluate import EVALUATOR_SHA256
+from mercury.lexical.feedback import explicit_slate_rejection, _semantic_value
+from mercury.lexical.paging import ContextItem
 from mercury.lexical.agent import Agent
 from mercury.lexical.config import DEFAULT_AGENT_CONFIG, FULL_WIDTH_CONFIG
 from mercury.lexical.dialogue import PreferenceOperation
@@ -28,28 +29,6 @@ from mercury.model_assets import file_sha256
 POLICIES = ("existing", "tentative_top1", "explicit_rejection", "raw10")
 MAX_CONTEXT = 100
 MAX_REJECTED = 100
-REFERENT = (r"(?:(?:these|those)(?:\s+(?:options|recommendations|products|items|choices|"
-            r"suggestions|results|ones))?|(?:the|your)\s+(?:(?:shown|displayed|suggested)\s+)?"
-            r"(?:options|recommendations|products|items|choices|suggestions|results|list|slate))")
-REJECTION_PATTERNS = (
-    re.compile(r"\b(?:none|neither)\s+of\s+" + REFERENT + r"\b"
-               r"(?=\s*(?:[,.!?;]|$|(?:works?|fits?|appeals?)\b|(?:is|are)\s+(?:right|suitable|what)\b))", re.I),
-    re.compile(r"\b" + REFERENT + r"\s+(?:(?:are|is|do|does)\s+not|aren't|isn't|don't|doesn't)\s+"
-               r"(?:quite\s+)?(?:right|suitable|what\b|fit\b|work\b|match\b|appeal\b)", re.I),
-    re.compile(r"\bi\s+(?:do\s+not|don't|dont)\s+(?:want|like|need)\s+(?:any\s+of\s+)?"
-               + REFERENT + r"\b(?=\s*(?:[,.!?;]|$|anymore\b|at all\b|for me\b))", re.I),
-    re.compile(r"\b(?:reject|skip|discard)\s+(?:all\s+of\s+)?" + REFERENT + r"\b", re.I),
-    re.compile(r"\b" + REFERENT + r"\s+(?:are|is)\s+(?:all\s+)?(?:wrong|unsuitable|unacceptable)\b", re.I),
-)
-QUOTED = re.compile(r'"[^"\n]*"|“[^”\n]*”|(?<!\w)\x27[^\x27\n]+\x27(?!\w)')
-HYPOTHETICAL = re.compile(r"\b(?:if|whether|maybe|perhaps|might)\b|"
-                          r"\b(?:not saying|not rejecting|didn't say|do not mean|don't mean)\b", re.I)
-PREFERENCE_PREFIX = re.compile(
-    r"^(?:(?:for that|actually)[,:]?\s*)?(?:i\s+)?(?:would\s+)?"
-    r"(?:prefer|need|want|require|have a preference for)\s+", re.I,
-)
-
-
 @dataclass(frozen=True)
 class PresentationConfig:
     policy: str = "existing"
@@ -60,26 +39,6 @@ class PresentationConfig:
 
 
 PRESETS = {name: PresentationConfig(name) for name in POLICIES}
-
-
-def explicit_slate_rejection(message: str) -> bool:
-    """Require an actual negative statement about the displayed group."""
-    unquoted = QUOTED.sub("", message[:8000])
-    for clause in re.split(r"[.!?;\n]|\bbut\b", unquoted, flags=re.I):
-        if HYPOTHETICAL.search(clause):
-            continue
-        if REJECTION_PATTERNS[0].search(clause):
-            return True
-        if re.search(r"\b(?:none|neither)\s+of\s+" + REFERENT + r"\b", clause, re.I):
-            continue
-        if any(pattern.search(clause) for pattern in REJECTION_PATTERNS[1:]):
-            return True
-    return False
-
-
-def _semantic_value(text: str) -> tuple[str, ...]:
-    cleaned = PREFERENCE_PREFIX.sub("", text.strip())
-    return tuple(terms(cleaned))
 
 
 def _positive_context(state) -> frozenset[tuple[str | None, tuple[str, ...]]]:
@@ -100,13 +59,6 @@ def _replacement_reason(before_category: tuple[str, ...], before_values: frozens
     if has_replacement and before_values - active:
         return "active_preference_replaced"
     return None
-
-
-@dataclass(frozen=True)
-class ContextItem:
-    identifier: str
-    score: float
-    violation: bool
 
 
 class ContextObserver:
@@ -157,7 +109,7 @@ class PresentationAgent:
         self.config = config
         self.inner = inner if inner is not None else Agent(
             catalog_path, max_sessions=max_sessions,
-            config=FULL_WIDTH_CONFIG if config.policy == "raw10" else DEFAULT_AGENT_CONFIG,
+            config=FULL_WIDTH_CONFIG if config.policy == "raw10" else replace(DEFAULT_AGENT_CONFIG, guarded_paging=False),
         )
         if config.policy == "raw10" and not self.inner.config.full_width:
             raise ValueError("Raw10 requires the underlying full-width control")

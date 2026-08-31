@@ -1,3 +1,5 @@
+> **Historical experiment protocol — not current release guidance.** Retained to explain the controls, evaluation order and decision gates behind the improvement comparisons. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Adaptive shortlist versus adaptive shortlist plus guarded paging
 
 Registered before score measurement. Base: `4895be12aa5f559de2b314445a75fec5cdf32c63`.

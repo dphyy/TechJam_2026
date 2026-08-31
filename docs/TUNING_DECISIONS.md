@@ -1,3 +1,5 @@
+> **Historical development record — not current release guidance.** Retained to explain implementation progress and earlier experiment decisions. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Development-only tuning ledger
 
 The 160-session development split is the only tuning set. Reserved evaluation is limited by the previously registered protocol. All comparisons are exploratory until the source/config freeze and reserved run; no private-test performance is known.

@@ -26,6 +26,8 @@ MESSAGES = (
     "I'm looking for bags. A key requirement is: black; leather; adjustable strap.",
     "Correction: make that blue and canvas, but keep the adjustable strap.",
     "I have no preference for color. No leather, please.",
+    "Those options aren't right.",
+    "None of these work for me.",
 )
 ATTRIBUTES = {None, "category", "material", "color", "size", "style", "brand", "budget", "feature", "use_case", "other"}
 EVIDENCE_FIELDS = ("evidence_id", "attribute", "value", "source_turn", "source_kind", "operation",
@@ -96,6 +98,9 @@ def _diagnostics(raw: object, response: dict, runtime_catalog_digest: str, count
             or returned.get("ids") != shown or returned.get("count") != len(shown)
             or returned.get("sha256") != signature(shown)):
         raise ValueError("Returned-stage receipt does not match the actual response")
+    paging = raw.get("paging", {})
+    if paging.get("enabled") is not True or paging.get("returned_ids") != shown:
+        raise ValueError("Paging receipt does not match the actual public response")
     evidence = raw.get("evidence")
     if not isinstance(evidence, dict) or any(not isinstance(evidence.get(key), list) for key in ("active", "retired")):
         raise ValueError("Active and retired evidence receipts are required")
@@ -119,6 +124,9 @@ def _diagnostics(raw: object, response: dict, runtime_catalog_digest: str, count
         "output_width": _fields(raw.get("output_width", {}),
                                 ("requested", "returned", "full_width", "ambiguity_deferred", "policy_limit", "reason")),
         "question": _fields(raw.get("question", {}), ("attribute", "information_gain", "answerability", "expected_value")),
+        "paging": _fields(paging, ("enabled", "triggered", "reset", "stable_head", "reason", "advances",
+                                   "prior_seen", "new_exposures", "repeated_exposures", "base_ids", "returned_ids",
+                                   "width_preserved", "violation_quota_preserved", "reset_replayed_base")),
         "capabilities": {name: _fields(components[name], CAPABILITY_FLAGS) for name in required},
         "fallbacks": list(raw.get("fallbacks", [])), "ranking_faults": list(capabilities.get("ranking_faults", [])),
         "constraint_checks": [{"parent_asin": row["parent_asin"], "evidence": [
@@ -145,6 +153,7 @@ def _transcript(report: dict) -> str:
                       f"Measured response time: {turn['latency_seconds']:.6f} seconds",
                       "Active evidence: " + json.dumps(diagnostics["evidence"]["active"], ensure_ascii=False),
                       "Capabilities: " + json.dumps(diagnostics["capabilities"], sort_keys=True),
+                      "Paging: " + json.dumps(diagnostics["paging"], sort_keys=True),
                       "Fallbacks: " + json.dumps(diagnostics["fallbacks"])))
     if report["evaluation"] is not None:
         lines.extend(("", "Separate verified aggregate evaluation", report["evaluation"]["scope"],

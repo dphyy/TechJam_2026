@@ -1,3 +1,5 @@
+> **Historical comparison — not current release guidance.** Retained to show measured improvements, regressions, rejected approaches or the failure that motivated a change. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Corrected review prior: results and selection
 
 Recorded 31 August 2026. Decision: promote the mixed two-stage prior in `configs/selected.json`; retain both constraint checks.

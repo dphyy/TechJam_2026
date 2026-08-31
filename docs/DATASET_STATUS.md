@@ -50,6 +50,18 @@ does not replace or relax existing one-shot evaluation guards.
 - `artifacts/review-prior-weight-tuning-v3/reserved.jsonl` has a hash-bound opening
   marker at `runs/review-prior-weight-tuning-v3/reserved-consumed.json`, dated
   31 August. Its preparation manifest's `reserved_status: sealed` is historical.
+- `artifacts/robustness-matrix-v1/screening.jsonl`, `confirmation.jsonl`, and
+  `final.jsonl` all have recorded consumption. Final was opened for the registered
+  frozen control/paging pair on 31 August; evidence is retained in
+  `output/robustness-v1-frozen-evaluation-9908811/exposure-after.json`,
+  `ledger-after.json`, and `final-consumed.json`, and in the pack's
+  `consumption-ledger.json`. The final dataset SHA-256 is
+  `764ea17f20638ea8bdbd3594739f2fbb8e6d8f0f65657ac5f7323150a5d0487d`.
+  The subsequent lexical cleanup did not reopen it. Historical protocols that
+  call this split sealed describe a pre-consumption state, not its current role.
+- `data/public_set.jsonl` remains consumed development data. The newest public
+  measurement is identified by [current-results.json](current-results.json),
+  including the actual source/configuration hashes; a new run is not new holdout evidence.
 
 These are local artifacts and may not exist in another checkout. Missing local
 evidence cannot restore holdout status. These paths and observations are a dated

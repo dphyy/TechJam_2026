@@ -1,3 +1,4 @@
+# Historical research demo. Current public pipeline: python -m demo.submission.
 """Record the preregistered alternatives probes through the ordinary shopping API."""
 
 from __future__ import annotations

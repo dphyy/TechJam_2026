@@ -1,3 +1,5 @@
+> **Historical comparison — not current release guidance.** Retained to show measured improvements, regressions, rejected approaches or the failure that motivated a change. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Cycle 3C full-pool reranking result
 
 Recorded 27 August 2026 under [the registered full-pool protocol](CYCLE3C_FULL_POOL_PROTOCOL.md). D120 changes only `rerank_limit`, from 30 to 120, so the local reranker scores every candidate retained by the selected sparse pipeline.

@@ -1,3 +1,5 @@
+> **Historical comparison — not current release guidance.** Retained to show measured improvements, regressions, rejected approaches or the failure that motivated a change. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Pipeline Evolution Results
 
 This document records the implementation and evaluation of [the pipeline evolution plan](../plan.md). All public-set measurements are development evidence. The public set has already been used for development and is not a fresh holdout or evidence of private-test performance.

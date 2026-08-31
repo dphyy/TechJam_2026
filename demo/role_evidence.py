@@ -1,3 +1,4 @@
+# Historical research demo. Current public pipeline: python -m demo.submission.
 """Record a bounded source-span capability proof through the ordinary Agent API."""
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+> **Historical experiment protocol — not current release guidance.** Retained to explain the controls, evaluation order and decision gates behind the improvement comparisons. All logic, scores, test counts and selection statements below apply only to that experiment's recorded source/configuration. For the newest result use [current results](current-results.json); for current runtime/setup use [README](../README.md). Dataset exposure is governed by [recorded consumption](DATASET_STATUS.md), not old “sealed” wording.
+
 # Bounded alternatives experiment
 
 Registered after the role/scope kill test and the disclosed development characterization, before alternatives implementation or its model comparisons. The prior H1 gate is not relaxed or reused. All previously created validation packs remain locked and unchanged.

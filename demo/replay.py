@@ -1,3 +1,4 @@
+"""Historical research demo; the current public pipeline is demo.submission."""
 from __future__ import annotations
 
 import argparse

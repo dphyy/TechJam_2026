@@ -123,13 +123,17 @@ class AgentConfig:
     recommendation_policy: RecommendationPolicy = RecommendationPolicy()
     full_width: bool = False
     tentative_on_ambiguity: bool = False
+    guarded_paging: bool = False
 
     def __post_init__(self) -> None:
-        if type(self.tentative_on_ambiguity) is not bool:
-            raise ValueError("tentative_on_ambiguity must be boolean")
+        for name in ("enable_vector_reranker", "full_width", "tentative_on_ambiguity", "guarded_paging"):
+            if type(getattr(self, name)) is not bool:
+                raise ValueError(f"{name} must be boolean")
+        if self.full_width and self.guarded_paging:
+            raise ValueError("The full-width retrieval control must not page")
 
 
-DEFAULT_AGENT_CONFIG = AgentConfig(tentative_on_ambiguity=True)
+DEFAULT_AGENT_CONFIG = AgentConfig(tentative_on_ambiguity=True, guarded_paging=True)
 FULL_BREADTH_POLICY = RecommendationPolicy(adaptive=False)
 FULL_WIDTH_CONFIG = AgentConfig(
     recommendation_policy=FULL_BREADTH_POLICY,
