@@ -96,6 +96,11 @@ class ModelIntegrityTest(unittest.TestCase):
         self.manifest["files"]["config.json"] = "a" * 64
         self.assertNotEqual(model_asset_identity(self.manifest), before)
 
+    def test_unpinned_optional_metadata_fails_closed(self):
+        del self.spec["metadata_sha256"]
+        with self.assertRaisesRegex(ValueError, "Missing trusted"):
+            verify_model(self.root, "fixture")
+
 
 class NeuralBackendIdentityTest(unittest.TestCase):
     def test_replacing_loaded_model_forces_new_inference(self):

@@ -102,6 +102,8 @@ def verify_model(path: Path, kind: str) -> dict:
     if observed_metadata != metadata.keys():
         raise ValueError("Model loader metadata differs from manifest")
     expected_metadata = spec.get("metadata_sha256")
-    if expected_metadata is not None and _mapping_digest(metadata) != expected_metadata:
+    if expected_metadata is None:
+        raise ValueError(f"Missing trusted {kind} loader metadata checksum")
+    if _mapping_digest(metadata) != expected_metadata:
         raise ValueError(f"Unexpected {kind} loader metadata checksum")
     return manifest
