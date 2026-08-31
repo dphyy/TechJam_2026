@@ -1,0 +1,1056 @@
+{
+  "schema": "mercury-metamorphic-dialogues-v1",
+  "seed": "authored-synthesis-v1",
+  "authoring": "Invented catalogs and equivalent shopper intentions authored before running this pack; no evaluation labels or outcomes were inspected.",
+  "cases": [
+    {
+      "id": "independent_conjunction_relaxation",
+      "catalog": [
+        {
+          "parent_asin": "A",
+          "title": "Blue cotton shirt with pockets",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "cotton",
+            "pockets"
+          ]
+        },
+        {
+          "parent_asin": "B",
+          "title": "Black wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "wool"
+          ]
+        },
+        {
+          "parent_asin": "C",
+          "title": "Red linen shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "linen"
+          ]
+        },
+        {
+          "parent_asin": "D",
+          "title": "Blue silk shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "silk"
+          ]
+        },
+        {
+          "parent_asin": "E",
+          "title": "Blue canvas travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "canvas",
+            "Lining": "silk"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "F",
+          "title": "Black leather travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "leather",
+            "Lining": "cotton"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "G",
+          "title": "Waterproof hiking boot",
+          "categories": [
+            "Boots"
+          ],
+          "features": [
+            "waterproof",
+            "hiking"
+          ]
+        },
+        {
+          "parent_asin": "H",
+          "title": "Cotton shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "80% cotton"
+          }
+        },
+        {
+          "parent_asin": "I",
+          "title": "Wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "70% wool"
+          }
+        },
+        {
+          "parent_asin": "J",
+          "title": "Simple travel bag",
+          "categories": [
+            "Bags"
+          ]
+        }
+      ],
+      "variants": [
+        [
+          "A blue wool shirt with pockets.",
+          "I need cotton and pockets are not required."
+        ],
+        [
+          "A blue wool shirt with pockets.",
+          "Pockets are not required, but I need cotton."
+        ],
+        [
+          "A blue wool shirt with pockets.",
+          "I need cotton. Pockets are not required."
+        ]
+      ],
+      "properties": [
+        "equivalent_active_state",
+        "equivalent_retrieval_plan",
+        "equivalent_candidate_membership",
+        "legal_output"
+      ]
+    },
+    {
+      "id": "named_relaxation_with_independent_requirement",
+      "catalog": [
+        {
+          "parent_asin": "A",
+          "title": "Blue cotton shirt with pockets",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "cotton",
+            "pockets"
+          ]
+        },
+        {
+          "parent_asin": "B",
+          "title": "Black wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "wool"
+          ]
+        },
+        {
+          "parent_asin": "C",
+          "title": "Red linen shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "linen"
+          ]
+        },
+        {
+          "parent_asin": "D",
+          "title": "Blue silk shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "silk"
+          ]
+        },
+        {
+          "parent_asin": "E",
+          "title": "Blue canvas travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "canvas",
+            "Lining": "silk"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "F",
+          "title": "Black leather travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "leather",
+            "Lining": "cotton"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "G",
+          "title": "Waterproof hiking boot",
+          "categories": [
+            "Boots"
+          ],
+          "features": [
+            "waterproof",
+            "hiking"
+          ]
+        },
+        {
+          "parent_asin": "H",
+          "title": "Cotton shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "80% cotton"
+          }
+        },
+        {
+          "parent_asin": "I",
+          "title": "Wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "70% wool"
+          }
+        },
+        {
+          "parent_asin": "J",
+          "title": "Simple travel bag",
+          "categories": [
+            "Bags"
+          ]
+        }
+      ],
+      "variants": [
+        [
+          "A blue wool shirt.",
+          "Color does not matter, but I need cotton."
+        ],
+        [
+          "A blue wool shirt.",
+          "I need cotton and color does not matter."
+        ],
+        [
+          "A blue wool shirt.",
+          "I need cotton. I no longer have a color preference."
+        ]
+      ],
+      "properties": [
+        "equivalent_active_state",
+        "equivalent_retrieval_plan",
+        "equivalent_candidate_membership",
+        "legal_output"
+      ]
+    },
+    {
+      "id": "comma_correction_with_additive_component",
+      "catalog": [
+        {
+          "parent_asin": "A",
+          "title": "Blue cotton shirt with pockets",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "cotton",
+            "pockets"
+          ]
+        },
+        {
+          "parent_asin": "B",
+          "title": "Black wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "wool"
+          ]
+        },
+        {
+          "parent_asin": "C",
+          "title": "Red linen shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "linen"
+          ]
+        },
+        {
+          "parent_asin": "D",
+          "title": "Blue silk shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "silk"
+          ]
+        },
+        {
+          "parent_asin": "E",
+          "title": "Blue canvas travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "canvas",
+            "Lining": "silk"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "F",
+          "title": "Black leather travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "leather",
+            "Lining": "cotton"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "G",
+          "title": "Waterproof hiking boot",
+          "categories": [
+            "Boots"
+          ],
+          "features": [
+            "waterproof",
+            "hiking"
+          ]
+        },
+        {
+          "parent_asin": "H",
+          "title": "Cotton shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "80% cotton"
+          }
+        },
+        {
+          "parent_asin": "I",
+          "title": "Wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "70% wool"
+          }
+        },
+        {
+          "parent_asin": "J",
+          "title": "Simple travel bag",
+          "categories": [
+            "Bags"
+          ]
+        }
+      ],
+      "variants": [
+        [
+          "A black leather travel bag with an adjustable strap.",
+          "Correction: blue, made of canvas, also cotton lining."
+        ],
+        [
+          "A black leather travel bag with an adjustable strap.",
+          "Actually blue canvas instead, also cotton lining."
+        ]
+      ],
+      "properties": [
+        "equivalent_active_state",
+        "equivalent_retrieval_plan",
+        "equivalent_candidate_membership",
+        "legal_output"
+      ]
+    },
+    {
+      "id": "scoped_negative_paraphrases",
+      "catalog": [
+        {
+          "parent_asin": "A",
+          "title": "Blue cotton shirt with pockets",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "cotton",
+            "pockets"
+          ]
+        },
+        {
+          "parent_asin": "B",
+          "title": "Black wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "wool"
+          ]
+        },
+        {
+          "parent_asin": "C",
+          "title": "Red linen shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "linen"
+          ]
+        },
+        {
+          "parent_asin": "D",
+          "title": "Blue silk shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "silk"
+          ]
+        },
+        {
+          "parent_asin": "E",
+          "title": "Blue canvas travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "canvas",
+            "Lining": "silk"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "F",
+          "title": "Black leather travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "leather",
+            "Lining": "cotton"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "G",
+          "title": "Waterproof hiking boot",
+          "categories": [
+            "Boots"
+          ],
+          "features": [
+            "waterproof",
+            "hiking"
+          ]
+        },
+        {
+          "parent_asin": "H",
+          "title": "Cotton shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "80% cotton"
+          }
+        },
+        {
+          "parent_asin": "I",
+          "title": "Wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "70% wool"
+          }
+        },
+        {
+          "parent_asin": "J",
+          "title": "Simple travel bag",
+          "categories": [
+            "Bags"
+          ]
+        }
+      ],
+      "variants": [
+        [
+          "A travel bag, without cotton in the lining."
+        ],
+        [
+          "A travel bag; no cotton lining."
+        ],
+        [
+          "A travel bag, avoid cotton for the lining."
+        ]
+      ],
+      "properties": [
+        "equivalent_active_state",
+        "equivalent_retrieval_plan",
+        "equivalent_candidate_membership",
+        "legal_output"
+      ]
+    },
+    {
+      "id": "quantity_owner_replacement",
+      "catalog": [
+        {
+          "parent_asin": "A",
+          "title": "Blue cotton shirt with pockets",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "cotton",
+            "pockets"
+          ]
+        },
+        {
+          "parent_asin": "B",
+          "title": "Black wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "wool"
+          ]
+        },
+        {
+          "parent_asin": "C",
+          "title": "Red linen shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "linen"
+          ]
+        },
+        {
+          "parent_asin": "D",
+          "title": "Blue silk shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "silk"
+          ]
+        },
+        {
+          "parent_asin": "E",
+          "title": "Blue canvas travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "canvas",
+            "Lining": "silk"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "F",
+          "title": "Black leather travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "leather",
+            "Lining": "cotton"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "G",
+          "title": "Waterproof hiking boot",
+          "categories": [
+            "Boots"
+          ],
+          "features": [
+            "waterproof",
+            "hiking"
+          ]
+        },
+        {
+          "parent_asin": "H",
+          "title": "Cotton shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "80% cotton"
+          }
+        },
+        {
+          "parent_asin": "I",
+          "title": "Wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "70% wool"
+          }
+        },
+        {
+          "parent_asin": "J",
+          "title": "Simple travel bag",
+          "categories": [
+            "Bags"
+          ]
+        }
+      ],
+      "variants": [
+        [
+          "A shirt made from 80% cotton.",
+          "Actually 70% wool instead."
+        ],
+        [
+          "A shirt made from 80% cotton.",
+          "Correction: made from 70% wool."
+        ]
+      ],
+      "properties": [
+        "equivalent_active_state",
+        "equivalent_retrieval_plan",
+        "equivalent_candidate_membership",
+        "legal_output"
+      ]
+    },
+    {
+      "id": "alternative_group_replacement_order",
+      "catalog": [
+        {
+          "parent_asin": "A",
+          "title": "Blue cotton shirt with pockets",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "cotton",
+            "pockets"
+          ]
+        },
+        {
+          "parent_asin": "B",
+          "title": "Black wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "wool"
+          ]
+        },
+        {
+          "parent_asin": "C",
+          "title": "Red linen shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "linen"
+          ]
+        },
+        {
+          "parent_asin": "D",
+          "title": "Blue silk shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "silk"
+          ]
+        },
+        {
+          "parent_asin": "E",
+          "title": "Blue canvas travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "canvas",
+            "Lining": "silk"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "F",
+          "title": "Black leather travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "leather",
+            "Lining": "cotton"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "G",
+          "title": "Waterproof hiking boot",
+          "categories": [
+            "Boots"
+          ],
+          "features": [
+            "waterproof",
+            "hiking"
+          ]
+        },
+        {
+          "parent_asin": "H",
+          "title": "Cotton shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "80% cotton"
+          }
+        },
+        {
+          "parent_asin": "I",
+          "title": "Wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "70% wool"
+          }
+        },
+        {
+          "parent_asin": "J",
+          "title": "Simple travel bag",
+          "categories": [
+            "Bags"
+          ]
+        }
+      ],
+      "variants": [
+        [
+          "A cotton or linen shirt.",
+          "Actually wool or silk instead."
+        ],
+        [
+          "A linen or cotton shirt.",
+          "Actually silk or wool instead."
+        ]
+      ],
+      "properties": [
+        "equivalent_active_state",
+        "equivalent_retrieval_plan",
+        "equivalent_candidate_membership",
+        "legal_output"
+      ]
+    },
+    {
+      "id": "uncertainty_with_independent_requirement",
+      "catalog": [
+        {
+          "parent_asin": "A",
+          "title": "Blue cotton shirt with pockets",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "cotton",
+            "pockets"
+          ]
+        },
+        {
+          "parent_asin": "B",
+          "title": "Black wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "wool"
+          ]
+        },
+        {
+          "parent_asin": "C",
+          "title": "Red linen shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "linen"
+          ]
+        },
+        {
+          "parent_asin": "D",
+          "title": "Blue silk shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "silk"
+          ]
+        },
+        {
+          "parent_asin": "E",
+          "title": "Blue canvas travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "canvas",
+            "Lining": "silk"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "F",
+          "title": "Black leather travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "leather",
+            "Lining": "cotton"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "G",
+          "title": "Waterproof hiking boot",
+          "categories": [
+            "Boots"
+          ],
+          "features": [
+            "waterproof",
+            "hiking"
+          ]
+        },
+        {
+          "parent_asin": "H",
+          "title": "Cotton shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "80% cotton"
+          }
+        },
+        {
+          "parent_asin": "I",
+          "title": "Wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "70% wool"
+          }
+        },
+        {
+          "parent_asin": "J",
+          "title": "Simple travel bag",
+          "categories": [
+            "Bags"
+          ]
+        }
+      ],
+      "variants": [
+        [
+          "I don't know the color, but I need waterproof hiking boots."
+        ],
+        [
+          "I need waterproof hiking boots. I don't know the color."
+        ]
+      ],
+      "properties": [
+        "equivalent_active_state",
+        "equivalent_retrieval_plan",
+        "equivalent_candidate_membership",
+        "legal_output"
+      ]
+    },
+    {
+      "id": "repeated_corrections_preserve_unrelated_state",
+      "catalog": [
+        {
+          "parent_asin": "A",
+          "title": "Blue cotton shirt with pockets",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "cotton",
+            "pockets"
+          ]
+        },
+        {
+          "parent_asin": "B",
+          "title": "Black wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "wool"
+          ]
+        },
+        {
+          "parent_asin": "C",
+          "title": "Red linen shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "linen"
+          ]
+        },
+        {
+          "parent_asin": "D",
+          "title": "Blue silk shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "features": [
+            "silk"
+          ]
+        },
+        {
+          "parent_asin": "E",
+          "title": "Blue canvas travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "canvas",
+            "Lining": "silk"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "F",
+          "title": "Black leather travel bag with adjustable strap",
+          "categories": [
+            "Bags"
+          ],
+          "details": {
+            "Body": "leather",
+            "Lining": "cotton"
+          },
+          "features": [
+            "adjustable",
+            "travel"
+          ]
+        },
+        {
+          "parent_asin": "G",
+          "title": "Waterproof hiking boot",
+          "categories": [
+            "Boots"
+          ],
+          "features": [
+            "waterproof",
+            "hiking"
+          ]
+        },
+        {
+          "parent_asin": "H",
+          "title": "Cotton shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "80% cotton"
+          }
+        },
+        {
+          "parent_asin": "I",
+          "title": "Wool shirt",
+          "categories": [
+            "Shirts"
+          ],
+          "details": {
+            "Composition": "70% wool"
+          }
+        },
+        {
+          "parent_asin": "J",
+          "title": "Simple travel bag",
+          "categories": [
+            "Bags"
+          ]
+        }
+      ],
+      "variants": [
+        [
+          "A black leather travel bag with an adjustable strap.",
+          "Actually blue canvas instead.",
+          "Correction: red, made of leather."
+        ],
+        [
+          "A black leather travel bag with an adjustable strap.",
+          "Correction: blue, made of canvas.",
+          "Actually red leather instead."
+        ]
+      ],
+      "properties": [
+        "equivalent_active_state",
+        "equivalent_retrieval_plan",
+        "equivalent_candidate_membership",
+        "legal_output"
+      ]
+    }
+  ]
+}
