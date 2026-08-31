@@ -148,7 +148,7 @@ _NO_PREFERENCE = re.compile(
 _CANONICAL_NO_PREFERENCE = re.compile(
     r"\b(?:no longer (?:have|want) (?:a |any )?(?:particular |strong |specific )?"
     r"(?:(?:material|fabric|color|colour|size|style|brand|feature|category) )?preference|"
-    r"(?:(?:material|fabric|color|colour|size|style|brand|feature|category) )?"
+    r"(?:material|fabric|color|colour|size|style|brand|feature|category) "
     r"(?:is|are) no longer (?:important|required|needed|a preference))\b"
 )
 _NO_NEW_INFORMATION = re.compile(
@@ -272,6 +272,52 @@ def _normalize(text: str) -> str:
 
 def _mentioned_attributes(text: str) -> set[str]:
     return {attribute for attribute, pattern in _ATTRIBUTE_WORDS.items() if re.search(r"\b(?:" + pattern + r")\b", text)}
+
+
+def _scoped_conjuncts(clause: str, *, parse_alternatives: bool) -> list[str]:
+    """Separate independent neutral predicates, retaining shared noun lists."""
+    if not parse_alternatives and _NO_PREFERENCE.search(clause) and re.search(r"\bor\b", clause):
+        return [clause]
+
+    def neutral_predicate(text: str) -> bool:
+        return bool(_NO_PREFERENCE.search(text) or _CANONICAL_NO_PREFERENCE.search(text)
+                    or _NO_NEW_INFORMATION.search(text) or _UNPRODUCTIVE.search(text)
+                    or _SUFFIX_RELAXATION.search(text))
+
+    def predicate(text: str) -> bool:
+        return neutral_predicate(text) or bool(re.search(
+            r"\b(?:is|are|isn't|aren't|must|need|needs|want|wants|prefer|have|has|care)\b", text,
+        )) or bool(re.match(r"\s*(?:no|without|avoid|excluding|neither)\b", text))
+
+    result: list[str] = []
+    while True:
+        boundaries = list(re.finditer(r"\b(?:and|while|whereas)\b", clause))
+        for index, match in enumerate(boundaries):
+            left = clause[:match.start()]
+            right_end = boundaries[index + 1].start() if index + 1 < len(boundaries) else len(clause)
+            right = clause[match.end():right_end]
+            if not predicate(right):
+                # "Need cotton and linen" still extends the requested list.
+                # After "cotton is essential", a following noun list instead
+                # belongs to its own shared predicate: "pockets and a hood
+                # are not needed". Stop at that next predicate, not a later one.
+                complete_left = neutral_predicate(left) or re.search(r"\b(?:is|are|isn't|aren't)\b", left)
+                if not complete_left:
+                    continue
+                for following in range(index + 1, len(boundaries)):
+                    right_end = (boundaries[following + 1].start()
+                                 if following + 1 < len(boundaries) else len(clause))
+                    right = clause[match.end():right_end]
+                    if predicate(right):
+                        break
+            if (predicate(left) and predicate(right)
+                    and (neutral_predicate(left) or neutral_predicate(right))):
+                result.append(left)
+                clause = clause[match.end():]
+                break
+        else:
+            result.append(clause)
+            return result
 
 
 def _polarity(clause: str, start: int, end: int) -> int:
@@ -765,6 +811,9 @@ class SessionState:
             r"\band\s+(?=(?:i\s+(?:need|want|prefer|don't|do not)|it\s+(?:must|needs|should)))",
             text,
         )
+        clauses = [part for clause in clauses for part in _scoped_conjuncts(
+            clause, parse_alternatives=self.alternatives_mode != "off",
+        )]
         unproductive = False
         pending_replacement = False
         for clause_index, clause in enumerate(clauses):
