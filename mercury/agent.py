@@ -6,6 +6,7 @@ import logging
 import math
 import time
 from collections import OrderedDict
+from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 
@@ -30,6 +31,7 @@ from mercury.ranking import (contradicts_hard_constraints, rank_candidates, rank
                              rank_soft_prices)
 from mercury.retrieval import SparseIndex, fuse_routes, terms
 from mercury.review_prior import ADJUSTMENT_KEY, rank_review_prior
+from mercury.runtime_identity import RuntimeIdentity, RuntimeSnapshot
 from mercury.state import SessionState
 from mercury.sufficiency import decide_retrieval_sufficiency
 from mercury.types import Candidate, ComputeCascadeDecision, Preference, RetrievalPlan
@@ -117,6 +119,8 @@ class Agent:
         self.sparse = SparseIndex(self.catalog)
         self.sessions: OrderedDict[str, SessionState] = OrderedDict()
         self._cache: dict[str, tuple] = {}
+        self._runtime_identity = RuntimeIdentity()
+        self._retained_runtime_identity: str | None = None
         self._abstentions: dict[str, int] = {}
         self._deferred_turns: dict[str, int] = {}
         self._last_candidates: dict[str, list[Candidate]] = {}
@@ -189,6 +193,86 @@ class Agent:
     def _startup_failure(self, component: str, error: Exception) -> None:
         self.startup_fallbacks[component] = f"{type(error).__name__}: {error}"
         LOGGER.warning("%s unavailable; using sparse fallback (%s)", component, type(error).__name__)
+
+    def _runtime_snapshot(self) -> RuntimeSnapshot:
+        return self._runtime_identity.snapshot(
+            self.config.to_dict(), self.catalog.sha256,
+            {
+                "catalog": (True, self.catalog),
+                "sparse": (True, self.sparse),
+                "dense": (self.config.dense, self.dense),
+                "neural_rerank": (self.config.neural_rerank, self.reranker),
+                "contrast": (self.config.contrast, self.contrast),
+                "admission_model": (
+                    self.config.rerank_admission in {"linear", "linear_v2"}, self.admission_model,
+                ),
+                "catalog_vocabulary": (self.config.catalog_vocabulary, self.catalog_vocabulary),
+            },
+            self.startup_fallbacks,
+        )
+
+    def _valid_cached_ranking(self, entry: object) -> bool:
+        """Reject partial or corrupted cache payloads before they affect a response."""
+        if not isinstance(entry, tuple) or len(entry) != 13:
+            return False
+        (key, candidates, routes, weights, retrieved, tail, prefix, roles,
+         composition, counts, stages, cascade, fallbacks) = entry
+        if (not isinstance(key, tuple) or not isinstance(candidates, list)
+                or not all(isinstance(value, dict) for value in
+                           (routes, weights, roles, composition, counts, stages))
+                or not isinstance(cascade, ComputeCascadeDecision)
+                or not isinstance(fallbacks, tuple)
+                or any(not isinstance(reason, str) for reason in fallbacks)):
+            return False
+        try:
+            _valid_ranking(candidates, candidates)
+            ids = [item.product.parent_asin for item in candidates]
+            if (stages.get("final_ranked") != ids
+                    or any(self.catalog.by_id.get(item.product.parent_asin) is not item.product
+                           or not isinstance(item.route_scores, dict) for item in candidates)):
+                return False
+            for values in (retrieved, tail, prefix, *routes.values(), *stages.values()):
+                if (not isinstance(values, list)
+                        or any(not isinstance(value, str) or value not in self.catalog.by_id
+                               for value in values)):
+                    return False
+            if any(type(weight) not in (int, float) or not math.isfinite(weight)
+                   for weight in weights.values()):
+                return False
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return False
+        return True
+
+    def _sync_retained_rankings(self, runtime: RuntimeSnapshot) -> None:
+        """Deferred slates and progressive work share the full-cache snapshot boundary."""
+        if runtime.identity_valid and self._retained_runtime_identity == runtime.identity:
+            return
+        for retained in (
+            self._last_candidates, self._last_ranked, self._last_returned_slate,
+            self._continuity_signature, self._pages,
+            self._frontier_revision, self._frontier_base, self._frontier_logits,
+            self._page_rerank_revision, self._page_rerank_logits,
+        ):
+            retained.clear()
+        for session_id in self.sessions:
+            self._last_neural_margin[session_id] = None
+        self._retained_runtime_identity = runtime.identity if runtime.identity_valid else None
+
+    def _valid_retained_candidates(self, candidates: object) -> bool:
+        if not isinstance(candidates, list):
+            return False
+        try:
+            _valid_ranking(candidates, candidates)
+            return all(self.catalog.by_id.get(item.product.parent_asin) is item.product
+                       and isinstance(item.route_scores, dict) for item in candidates)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return False
+
+    def _store_ranking(self, session_id: str, entry: tuple, runtime: RuntimeSnapshot) -> None:
+        if runtime.blocking_reasons(entry[-1]) or not self._valid_cached_ranking(entry):
+            self._cache.pop(session_id, None)
+            return
+        self._cache[session_id] = entry
 
     def reset(self, session_id: str, user_profile: dict) -> None:
         if not isinstance(session_id, str) or not session_id or not isinstance(user_profile, dict):
@@ -589,13 +673,16 @@ class Agent:
         vocabulary_expansion_query = (
             state.vocabulary_expansion_query() if self.catalog_vocabulary is not None else ""
         )
+        runtime = self._runtime_snapshot()
+        self._sync_retained_rankings(runtime)
         cache_key = (
             query, source_alias_query, vocabulary_expansion_query, state.revision,
             plan.mode if self.config.routed_retrieval else None,
             turn if self.config.soft_preference_decay else None,
             sufficiency.action,
+            runtime.identity,
         )
-        fallbacks = list(self.startup_fallbacks)
+        fallbacks = list(runtime.startup_unavailable)
         constraint_checks: list[dict] = []
 
         def checked_constraints(pool: list[Candidate], stage: str) -> list[Candidate]:
@@ -619,7 +706,20 @@ class Agent:
                                      self.config.review_prior_post_weight)
 
         cached = self._cache.get(session_id)
-        cache_hit = sufficiency.action != "clarify_first" and cached is not None and cached[0] == cache_key
+        cache_lookup_reason = "cold"
+        if cached is not None:
+            if not self._valid_cached_ranking(cached):
+                self._cache.pop(session_id, None)
+                cached = None
+                cache_lookup_reason = "invalid_entry"
+            else:
+                cache_lookup_reason = "dependencies_changed" if cached[0] != cache_key else "hit"
+        cache_hit = (sufficiency.action != "clarify_first" and runtime.identity_valid
+                     and cached is not None and cached[0] == cache_key)
+        if not runtime.identity_valid:
+            cache_lookup_reason = "invalid_identity"
+        elif sufficiency.action == "clarify_first":
+            cache_lookup_reason = "retrieval_deferred"
         minimal_probe = sufficiency.action == "minimal_probe"
         preferences = state.effective_preferences(
             self.config.soft_decay_turns if self.config.soft_preference_decay else 0,
@@ -633,7 +733,11 @@ class Agent:
         frontier_scored_this_turn: list[str] = []
         frontier_triggered = False
         if sufficiency.action == "clarify_first":
-            candidates = list(self._last_candidates.get(session_id, ()))
+            retained = self._last_candidates.get(session_id, [])
+            if not self._valid_retained_candidates(retained):
+                self._last_candidates.pop(session_id, None)
+                retained = []
+            candidates = list(retained)
             routes, route_weights, retrieved_ids, comparison_tail_ids, rerank_prefix_ids = {}, {}, [], [], []
             role_witnesses, composition_witnesses = {}, {}
             stage_counts = {"retrieved": 0, "clarify_first": 1}
@@ -650,6 +754,7 @@ class Agent:
             stage_counts = dict(stage_counts)
             stage_ids = {name: list(values) for name, values in stage_ids.items()}
             fallbacks = list(cached_fallbacks)
+            self._last_candidates[session_id] = list(candidates)
         else:
             retrieval_started = time.perf_counter()
             if minimal_probe:
@@ -723,7 +828,8 @@ class Agent:
                 if self.config.turn_budget_seconds <= 0
                 else self._affordable_rerank_limit(time.perf_counter() - started)
             )
-            rerank_limit = min(cascade.rerank_limit, affordable)
+            intended_rerank_limit = cascade.rerank_limit
+            rerank_limit = min(intended_rerank_limit, affordable)
             if self.reranker is not None and not minimal_probe and rerank_limit < 1:
                 fallbacks.append("latency_budget")
                 LOGGER.warning("Turn budget exhausted; serving the pre-reranking order")
@@ -732,7 +838,8 @@ class Agent:
                     rerank_query = plan.rerank_context if self.config.structured_rerank else query
                     if (self.config.over_general_cutoff and intent.over_general
                             and len(candidates) > self.config.over_general_candidate_threshold):
-                        rerank_limit = min(rerank_limit, self.config.over_general_rerank_limit)
+                        intended_rerank_limit = min(intended_rerank_limit, self.config.over_general_rerank_limit)
+                        rerank_limit = min(intended_rerank_limit, affordable)
                         stage_counts["over_general_cutoff"] = rerank_limit
                     admission_mode = self.config.rerank_admission
                     admission_started = time.perf_counter()
@@ -747,13 +854,19 @@ class Agent:
                             self.admission_feature_cache,
                         )
                         if (self.config.adaptive_rerank_depth
-                                and rerank_limit > self.config.adaptive_rerank_minimum):
-                            rerank_limit, depth_diagnostics = adaptive_rerank_depth(
+                                and intended_rerank_limit > self.config.adaptive_rerank_minimum):
+                            intended_rerank_limit, depth_diagnostics = adaptive_rerank_depth(
                                 scored_pool,
                                 self.config.adaptive_rerank_minimum,
-                                rerank_limit,
+                                intended_rerank_limit,
                                 self.config.adaptive_admission_gap_threshold,
                             )
+                            rerank_limit = min(intended_rerank_limit, affordable)
+                            if rerank_limit < intended_rerank_limit:
+                                depth_diagnostics = {
+                                    **depth_diagnostics, "intended_depth": intended_rerank_limit,
+                                    "depth": rerank_limit, "budget_reduced": True,
+                                }
                             admission_diagnostics["adaptive_depth"] = depth_diagnostics
                             stage_counts["adaptive_rerank_limit"] = rerank_limit
                         elif self.config.adaptive_rerank_depth:
@@ -767,6 +880,8 @@ class Agent:
                         admitted = select_rerank_prefix(
                             candidates, preferences, rerank_limit, admission_mode, plan,
                         )
+                    if affordable < min(intended_rerank_limit, len(candidates)):
+                        fallbacks.append("latency_budget")
                     component_latency["admission"] = time.perf_counter() - admission_started
                     stage_ids["admission_ranked"] = [
                         item.product.parent_asin
@@ -879,11 +994,11 @@ class Agent:
                 else:
                     self._page_rerank_revision.pop(session_id, None)
                     self._page_rerank_logits.pop(session_id, None)
-            self._cache[session_id] = (
+            self._store_ranking(session_id, (
                 cache_key, candidates, routes, route_weights, retrieved_ids, comparison_tail_ids,
                 rerank_prefix_ids, role_witnesses, composition_witnesses,
                 stage_counts, stage_ids, cascade, tuple(fallbacks),
-            )
+            ), runtime)
             self._last_candidates[session_id] = list(candidates)
 
         frontier_eligible = (
@@ -898,6 +1013,12 @@ class Agent:
         )
         if frontier_eligible:
             base = self._frontier_base.get(session_id, [])
+            if not self._valid_retained_candidates(base):
+                self._frontier_revision.pop(session_id, None)
+                self._frontier_base.pop(session_id, None)
+                self._frontier_logits.pop(session_id, None)
+                fallbacks.append("frontier_rerank")
+                base = []
             logits = dict(self._frontier_logits.get(session_id, {}))
             shown = self._shown_ids.get(session_id, set())
             frontier = [
@@ -919,6 +1040,9 @@ class Agent:
                         )
                     else:
                         new_logits = self.reranker.score(rerank_query, frontier)
+                    expected_frontier = {item.product.parent_asin for item in frontier}
+                    if not isinstance(new_logits, dict) or set(new_logits) != expected_frontier:
+                        raise ValueError("Frontier reranker returned the wrong candidate set")
                     logits.update(new_logits)
                     candidates = fuse_neural_logits(
                         base, logits, self.config.neural_weight,
@@ -966,12 +1090,12 @@ class Agent:
                     self._record_rerank_cost(
                         time.perf_counter() - frontier_started, len(frontier),
                     )
-                    self._cache[session_id] = (
+                    self._store_ranking(session_id, (
                         cache_key, candidates, routes, route_weights, retrieved_ids,
                         comparison_tail_ids, rerank_prefix_ids, role_witnesses,
                         composition_witnesses, stage_counts, stage_ids, cascade,
                         tuple(fallbacks),
-                    )
+                    ), runtime)
                     self._last_candidates[session_id] = list(candidates)
                 except (RuntimeError, ValueError, TypeError, TimeoutError, AttributeError) as error:
                     fallbacks.append("frontier_rerank")
@@ -1119,6 +1243,10 @@ class Agent:
                 page_local_reason = "ineligible"
         stage_ids["control_page"] = list(control_page)
         stage_ids["returned_page"] = list(ranked)
+        cache_blocking_reasons = runtime.blocking_reasons(fallbacks)
+        if cache_blocking_reasons:
+            # Progressive/page-local work may fail after the base ranking was stored.
+            self._cache.pop(session_id, None)
         assembly_started = time.perf_counter()
         neural_scores = _neural_score_summary(candidates)
         if neural_scores["logit_margin"] is not None:
@@ -1156,7 +1284,13 @@ class Agent:
             except (RuntimeError, ValueError, TypeError, AttributeError):
                 pair_receipts = []
         component_latency["response_assembly"] = time.perf_counter() - assembly_started
-        self.last_diagnostics = {
+        self.last_diagnostics = deepcopy({
+            "effective_capabilities": runtime.diagnostics(fallbacks),
+            "ranking_cache": {
+                "lookup": cache_lookup_reason,
+                "stored": session_id in self._cache,
+                "blocking_reasons": list(cache_blocking_reasons),
+            },
             "constraint_checks": constraint_checks,
             "returned_constraint_contradictions": [
                 identifier for identifier in ranked
@@ -1339,7 +1473,7 @@ class Agent:
                          "reason": decision.diagnostics.get("decision", "policy")},
             "component_latency_seconds": component_latency,
             "latency_seconds": time.perf_counter() - started,
-        }
+        })
         return {"message": decision.message, "ask_attribute": decision.ask_attribute,
                 "recommendations": [{"parent_asin": identifier} for identifier in ranked],
                 "usage": {"prompt_tokens": self._tokens() - tokens_before, "completion_tokens": 0}}
@@ -1348,6 +1482,7 @@ class Agent:
         self.sparse.close()
         self.sessions.clear()
         self._cache.clear()
+        self._retained_runtime_identity = None
         self._abstentions.clear()
         self._deferred_turns.clear()
         self._last_candidates.clear()

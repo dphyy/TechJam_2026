@@ -2,6 +2,7 @@ import json
 import socket
 import tempfile
 import unittest
+from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,13 +11,14 @@ from unittest.mock import Mock, patch
 import agent as public_entrypoint
 import starter.agent as starter_entrypoint
 from mercury.agent import Agent
+from mercury.catalog import Catalog
 from mercury.config import Config
 from mercury.contrast import CONTRAST_VERSION
 from mercury.intent import decide_intent
 from mercury.model_assets import MODELS, file_sha256
 from mercury.neural import DOCUMENT_VERSION, fuse_neural_logits
 from mercury.planning import build_retrieval_plan
-from mercury.retrieval import terms
+from mercury.retrieval import SparseIndex, terms
 from mercury.review_prior import rank_review_prior
 from mercury.types import Candidate
 
@@ -310,20 +312,308 @@ class AgentTest(unittest.TestCase):
                 self.assert_legal_response(self.agent.respond("a", "Blue cotton shirt", 1, 10))
                 self.assertIn("contrast", self.agent.last_diagnostics["fallbacks"])
 
-    def test_cached_results_preserve_runtime_fallback_provenance(self):
+    def test_transient_route_failures_recover_before_healthy_cache_reuse(self):
         self.agent.reset("a", {})
-        self.agent.dense = SimpleNamespace(prompt_tokens=0, search=Mock(side_effect=TimeoutError("dense timeout")))
-        self.agent.contrast = SimpleNamespace(rank=Mock(side_effect=RuntimeError("contrast failure")))
-        first = self.agent.respond("a", "Blue cotton shirt", 1, 10)
-        original_fallbacks = list(self.agent.last_diagnostics["fallbacks"])
-        self.assertEqual(set(original_fallbacks), {"dense", "contrast"})
+        self.agent.dense = SimpleNamespace(prompt_tokens=0, search=Mock(
+            side_effect=[TimeoutError("dense timeout"), list(self.agent.catalog.by_id)],
+        ))
+        attempts = 0
+        def contrast(pool, *args):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise RuntimeError("contrast failure")
+            return pool
+        self.agent.contrast = SimpleNamespace(rank=Mock(side_effect=contrast))
+        self.assert_legal_response(self.agent.respond("a", "Blue cotton shirt", 1, 10))
+        self.assertEqual(set(self.agent.last_diagnostics["fallbacks"]), {"dense", "contrast"})
+        self.assertNotIn("a", self.agent._cache)
         second = self.agent.respond("a", "Keep looking.", 2, 10)
         self.assert_legal_response(second)
+        self.assertFalse(self.agent.last_diagnostics["cache_hit"])
+        self.assertEqual(self.agent.last_diagnostics["fallbacks"], [])
+        self.assertEqual(self.agent.dense.search.call_count, 2)
+        self.assertEqual(self.agent.contrast.rank.call_count, 2)
+        third = self.agent.respond("a", "Keep looking.", 3, 10)
         self.assertTrue(self.agent.last_diagnostics["cache_hit"])
-        self.assertEqual(first["recommendations"], second["recommendations"])
-        self.assertEqual(self.agent.last_diagnostics["fallbacks"], original_fallbacks)
-        self.agent.dense.search.assert_called_once()
-        self.agent.contrast.rank.assert_called_once()
+        self.assertEqual(second["recommendations"], third["recommendations"])
+        self.assertEqual(self.agent.dense.search.call_count, 2)
+        self.assertEqual(self.agent.contrast.rank.call_count, 2)
+
+    def test_permanent_missing_assets_reuse_with_truthful_capabilities(self):
+        agent = Agent(self.path, Config(dense=True, neural_rerank=True, contrast=True,
+                                       artifact_dir=self.temp.name))
+        try:
+            agent.reset("missing", {})
+            first = agent.respond("missing", "Blue cotton shirt", 1, 10)
+            second = agent.respond("missing", "Keep looking.", 2, 10)
+            self.assertTrue(agent.last_diagnostics["cache_hit"])
+            self.assertEqual(first["recommendations"], second["recommendations"])
+            receipt = agent.last_diagnostics["effective_capabilities"]
+            self.assertEqual(receipt["ranking_faults"], [])
+            for name in ("dense", "neural_rerank", "contrast"):
+                row = receipt["components"][name]
+                self.assertTrue(row["requested"])
+                self.assertFalse(row["loaded"])
+                self.assertFalse(row["effective"])
+                self.assertEqual(row["reason"], "unavailable")
+            self.assertNotIn(self.temp.name, json.dumps(receipt))
+            self.assertNotIn("Blue cotton shirt", json.dumps(receipt))
+        finally:
+            agent.close()
+
+    def test_constraint_and_product_ranking_faults_retry_unchanged_intent(self):
+        import mercury.agent as implementation
+
+        for function, reason in (("rank_candidates", "ranking"),
+                                 ("rank_constraints", "constraints"),
+                                 ("rank_product_compatibility", "product_guard")):
+            with self.subTest(stage=reason):
+                self.agent.config = replace(self.agent.config, product_guard=True)
+                self.agent.reset("retry", {})
+                original = getattr(implementation, function)
+                calls = 0
+                def fail_once(*args, **kwargs):
+                    nonlocal calls
+                    calls += 1
+                    if calls == 1:
+                        raise RuntimeError("temporary ranking fault")
+                    return original(*args, **kwargs)
+                with patch(f"mercury.agent.{function}", side_effect=fail_once):
+                    self.assert_legal_response(self.agent.respond("retry", "Blue cotton shirt", 1, 10))
+                    self.assertIn(reason, self.agent.last_diagnostics["fallbacks"])
+                    self.assertNotIn("retry", self.agent._cache)
+                    before = calls
+                    recovered = self.agent.respond("retry", "Keep looking.", 2, 10)
+                    self.assertFalse(self.agent.last_diagnostics["cache_hit"])
+                    self.assertGreater(calls, before)
+                    self.assertEqual(self.agent.last_diagnostics["fallbacks"], [])
+                    before = calls
+                    reused = self.agent.respond("retry", "Keep looking.", 3, 10)
+                    self.assertTrue(self.agent.last_diagnostics["cache_hit"])
+                    self.assertEqual(calls, before)
+                    self.assertEqual(recovered["recommendations"], reused["recommendations"])
+
+    def test_neural_fault_and_budget_deferral_retry_before_reuse(self):
+        for reason in ("neural_rerank", "latency_budget"):
+            with self.subTest(reason=reason):
+                self.agent.reset("retry", {})
+                self.agent.config = replace(self.agent.config, turn_budget_seconds=1.0)
+                calls = 0
+                def rank(query, pool, *args):
+                    nonlocal calls
+                    calls += 1
+                    if reason == "neural_rerank" and calls == 1:
+                        raise TimeoutError("temporary inference fault")
+                    return pool
+                ranker = SimpleNamespace(prompt_tokens=0, rank=Mock(side_effect=rank))
+                self.agent.reranker = ranker
+                budgets = [0, 30] if reason == "latency_budget" else [30, 30]
+                with patch.object(self.agent, "_affordable_rerank_limit", side_effect=budgets):
+                    self.assert_legal_response(self.agent.respond("retry", "Blue cotton shirt", 1, 10))
+                    self.assertIn(reason, self.agent.last_diagnostics["fallbacks"])
+                    self.assertNotIn("retry", self.agent._cache)
+                    component = self.agent.last_diagnostics["effective_capabilities"]["components"]["neural_rerank"]
+                    self.assertTrue(component["loaded"])
+                    self.assertFalse(component["effective"])
+                    recovered = self.agent.respond("retry", "Keep looking.", 2, 10)
+                    self.assertFalse(self.agent.last_diagnostics["cache_hit"])
+                    self.assertEqual(self.agent.last_diagnostics["fallbacks"], [])
+                    count = calls
+                    reused = self.agent.respond("retry", "Keep looking.", 3, 10)
+                    self.assertTrue(self.agent.last_diagnostics["cache_hit"])
+                    self.assertEqual(calls, count)
+                    self.assertEqual(recovered["recommendations"], reused["recommendations"])
+
+    def test_partial_time_budget_retries_the_intended_prefix_then_reuses(self):
+        agent = Agent(self.paging_catalog(), Config(turn_budget_seconds=1.0))
+        ranker = SimpleNamespace(prompt_tokens=0, rank=Mock(side_effect=lambda query, pool, *args: pool))
+        agent.reranker = ranker
+        try:
+            agent.reset("partial", {})
+            with patch.object(agent, "_affordable_rerank_limit", side_effect=[1, 30]):
+                agent.respond("partial", "blue cotton shirt", 1, 10)
+                self.assertEqual(len(agent.last_diagnostics["rerank_prefix_ids"]), 1)
+                self.assertEqual(agent.last_diagnostics["fallbacks"], ["latency_budget"])
+                self.assertNotIn("partial", agent._cache)
+                recovered = agent.respond("partial", "Keep looking.", 2, 10)
+                self.assertFalse(agent.last_diagnostics["cache_hit"])
+                self.assertEqual(len(agent.last_diagnostics["rerank_prefix_ids"]), 30)
+                self.assertEqual(agent.last_diagnostics["fallbacks"], [])
+                reused = agent.respond("partial", "Keep looking.", 3, 10)
+                self.assertTrue(agent.last_diagnostics["cache_hit"])
+                self.assertEqual(recovered["recommendations"], reused["recommendations"])
+                self.assertEqual(ranker.rank.call_count, 2)
+        finally:
+            agent.close()
+
+    def test_budget_covering_a_tiny_pool_remains_cacheable(self):
+        self.agent.config = replace(self.agent.config, turn_budget_seconds=1.0)
+        self.agent.reranker = SimpleNamespace(prompt_tokens=0, rank=Mock(
+            side_effect=lambda query, pool, *args: pool,
+        ))
+        self.agent.reset("tiny", {})
+        with patch.object(self.agent, "_affordable_rerank_limit", side_effect=[12]):
+            self.agent.respond("tiny", "blue cotton shirt", 1, 10)
+            self.assertEqual(len(self.agent.last_diagnostics["rerank_prefix_ids"]), 12)
+            self.assertEqual(self.agent.last_diagnostics["fallbacks"], [])
+            self.agent.respond("tiny", "Keep looking.", 2, 10)
+            self.assertTrue(self.agent.last_diagnostics["cache_hit"])
+            self.agent.reranker.rank.assert_called_once()
+
+    def test_intentional_adaptive_depth_is_not_a_budget_failure(self):
+        agent = Agent(self.paging_catalog(), Config(
+            neural_rerank=True, rerank_admission="linear_v2", adaptive_rerank_depth=True,
+            turn_budget_seconds=1.0, artifact_dir=self.temp.name,
+        ))
+        agent.admission_model = SimpleNamespace(model_sha256="a" * 64)
+        agent.reranker = SimpleNamespace(prompt_tokens=0, rank=Mock(
+            side_effect=lambda query, pool, *args: pool,
+        ))
+        def scored(pool, *args):
+            return ([Candidate(item.product, item.score, {
+                **item.route_scores, "admission_score": float(len(pool) - index),
+            }) for index, item in enumerate(pool)], {})
+        try:
+            agent.reset("adaptive", {})
+            with patch("mercury.agent.score_all_candidates", side_effect=scored), \
+                    patch.object(agent, "_affordable_rerank_limit", side_effect=[20]):
+                agent.respond("adaptive", "blue cotton shirt", 1, 10)
+                self.assertEqual(agent.last_diagnostics["stage_counts"]["adaptive_rerank_limit"], 20)
+                self.assertEqual(agent.last_diagnostics["admission"]["adaptive_depth"]["reason"],
+                                 "admission_gap_confident")
+                self.assertEqual(agent.last_diagnostics["fallbacks"], [])
+                agent.respond("adaptive", "Keep looking.", 2, 10)
+                self.assertTrue(agent.last_diagnostics["cache_hit"])
+                agent.reranker.rank.assert_called_once()
+        finally:
+            agent.close()
+
+    def test_published_diagnostics_cannot_mutate_cold_or_reused_cache_metadata(self):
+        self.agent.reranker = SimpleNamespace(prompt_tokens=0, rank=lambda query, pool, *args: pool)
+        def evidence(pool, *args):
+            return pool, {"0": [{"roles": ["candidate"], "score": 1.0}]}
+        keys = ("routes", "route_weights", "stage_counts", "stage_ids", "role_evidence",
+                "composition_evidence", "retrieved_ids", "rerank_prefix_ids")
+        for mode in ("role", "composition"):
+            with self.subTest(mode=mode), \
+                    patch("mercury.agent.rank_role_evidence", side_effect=evidence), \
+                    patch("mercury.agent.rank_composition_evidence", side_effect=evidence):
+                self.agent.config = replace(self.agent.config, role_evidence=mode == "role",
+                                            composition_evidence=mode == "composition")
+                self.agent.reset("diagnostics", {})
+                first = self.agent.respond("diagnostics", "blue cotton shirt", 1, 10)
+                expected = deepcopy({key: self.agent.last_diagnostics[key] for key in keys})
+                for turn in (2, 3):
+                    diagnostics = self.agent.last_diagnostics
+                    diagnostics["stage_ids"]["neural_scored"][:] = ["1"]
+                    diagnostics["stage_counts"]["retrieved"] = 999
+                    diagnostics["routes"]["sparse"][:] = ["1"]
+                    diagnostics["route_weights"]["sparse"] = 999.0
+                    diagnostics[f"{mode}_evidence"]["0"][0]["roles"].append("mutated")
+                    diagnostics[f"{mode}_evidence"]["0"][0]["score"] = 999.0
+                    diagnostics["retrieved_ids"].clear()
+                    diagnostics["rerank_prefix_ids"].clear()
+                    response = self.agent.respond("diagnostics", "Keep looking.", turn, 10)
+                    self.assertTrue(self.agent.last_diagnostics["cache_hit"])
+                    self.assertEqual(first["recommendations"], response["recommendations"])
+                    self.assertEqual(expected, {key: self.agent.last_diagnostics[key] for key in keys})
+                    self.assertTrue(all(item.product is self.agent.catalog.by_id[item.product.parent_asin]
+                                        for item in self.agent._cache["diagnostics"][1]))
+
+    def test_runtime_replacements_invalidate_full_ranking_cache(self):
+        for change in ("backend", "asset", "config", "catalog"):
+            with self.subTest(change=change):
+                self.agent.reset("identity", {})
+                self.agent.dense = SimpleNamespace(
+                    prompt_tokens=0, asset_identity="a" * 64,
+                    search=Mock(return_value=list(self.agent.catalog.by_id)),
+                )
+                self.agent.respond("identity", "Blue cotton shirt", 1, 10)
+                before = self.agent.last_diagnostics["effective_capabilities"]["identity_sha256"]
+                if change == "backend":
+                    self.agent.dense = SimpleNamespace(
+                        prompt_tokens=0, asset_identity="a" * 64,
+                        search=Mock(return_value=list(self.agent.catalog.by_id)),
+                    )
+                elif change == "asset":
+                    self.agent.dense.asset_identity = "b" * 64
+                elif change == "config":
+                    self.agent.config = replace(self.agent.config, dense_weight=0.2)
+                else:
+                    self.agent.catalog.sha256 = "f" * 64
+                recovered = self.agent.respond("identity", "Keep looking.", 2, 10)
+                self.assertFalse(self.agent.last_diagnostics["cache_hit"])
+                self.assertEqual(self.agent.last_diagnostics["ranking_cache"]["lookup"], "dependencies_changed")
+                self.assertNotEqual(before, self.agent.last_diagnostics["effective_capabilities"]["identity_sha256"])
+                reused = self.agent.respond("identity", "Keep looking.", 3, 10)
+                self.assertTrue(self.agent.last_diagnostics["cache_hit"])
+                self.assertEqual(recovered["recommendations"], reused["recommendations"])
+
+    def test_partial_cache_corruption_recomputes_legal_ranking(self):
+        for corruption in ("truncated", "duplicate", "nonfinite", "stage_ids", "route_ids"):
+            with self.subTest(corruption=corruption):
+                self.agent.reset("corrupt", {})
+                first = self.agent.respond("corrupt", "Blue cotton shirt", 1, 10)
+                entry = list(self.agent._cache["corrupt"])
+                if corruption == "truncated":
+                    entry.pop()
+                elif corruption == "duplicate":
+                    entry[1] = [entry[1][0]] * len(entry[1])
+                elif corruption == "nonfinite":
+                    entry[1] = [Candidate(entry[1][0].product, float("nan")), *entry[1][1:]]
+                elif corruption == "stage_ids":
+                    entry[10] = {**entry[10], "final_ranked": []}
+                else:
+                    entry[2] = {"sparse": ["outside-catalog"]}
+                self.agent._cache["corrupt"] = tuple(entry)
+                second = self.agent.respond("corrupt", "Keep looking.", 2, 10)
+                self.assert_legal_response(second)
+                self.assertFalse(self.agent.last_diagnostics["cache_hit"])
+                self.assertEqual(self.agent.last_diagnostics["ranking_cache"]["lookup"], "invalid_entry")
+                self.assertEqual(first["recommendations"], second["recommendations"])
+
+    def test_malformed_neural_permutation_is_not_cached(self):
+        for malformed in ("missing", "duplicate", "foreign", "nonfinite"):
+            with self.subTest(malformed=malformed):
+                self.agent.reset("permutation", {})
+                calls = 0
+                def rank(query, pool, *args):
+                    nonlocal calls
+                    calls += 1
+                    if calls > 1:
+                        return pool
+                    if malformed == "missing":
+                        return pool[:-1]
+                    if malformed == "duplicate":
+                        return [pool[0], *pool[:-1]]
+                    if malformed == "foreign":
+                        return [Candidate(replace(pool[0].product, parent_asin="foreign"), 1.0), *pool[1:]]
+                    return [Candidate(pool[0].product, float("nan")), *pool[1:]]
+                self.agent.reranker = SimpleNamespace(prompt_tokens=0, rank=rank)
+                self.assert_legal_response(self.agent.respond("permutation", "Blue cotton shirt", 1, 10))
+                self.assertNotIn("permutation", self.agent._cache)
+                self.assertEqual(self.agent.last_diagnostics["fallbacks"], ["neural_rerank"])
+                recovered = self.agent.respond("permutation", "Keep looking.", 2, 10)
+                self.assert_legal_response(recovered)
+                self.assertFalse(self.agent.last_diagnostics["cache_hit"])
+                self.assertEqual(calls, 2)
+                reused = self.agent.respond("permutation", "Keep looking.", 3, 10)
+                self.assertTrue(self.agent.last_diagnostics["cache_hit"])
+                self.assertEqual(calls, 2)
+                self.assertEqual(recovered["recommendations"], reused["recommendations"])
+
+    def test_cache_identity_keeps_session_reset_and_eviction_bounded(self):
+        self.agent.config = replace(self.agent.config, max_sessions=2)
+        for name in ("one", "two", "three"):
+            self.agent.reset(name, {})
+            self.agent.respond(name, "Blue cotton shirt", 1, 10)
+        self.assertEqual(set(self.agent._cache), {"two", "three"})
+        self.agent.reset("two", {})
+        self.assertEqual(set(self.agent._cache), {"three"})
+        self.agent.respond("three", "Keep looking.", 2, 10)
+        self.assertTrue(self.agent.last_diagnostics["cache_hit"])
+        self.assertEqual(len(self.agent._runtime_identity._components), 7)
 
     def material_agent(self, candidate_limit):
         path = Path(self.temp.name) / "materials.jsonl"
@@ -509,6 +799,13 @@ class AgentTest(unittest.TestCase):
             self.assertEqual(ranker.limit, 4)
             self.assertEqual(agent.last_diagnostics["stage_counts"]["over_general_cutoff"], 4)
             self.assertEqual(response["ask_attribute"], "category")
+            agent.config = replace(agent.config, turn_budget_seconds=1.0)
+            agent.reset("broad", {})
+            with patch.object(agent, "_affordable_rerank_limit", side_effect=[4]):
+                agent.respond("broad", "I am exploring gift ideas for a wedding.", 1, 10)
+                self.assertNotIn("latency_budget", agent.last_diagnostics["fallbacks"])
+                agent.respond("broad", "Keep looking.", 2, 10)
+                self.assertTrue(agent.last_diagnostics["cache_hit"])
         finally:
             agent.close()
 
@@ -568,6 +865,92 @@ class AgentTest(unittest.TestCase):
             self.assert_legal_response(final, agent)
             self.assertIsNone(final["ask_attribute"])
             self.assertEqual(agent.last_diagnostics["retrieval_sufficiency"]["action"], "retrieve")
+        finally:
+            agent.close()
+
+    def test_deferred_slate_reuses_only_the_current_runtime_and_catalog(self):
+        config = Config(retrieval_sufficiency_gate=True, insufficient_action="clarify_first")
+        message = "I am exploring gift ideas."
+        for change in ("catalog", "model", "backend", "config"):
+            with self.subTest(change=change):
+                agent = Agent(self.path, config)
+                agent.reranker = SimpleNamespace(
+                    prompt_tokens=0, asset_identity="a" * 64,
+                    rank=lambda query, pool, *args: pool,
+                )
+                try:
+                    agent.reset("deferred", {})
+                    self.assertEqual(agent.respond("deferred", message, 1, 10)["recommendations"], [])
+                    retrieved = agent.respond("deferred", message, 2, 10)
+                    self.assertEqual(len(retrieved["recommendations"]), 10)
+                    self.assertEqual(agent.last_diagnostics["retrieval_sufficiency"]["action"], "retrieve")
+                    prior = list(agent._last_candidates["deferred"])
+                    agent._frontier_base["deferred"] = prior
+                    agent._frontier_revision["deferred"] = agent.sessions["deferred"].revision
+                    agent._frontier_logits["deferred"] = {prior[0].product.parent_asin: 1.0}
+                    agent._page_rerank_revision["deferred"] = agent.sessions["deferred"].revision
+                    agent._page_rerank_logits["deferred"] = {prior[0].product.parent_asin: 1.0}
+                    agent._last_neural_margin["deferred"] = 999.0
+                    if change == "catalog":
+                        replacement = Path(self.temp.name) / "replacement-catalog.jsonl"
+                        replacement.write_text("\n".join(json.dumps({
+                            "parent_asin": f"replacement-{index}", "title": "Green cotton shirt",
+                            "categories": ["Shirts"],
+                        }) for index in range(12)))
+                        old_sparse = agent.sparse
+                        agent.catalog = Catalog(replacement)
+                        agent.sparse = SparseIndex(agent.catalog)
+                        old_sparse.close()
+                    elif change == "model":
+                        agent.reranker.asset_identity = "b" * 64
+                    elif change == "backend":
+                        agent.reranker = SimpleNamespace(
+                            prompt_tokens=0, asset_identity="a" * 64,
+                            rank=lambda query, pool, *args: pool,
+                        )
+                    else:
+                        agent.config = replace(agent.config, dense_weight=0.2)
+                    deferred = agent.respond("deferred", message, 3, 10)
+                    self.assert_legal_response(deferred, agent, count=0)
+                    self.assertEqual(deferred["recommendations"], [])
+                    self.assertEqual(agent.last_diagnostics["retrieval_sufficiency"]["action"], "clarify_first")
+                    self.assertFalse(agent.last_diagnostics["retrieval_sufficiency"]["used_previous_slate"])
+                    for retained in (agent._last_candidates, agent._frontier_base,
+                                     agent._frontier_revision, agent._frontier_logits,
+                                     agent._page_rerank_revision, agent._page_rerank_logits):
+                        self.assertNotIn("deferred", retained)
+                    self.assertIsNone(agent._last_neural_margin["deferred"])
+                    fresh = agent.respond("deferred", message, 4, 10)
+                    self.assert_legal_response(fresh, agent)
+                    self.assertEqual(len(fresh["recommendations"]), 10)
+                    self.assertTrue(all(item.product is agent.catalog.by_id[item.product.parent_asin]
+                                        for item in agent._last_candidates["deferred"]))
+                finally:
+                    agent.close()
+
+    def test_unchanged_deferred_slate_preserves_reuse_and_rejects_foreign_product_objects(self):
+        agent = Agent(self.path, Config(
+            retrieval_sufficiency_gate=True, insufficient_action="clarify_first",
+        ))
+        message = "I am exploring gift ideas."
+        try:
+            agent.reset("deferred", {})
+            agent.respond("deferred", message, 1, 10)
+            retrieved = agent.respond("deferred", message, 2, 10)
+            deferred = agent.respond("deferred", message, 3, 10)
+            self.assertEqual(retrieved["recommendations"], deferred["recommendations"])
+            self.assertTrue(agent.last_diagnostics["retrieval_sufficiency"]["used_previous_slate"])
+            agent.reset("deferred", {})
+            agent.respond("deferred", message, 1, 10)
+            agent.respond("deferred", message, 2, 10)
+            previous = agent._last_candidates["deferred"]
+            agent._last_candidates["deferred"] = [
+                Candidate(replace(item.product), item.score, dict(item.route_scores)) for item in previous
+            ]
+            rejected = agent.respond("deferred", message, 3, 10)
+            self.assertEqual(rejected["recommendations"], [])
+            self.assertFalse(agent.last_diagnostics["retrieval_sufficiency"]["used_previous_slate"])
+            self.assertNotIn("deferred", agent._last_candidates)
         finally:
             agent.close()
 
@@ -1484,6 +1867,82 @@ class AgentTest(unittest.TestCase):
         finally:
             agent.close()
 
+    def test_progressive_frontier_fault_evicts_an_existing_cached_ranking(self):
+        class RecoveringRanker:
+            prompt_tokens = 0
+
+            def __init__(self):
+                self.rank_calls = 0
+
+            def rank(self, query, candidates, limit, weight, *args, **kwargs):
+                self.rank_calls += 1
+                logits = {item.product.parent_asin: float(limit - index)
+                          for index, item in enumerate(candidates[:limit])}
+                return fuse_neural_logits(candidates, logits, weight)
+
+            def score(self, *args, **kwargs):
+                raise TimeoutError("temporary frontier failure")
+
+        agent = Agent(self.paging_catalog(), Config(
+            neural_rerank=True, seen_aware_slate=True,
+            progressive_frontier_rerank=True, neural_weight=.75, artifact_dir=self.temp.name,
+        ))
+        ranker = RecoveringRanker()
+        agent.reranker = ranker
+        try:
+            agent.reset("frontier-fault", {})
+            agent.respond("frontier-fault", "blue cotton shirt", 1, 10)
+            agent.respond("frontier-fault", "blue cotton shirt", 2, 10)
+            self.assertTrue(agent.last_diagnostics["cache_hit"])
+            self.assertIn("frontier_rerank", agent.last_diagnostics["fallbacks"])
+            self.assertNotIn("frontier-fault", agent._cache)
+            agent.respond("frontier-fault", "blue cotton shirt", 3, 10)
+            self.assertFalse(agent.last_diagnostics["cache_hit"])
+            self.assertEqual(ranker.rank_calls, 2)
+            self.assertEqual(agent.last_diagnostics["fallbacks"], [])
+        finally:
+            agent.close()
+
+    def test_incomplete_frontier_scores_preserve_previous_logits_and_evict_cache(self):
+        for malformed in ("empty", "partial", "unexpected"):
+            with self.subTest(malformed=malformed):
+                class IncompleteRanker:
+                    prompt_tokens = 0
+
+                    def rank(self, query, pool, limit, weight, *args, **kwargs):
+                        logits = {item.product.parent_asin: float(limit - index)
+                                  for index, item in enumerate(pool[:limit])}
+                        return fuse_neural_logits(pool, logits, weight)
+
+                    def score(self, query, pool, *args, **kwargs):
+                        if malformed == "empty":
+                            return {}
+                        if malformed == "partial":
+                            return {pool[0].product.parent_asin: 1.0}
+                        return {**{item.product.parent_asin: 1.0 for item in pool}, "unexpected": 1.0}
+
+                agent = Agent(self.paging_catalog(), Config(
+                    neural_rerank=True, seen_aware_slate=True, progressive_frontier_rerank=True,
+                    neural_weight=.75, artifact_dir=self.temp.name,
+                ))
+                agent.reranker = IncompleteRanker()
+                try:
+                    agent.reset("incomplete", {})
+                    agent.respond("incomplete", "blue cotton shirt", 1, 10)
+                    previous = dict(agent._frontier_logits["incomplete"])
+                    response = agent.respond("incomplete", "blue cotton shirt", 2, 10)
+                    self.assert_legal_response(response, agent)
+                    self.assertTrue(agent.last_diagnostics["cache_hit"])
+                    self.assertIn("frontier_rerank", agent.last_diagnostics["fallbacks"])
+                    self.assertNotIn("incomplete", agent._cache)
+                    self.assertEqual(agent._frontier_logits["incomplete"], previous)
+                    frontier = agent.last_diagnostics["frontier_rerank"]
+                    self.assertFalse(frontier["triggered"])
+                    self.assertEqual(frontier["scored_this_turn"], [])
+                    self.assertEqual(frontier["scored_total"], len(previous))
+                finally:
+                    agent.close()
+
     def test_page_local_reranking_preserves_every_control_page_membership(self):
         class ReversingPageRanker:
             prompt_tokens = 0
@@ -1577,6 +2036,10 @@ class AgentTest(unittest.TestCase):
             self.assertFalse(diagnostics["triggered"])
             self.assertTrue(diagnostics["membership_preserved"])
             self.assertIn("frontier_page_rerank", agent.last_diagnostics["fallbacks"])
+            self.assertNotIn("page-failure", agent._cache)
+            agent.respond("page-failure", "blue cotton shirt", 5, 10)
+            self.assertFalse(agent.last_diagnostics["cache_hit"])
+            self.assertEqual(agent.last_diagnostics["fallbacks"], [])
         finally:
             agent.close()
 
@@ -1617,6 +2080,10 @@ class AgentTest(unittest.TestCase):
             self.assertEqual(returned, diagnostics["control_page"])
             self.assertEqual(diagnostics["reason"], "TimeoutError")
             self.assertIn("frontier_page_rerank", agent.last_diagnostics["fallbacks"])
+            self.assertNotIn("page-timeout", agent._cache)
+            agent.respond("page-timeout", "blue cotton shirt", 5, 10)
+            self.assertFalse(agent.last_diagnostics["cache_hit"])
+            self.assertEqual(agent.last_diagnostics["fallbacks"], [])
         finally:
             agent.close()
 
