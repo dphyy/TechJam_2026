@@ -386,7 +386,7 @@ datasets out of source control.
     <td align="center">
       <a href="https://github.com/SaaiAravindhRaja">
         <img src="https://github.com/SaaiAravindhRaja.png" width="80" height="80" alt="Saai Aravindh Raja" /><br />
-        <sub><b>Saai Aravindh Raja</b></sub>
+        <sub><b>Saai</b></sub>
       </a>
     </td>
     <td align="center">
