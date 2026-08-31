@@ -67,6 +67,10 @@ class LongTermUserProfile:
     def snapshot(self) -> dict:
         return {"profile_id": self.profile_id, "preferences": [asdict(record) for record in self.learned.values()]}
 
+    def clear(self) -> None:
+        self.learned.clear()
+        self._observations.clear()
+
 
 @dataclass
 class UserProfileStore:

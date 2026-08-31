@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import math
 import re
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field, replace
+from functools import lru_cache
 from types import MappingProxyType
 from typing import Iterable, Mapping, Protocol
 
@@ -52,6 +54,81 @@ FACET_PATTERNS = {
 }
 FACET_ORDER = tuple(FACET_PATTERNS)
 FIELD_SEPARATOR = "\x1f"
+COMPONENT_RE = re.compile(r"\b(lining|upper|outsole|midsole|insole|sole|shell|sleeves?|pockets?|collar|hood)\b", re.I)
+
+
+@lru_cache(maxsize=4096)
+def component_scope(value: str) -> str | None:
+    matches = list(COMPONENT_RE.finditer(value))
+    owners = {match.group().lower().rstrip("s") for match in matches}
+    if len(owners) != 1:
+        return None
+    match = matches[0]
+    before, after = value[:match.start()].strip(), value[match.end():].strip()
+    explicit_label = after.startswith(":")
+    named_facet = re.search(r"\b(?:material|color|colour)\b", after, re.I)
+    prefix_value = not before and any(pattern.search(after) for name, pattern in FACET_PATTERNS.items() if name in {"material", "color"})
+    suffix_value = any(re.search(pattern.pattern + r"\s*$", before, re.I) for name, pattern in FACET_PATTERNS.items() if name in {"material", "color"})
+    return next(iter(owners)) if explicit_label or named_facet or prefix_value or suffix_value else None
+
+
+def component_value(value: str) -> str:
+    return COMPONENT_RE.sub(" ", value).strip(" :;,-")
+
+
+def affirmed_terms(value: str) -> tuple[str, ...]:
+    """Only explicit positive wording may prove an excluded value is present."""
+    value = re.sub(r"\bnot (?:only|just)\b", "", value, flags=re.I)
+    value = re.sub(r"\b\w+[- ]free\b", "", value, flags=re.I)
+    value = re.sub(r"\b(?:no|not|without|free of|doesn't contain|does not contain)\b[^,;.!?]*", "", value, flags=re.I)
+    return tuple(terms(value))
+
+
+@lru_cache(maxsize=4096)
+def alternative_values(value: str) -> tuple[str, ...]:
+    """Recognize bounded, same-facet alternatives without splitting ordinary phrases."""
+    parts = tuple(re.sub(r"^\s*either\s+", "", part, flags=re.I).strip()
+                  for part in re.split(r"\s+or\s+", value, flags=re.I))
+    if not 2 <= len(parts) <= 4 or any(not part for part in parts):
+        return (value,)
+    if re.search(r"\b(?:not|no|without|maybe)\b|[\"“”]", value, re.I):
+        return (value,)
+    facets = [{name for name, pattern in FACET_PATTERNS.items() if pattern.search(part)}
+              for part in parts]
+    if any(len(names) != 1 for names in facets) or any(names != facets[0] for names in facets):
+        return (value,)
+    owners = {component_scope(part) for part in parts} - {None}
+    if len(owners) > 1:
+        return (value,)
+    owner = next(iter(owners), None)
+    return tuple(f"{owner}: {component_value(part)}" if owner else part for part in parts)
+
+
+def _component_fields(fields: Mapping[str, str]) -> Mapping[str, tuple[str, ...]]:
+    """Keep component values within their own field and clause boundaries."""
+    scoped: dict[str, list[str]] = {}
+    for field_index, name in enumerate(FIELD_ORDER):
+        raw = fields.get(name, "")
+        for clause in re.split(r"[;\n.!?]", raw):
+            matches = list(COMPONENT_RE.finditer(clause))
+            if not matches:
+                continue
+            # Prefix records include flattened structured details: lining cotton upper leather.
+            prefix = not clause[:matches[0].start()].strip(" ,:")
+            for index, match in enumerate(matches):
+                owner = match.group().lower().rstrip("s")
+                if prefix or clause[match.end():].lstrip().startswith(":"):
+                    end = matches[index + 1].start() if index + 1 < len(matches) else len(clause)
+                    value = clause[match.end():end].strip(" ,:")
+                    rendered = f"{match.group()} {value}"
+                else:
+                    start = matches[index - 1].end() if index else 0
+                    value = clause[start:match.start()].strip(" ,:")
+                    rendered = f"{value} {match.group()}"
+                if value:
+                    slots = scoped.setdefault(owner, [""] * len(FIELD_ORDER))
+                    slots[field_index] += " " + rendered
+    return MappingProxyType({owner: tuple(values) for owner, values in scoped.items()})
 
 
 class EvidenceLike(Protocol):
@@ -72,17 +149,21 @@ def _compact(value: object, limit: int = 32) -> str:
 
 
 def _optional_float(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
     try:
         parsed = float(value)
     except (TypeError, ValueError):
         return None
-    return parsed if parsed > 0.0 else None
+    return parsed if math.isfinite(parsed) and parsed > 0.0 else None
 
 
 def _non_negative_int(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
     try:
         return max(0, int(float(value)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return 0
 
 
@@ -98,6 +179,8 @@ class ProductFeatures:
     brand: str
     average_rating: float
     rating_number: int
+    component_fields: Mapping[str, tuple[str, ...]] = dataclass_field(default_factory=dict)
+    affirmed_sequences: tuple[tuple[str, ...], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +203,8 @@ class CompiledEvidence:
     attribute: str | None
     facets: tuple[tuple[str, tuple[str, ...]], ...]
     is_budget: bool
+    scope: str | None = None
+    alternatives: tuple[CompiledEvidence, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,6 +219,35 @@ class CompiledQuery:
     evidence: tuple[CompiledEvidence, ...]
     preference_tokens: tuple[str, ...]
     budgets: tuple[BudgetPreference, ...]
+
+
+def evidence_product(product: ProductFeatures, evidence: CompiledEvidence) -> ProductFeatures:
+    if evidence.scope is None:
+        return product
+    values = product.component_fields.get(evidence.scope, ("",) * len(FIELD_ORDER))
+    sequences = tuple(affirmed_terms(value) for value in values)
+    weights: dict[str, float] = {}
+    for name, sequence in zip(FIELD_ORDER, sequences):
+        for token in sequence:
+            weights[token] = max(weights.get(token, 0.0), FIELD_WEIGHTS[name])
+    return replace(product, token_weights=MappingProxyType(weights),
+                   normalized_text=FIELD_SEPARATOR.join(" ".join(sequence) for sequence in sequences),
+                   field_sequences=sequences,
+                   affirmed_sequences=sequences,
+                   feature_tokens=frozenset(sequences[FIELD_ORDER.index("features")]))
+
+
+def resolve_query(product: ProductFeatures, query: CompiledQuery) -> CompiledQuery:
+    """Count an OR group once, using its strongest available lexical witness."""
+    if not any(item.alternatives for item in query.evidence):
+        return query
+    def support(item: CompiledEvidence) -> tuple[bool, float, float]:
+        view = evidence_product(product, item)
+        return (bool(item.tokens) and item.normalized_query in view.normalized_text,
+                sum(token in view.token_weights for token in item.tokens) / max(1, len(item.tokens)),
+                sum(view.token_weights.get(token, 0.0) for token in item.tokens) / max(1, len(item.tokens)))
+    return replace(query, evidence=tuple(max(item.alternatives, key=support) if item.alternatives else item
+                                         for item in query.evidence))
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,6 +319,8 @@ class ProductFeatureStore:
             brand=_compact(fields.get("store", "")).casefold(),
             average_rating=parsed_rating,
             rating_number=_non_negative_int(rating_number),
+            component_fields=_component_fields(fields),
+            affirmed_sequences=tuple(affirmed_terms(fields.get(name, "")) for name in FIELD_ORDER),
         )
         self._insert(parent_asin, features)
         return features
@@ -296,9 +412,11 @@ class ProductFeatureStore:
         compiled_evidence: list[CompiledEvidence] = []
         budgets: list[BudgetPreference] = []
         for item in evidence:
-            unique_terms = tuple(dict.fromkeys(terms(item.text)))
-            compiled_evidence.append(
-                CompiledEvidence(
+            def compile_value(value: str) -> CompiledEvidence:
+                scope = component_scope(value)
+                scoped_value = component_value(value) if scope and getattr(item, "source", "") == "exclusion" else value
+                unique_terms = tuple(dict.fromkeys(terms(scoped_value)))
+                return CompiledEvidence(
                     tokens=unique_terms,
                     normalized_query=" ".join(unique_terms),
                     weight=item.weight,
@@ -311,19 +429,24 @@ class ProductFeatureStore:
                                 sorted(
                                     {
                                         match.lower()
-                                        for match in pattern.findall(item.text)
+                                        for match in pattern.findall(scoped_value)
                                     }
                                 )
                             ),
                         )
                         for attribute, pattern in FACET_PATTERNS.items()
-                        if pattern.search(item.text)
+                        if pattern.search(scoped_value)
                     ),
                     is_budget=bool(BUDGET_RE.search(item.text)),
+                    scope=scope,
                 )
-            )
+            compiled = compile_value(item.text)
+            alternatives = alternative_values(item.text)
+            if len(alternatives) > 1:
+                compiled = replace(compiled, alternatives=tuple(compile_value(value) for value in alternatives))
+            compiled_evidence.append(compiled)
             match = BUDGET_RE.search(item.text)
-            if match and getattr(item, "source", "") != "exclusion":
+            if match and getattr(item, "source", "") != "exclusion" and math.isfinite(float(match.group("amount"))):
                 budgets.append(
                     BudgetPreference(
                         mode=(match.group("mode") or "around").lower(),

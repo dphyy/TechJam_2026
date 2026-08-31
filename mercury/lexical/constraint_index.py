@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
-from .product_features import BUDGET_RE, FACET_PATTERNS, terms
+from .product_features import BUDGET_RE, FACET_PATTERNS, alternative_values, terms
 from .vector_index import catalog_sha256
 
 
@@ -126,8 +127,8 @@ class ConstraintIndex:
         for value in constraints:
             if BUDGET_RE.search(value):
                 continue
-            key = normalize_constraint(value)
-            matches = self.constraint_to_asins.get(key)
+            matches = set().union(*(self.constraint_to_asins.get(normalize_constraint(branch), set())
+                                    for branch in alternative_values(value)))
             if matches:
                 matched_sets.append(matches)
         if not matched_sets:
@@ -173,9 +174,8 @@ class SQLiteConstraintIndex:
         for value in constraints:
             if BUDGET_RE.search(value):
                 continue
-            matches = self._matches(
-                "constraint_to_asins", normalize_constraint(value)
-            )
+            matches = set().union(*(self._matches("constraint_to_asins", normalize_constraint(branch))
+                                    for branch in alternative_values(value)))
             if matches:
                 matched_sets.append(matches)
         if not matched_sets:
@@ -193,6 +193,45 @@ class SQLiteConstraintIndex:
 def default_catalog_index_path(catalog_path: str | Path) -> Path:
     catalog = Path(catalog_path)
     return catalog.with_name(f"{catalog.stem}_index.sqlite3")
+
+
+def _catalog_text(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, dict):
+        return " ".join(f"{key} {item}" for key, item in value.items())
+    if isinstance(value, list):
+        return " ".join(str(item) for item in value)
+    return str(value)
+
+
+def _validate_catalog_contents(connection: sqlite3.Connection, catalog: Path) -> None:
+    """Verify every persisted field and membership against the actual catalog once.
+
+    The ordered cursors keep Python memory bounded by one product's metadata and
+    memberships; SQLite handles the external membership sort at initialization.
+    """
+    fields = ("parent_asin", "title", "categories", "features", "details", "store",
+              "description", "price", "average_rating", "rating_number")
+    products = iter(connection.execute(f"SELECT {','.join(fields)} FROM products ORDER BY rowid"))
+    entries = iter(connection.execute(
+        "SELECT c.index_name, c.value, c.parent_asin FROM constraint_entries AS c "
+        "JOIN product_rows AS r ON r.parent_asin = c.parent_asin "
+        "ORDER BY r.row_id, c.index_name, c.value, c.parent_asin"
+    ))
+    with catalog.open(encoding="utf-8") as handle:
+        for line in handle:
+            product = json.loads(line)
+            serialized = tuple(_catalog_text(product.get(field)) for field in fields)
+            if next(products, None) != serialized:
+                raise ValueError("catalog index product content mismatch")
+            expected = ConstraintIndex()
+            expected.add_product(product)
+            for entry in sorted(expected.iter_entries()):
+                if next(entries, None) != entry:
+                    raise ValueError("catalog index constraint content mismatch")
+    if next(products, None) is not None or next(entries, None) is not None:
+        raise ValueError("catalog index contains extra data")
 
 
 def open_catalog_index(
@@ -217,8 +256,39 @@ def open_catalog_index(
         ):
             connection.close()
             return None
+        expected_rows = int(metadata.get("catalog_rows", "-1"))
+        required_columns = {
+            "products": {"parent_asin", "title", "categories", "features", "details", "store", "description", "price", "average_rating", "rating_number"},
+            "product_rows": {"parent_asin", "row_id"},
+            "constraint_entries": {"index_name", "value", "parent_asin"},
+        }
+        for table, required in required_columns.items():
+            columns = {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")}
+            if not required.issubset(columns):
+                raise ValueError("incomplete catalog index schema")
+        counts = connection.execute(
+            "SELECT (SELECT COUNT(*) FROM products), "
+            "(SELECT COUNT(DISTINCT parent_asin) FROM products), "
+            "(SELECT COUNT(*) FROM product_rows), "
+            "(SELECT COUNT(DISTINCT row_id) FROM product_rows)"
+        ).fetchone()
+        if expected_rows < 0 or any(count != expected_rows for count in counts):
+            raise ValueError("catalog index count mismatch")
+        if connection.execute(
+            "SELECT 1 FROM product_rows AS r LEFT JOIN products AS p ON p.rowid = r.row_id "
+            "WHERE p.rowid IS NULL OR p.parent_asin != r.parent_asin LIMIT 1"
+        ).fetchone():
+            raise ValueError("catalog index row identity mismatch")
+        placeholders = ",".join("?" for _ in INDEX_NAMES)
+        if connection.execute(
+            "SELECT 1 FROM constraint_entries AS c LEFT JOIN product_rows AS r "
+            "ON r.parent_asin = c.parent_asin WHERE r.parent_asin IS NULL "
+            f"OR c.index_name NOT IN ({placeholders}) OR c.value = '' LIMIT 1", INDEX_NAMES,
+        ).fetchone():
+            raise ValueError("invalid catalog constraint membership")
+        _validate_catalog_contents(connection, catalog)
         return connection
-    except (OSError, sqlite3.DatabaseError):
+    except (OSError, sqlite3.DatabaseError, ValueError, KeyError, TypeError):
         if connection is not None:
             connection.close()
         return None

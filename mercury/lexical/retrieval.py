@@ -16,12 +16,19 @@ from .constraint_index import (
 from .dialogue import Evidence, SessionState
 from .product_features import (
     BUDGET_RE,
+    FACET_PATTERNS,
     FIELD_ORDER,
     FIELD_WEIGHTS,
     CompiledQuery,
     ProductFeatures,
     ProductFeatureStore,
     ProductQuestionFeatures,
+    alternative_values,
+    affirmed_terms,
+    component_scope,
+    component_value,
+    evidence_product,
+    resolve_query,
     terms,
 )
 from .ranking import (
@@ -80,9 +87,10 @@ def _or_expression(values: list[str], limit: int = 48) -> str:
 
 def _phrase_expression(evidence: list[Evidence], limit: int = 4) -> str:
     tokenized = [
-        (item, terms(item.text))
+        (item, terms(branch))
         for item in evidence
         if item.source not in {"category", "exclusion"}
+        for branch in alternative_values(item.text)
     ]
     chunks = sorted(
         ((item, item_terms) for item, item_terms in tokenized if item_terms),
@@ -114,11 +122,12 @@ def _hard_constraint_and_expression(
             continue
         if BUDGET_RE.search(item.text):
             continue
-        normalized = " ".join(terms(item.text)[:14])
+        branches = [" ".join(terms(branch)[:14]) for branch in alternative_values(item.text)]
+        normalized = " OR ".join(f'"{branch}"' for branch in branches if branch)
         if not normalized or normalized in seen:
             continue
         seen.add(normalized)
-        hard_phrases.append(f'"{normalized}"')
+        hard_phrases.append(f"({normalized})" if len(branches) > 1 else normalized)
         if len(hard_phrases) >= limit:
             break
 
@@ -375,9 +384,11 @@ class CatalogSearch:
         constraint_sequence_matches: dict[str, bool] = {}
         catalog_tiebreaks: dict[str, tuple[float, float, int]] = {}
         exact_hard_matches: set[str] = set()
+        semantic_violations: dict[str, bool] = {}
         token_document_frequency = self._candidate_token_frequency(candidates.values())
         for parent_asin, product in candidates.items():
             features = product["_features"]
+            semantic_violations[parent_asin] = self._semantic_violation(features, query)
             needs_facets = policy.contradiction_penalty > 0.0 and any(
                 item.source in {"hard_constraint", "override"} and item.facets
                 for item in query.evidence
@@ -487,6 +498,7 @@ class CatalogSearch:
         # requested leaf category and a cohesive sequence of disclosed details
         # then break otherwise ambiguous ties before the calibrated score.
         ranked.sort(key=lambda item: (
+            int(semantic_violations[item[0]]),
             -int(item[0] in exact_constraint_matches),
             -int(
                 hard_constraint_exactness[item[0]][1] > 0
@@ -504,6 +516,7 @@ class CatalogSearch:
         for parent_asin, score in ranked[:100]:
             product = dict(candidates[parent_asin])
             product["_rank_score"] = score
+            product["_semantic_violation"] = semantic_violations[parent_asin]
             exact_count, hard_count = hard_constraint_exactness[parent_asin]
             product["_hard_constraint_exact_count"] = exact_count
             product["_hard_constraint_count"] = hard_count
@@ -532,14 +545,20 @@ class CatalogSearch:
     ) -> float:
         score = 0.0
         hard_sources = {"hard_constraint", "override"}
+        query = resolve_query(product, query)
         for item in query.evidence:
             if not item.tokens or item.source == "category" or item.is_budget:
                 continue
-            matched = sum(token in product.token_weights for token in item.tokens)
+            view = evidence_product(product, item)
+            if item.scope and not view.token_weights:
+                continue
+            if item.source == "exclusion" and not CatalogSearch._exclusion_match(view, item):
+                continue
+            matched = sum(token in view.token_weights for token in item.tokens)
             coverage = matched / len(item.tokens)
             exact = (
                 len(item.tokens) >= 2
-                and item.normalized_query in product.normalized_text
+                and item.normalized_query in view.normalized_text
             )
             if item.source == "exclusion":
                 score -= item.weight * (
@@ -553,11 +572,9 @@ class CatalogSearch:
                     + policy.hard_exact_bonus * float(exact)
                 )
                 for attribute, expected_values in item.facets:
-                    actual_values = set(
-                        product_facets.facet_values(attribute)
-                        if product_facets is not None
-                        else ()
-                    )
+                    actual_values = set(FACET_PATTERNS[attribute].findall(view.normalized_text)
+                                        if item.scope else product_facets.facet_values(attribute)
+                                        if product_facets is not None else ())
                     if (
                         expected_values
                         and actual_values
@@ -585,7 +602,8 @@ class CatalogSearch:
                 budget.amount, 10.0
             )
             if budget.mode in {"under", "below", "maximum", "max"}:
-                violation = max(0.0, (product.price - budget.amount) / budget.amount)
+                violation = (2.0 if budget.amount <= 0.0 else
+                             max(0.0, (product.price - budget.amount) / budget.amount))
             else:
                 violation = max(0.0, relative_error - 0.35)
             score -= (
@@ -645,17 +663,23 @@ class CatalogSearch:
         ]
         if not hard_constraints:
             return 0, 0
-        if isinstance(product, ProductFeatures):
-            normalized_text = product.normalized_text
-        else:
-            normalized_text = "\x1f".join(
-                " ".join(terms(str(product.get(field) or "")))
-                for field in FIELD_WEIGHTS
-            )
-        exact_count = sum(
-            " ".join(terms(item.text)) in normalized_text
-            for item in hard_constraints
-        )
+        if not isinstance(product, ProductFeatures):
+            product = ProductFeatureStore(max_size=1).add("candidate", {
+                field: _text(product.get(field)) for field in FIELD_WEIGHTS
+            })
+        exact_count = 0
+        for item in hard_constraints:
+            for branch in alternative_values(item.text):
+                scope = component_scope(branch)
+                normalized = " ".join(terms(component_value(branch) if scope else branch))
+                if scope:
+                    values = product.component_fields.get(scope, ())
+                    text = "\x1f".join(" ".join(affirmed_terms(value)) for value in values)
+                else:
+                    text = product.normalized_text
+                if normalized and normalized in text:
+                    exact_count += 1
+                    break
         return exact_count, len(hard_constraints)
 
     @staticmethod
@@ -679,6 +703,12 @@ class CatalogSearch:
         product: ProductFeatures, query: CompiledQuery
     ) -> bool:
         """Detect a cohesive catalog block spanning multiple disclosed details."""
+        query = resolve_query(product, query)
+        for item in query.evidence:
+            if item.scope and item.source != "exclusion":
+                view = evidence_product(product, item)
+                if not all(token in view.token_weights for token in item.tokens):
+                    return False
         chunks: list[tuple[str, ...]] = []
         for item in query.evidence:
             if (
@@ -738,7 +768,9 @@ class CatalogSearch:
         catalog ambiguity before popularity can reward a merely well-reviewed
         sibling whose matching words are scattered across unrelated fields.
         """
+        query = resolve_query(product, query)
         active_chunks: list[tuple[str, ...]] = []
+        chunk_products: dict[tuple[str, ...], ProductFeatures] = {}
         for item in query.evidence:
             if item.source in {"category", "exclusion"} or item.is_budget:
                 continue
@@ -759,17 +791,19 @@ class CatalogSearch:
             ):
                 continue
             active_chunks.append(chunk)
+            chunk_products[chunk] = evidence_product(product, item)
 
         field_score = 0.0
         feature_matches = 0
         feature_sequence = product.field_sequences[FIELD_ORDER.index("features")]
         for chunk in active_chunks:
+            view = chunk_products[chunk]
             rarity = sum(
                 math.log1p(candidate_count / max(token_document_frequency.get(token, 1), 1))
                 for token in set(chunk)
             ) / len(set(chunk))
             best = 0.0
-            for sequence in product.field_sequences:
+            for sequence in view.field_sequences:
                 positions = [
                     index for index in range(len(sequence) - len(chunk) + 1)
                     if sequence[index:index + len(chunk)] == chunk
@@ -777,6 +811,7 @@ class CatalogSearch:
                 if positions:
                     best = max(best, rarity * (1.0 + min(len(chunk), 8) / 8.0))
             field_score += best
+            feature_sequence = view.field_sequences[FIELD_ORDER.index("features")]
             if any(
                 feature_sequence[index:index + len(chunk)] == chunk
                 for index in range(len(feature_sequence) - len(chunk) + 1)
@@ -805,13 +840,21 @@ class CatalogSearch:
     @staticmethod
     def _constraint_score(product: ProductFeatures, query: CompiledQuery) -> float:
         score = 0.0
+        query = resolve_query(product, query)
         for item in query.evidence:
             if not item.tokens:
+                continue
+            view = evidence_product(product, item)
+            if item.scope and item.source != "exclusion":
+                value_tokens = terms(component_value(item.normalized_query))
+                if not value_tokens or not any(token in view.token_weights for token in value_tokens):
+                    continue
+            if item.source == "exclusion" and not CatalogSearch._exclusion_match(view, item):
                 continue
             matched_weight = 0.0
             matched_terms = 0
             for token in item.tokens:
-                best_field_weight = product.token_weights.get(token, 0.0)
+                best_field_weight = view.token_weights.get(token, 0.0)
                 matched_weight += best_field_weight
                 matched_terms += int(best_field_weight > 0.0)
             coverage = matched_terms / len(item.tokens)
@@ -820,7 +863,7 @@ class CatalogSearch:
             )
             item_score = item.weight * (1.9 * coverage + 0.4 * field_affinity)
 
-            if len(item.tokens) >= 2 and item.normalized_query in product.normalized_text:
+            if len(item.tokens) >= 2 and item.normalized_query in view.normalized_text:
                 specificity = min(2.0, 0.55 + 0.22 * len(item.tokens))
                 item_score += item.weight * specificity
             if coverage >= 0.999:
@@ -833,6 +876,29 @@ class CatalogSearch:
             )
             score += 0.45 * matches / len(query.preference_tokens)
         return score
+
+    @staticmethod
+    def _exclusion_match(product: ProductFeatures, item) -> bool:
+        return bool(item.tokens) and any(
+            sequence[start:start + len(item.tokens)] == item.tokens
+            for sequence in product.affirmed_sequences
+            for start in range(len(sequence) - len(item.tokens) + 1)
+        )
+
+    @staticmethod
+    def _semantic_violation(product: ProductFeatures, query: CompiledQuery) -> bool:
+        """Explicit contradictions outrank lexical tiers; unknown fields stay neutral."""
+        query = resolve_query(product, query)
+        for item in query.evidence:
+            view = evidence_product(product, item)
+            if item.source == "exclusion" and CatalogSearch._exclusion_match(view, item):
+                return True
+            if item.scope and item.source in {"hard_constraint", "override"}:
+                for attribute, expected in item.facets:
+                    actual = set(FACET_PATTERNS[attribute].findall(view.normalized_text))
+                    if actual and actual.isdisjoint(expected):
+                        return True
+        return False
 
     @staticmethod
     def _profile_bonus(
@@ -848,7 +914,18 @@ class CatalogSearch:
         exclusions = [item.text.casefold() for item in state.evidence if item.source == "exclusion"]
         cap = 0.4 if policy is not DEFAULT_RANKING_POLICIES.browsing else 1.0
         total = 0.0
+        affected_facets = set(state.no_preference_attributes)
+        affected_facets.update(
+            name for item in state.evidence
+            if item.operation.value in {"replace", "exclude"} and item.source != "category"
+            for name, pattern in FACET_PATTERNS.items() if pattern.search(item.text)
+        )
         for preference in profile.learned.values():
+            if preference.attribute in affected_facets or any(
+                FACET_PATTERNS[name].search(preference.value)
+                for name in affected_facets if name in FACET_PATTERNS
+            ):
+                continue
             if preference.attribute in current_attributes and preference.attribute != "other":
                 continue
             value_tokens = tuple(terms(preference.value))
@@ -884,6 +961,7 @@ class CatalogSearch:
                     if product.price <= budget.amount
                     else max(
                         0.0,
+                        0.0 if budget.amount <= 0.0 else
                         1.0 - (product.price - budget.amount) / budget.amount,
                     )
                 )

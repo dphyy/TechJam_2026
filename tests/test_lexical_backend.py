@@ -1119,6 +1119,8 @@ finally:
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_optional_vector_artifact_and_query_cache_use_injected_client(self) -> None:
+        from mercury.lexical.vector_index import catalog_row_identity, file_sha256
+
         try:
             import numpy as np
         except ImportError:
@@ -1129,6 +1131,8 @@ finally:
         metadata.write_text(json.dumps({
             "model": "test-encoder", "dimensions": 2, "row_count": 12,
             "catalog_sha256": catalog_sha256(self.catalog), "normalized": True,
+            "vectors_sha256": file_sha256(vectors),
+            "product_ids_sha256": catalog_row_identity(self.catalog)[1],
         }))
         client = SimpleNamespace(embeddings=SimpleNamespace(create=lambda **kwargs: SimpleNamespace(
             data=[SimpleNamespace(index=0, embedding=[1.0, 0.0])],
@@ -1155,7 +1159,6 @@ finally:
 
 
 class LexicalKnownSemanticsTest(unittest.TestCase):
-    @unittest.expectedFailure
     def test_override_retires_color_received_through_open_question(self) -> None:
         state = SessionState(user_profile={})
         state.record_question("other")
@@ -1163,7 +1166,6 @@ class LexicalKnownSemanticsTest(unittest.TestCase):
         state.observe("Actually, what I need is: black.", 2)
         self.assertNotIn("blue", [item.text for item in state.evidence])
 
-    @unittest.expectedFailure
     def test_short_negative_is_not_positive_search_evidence(self) -> None:
         state = SessionState(user_profile={})
         state.observe("I'm looking for Shoes, but I'm still exploring.", 1)
@@ -1172,7 +1174,6 @@ class LexicalKnownSemanticsTest(unittest.TestCase):
         self.assertTrue(leather)
         self.assertTrue(all(item.operation is PreferenceOperation.EXCLUDE for item in leather))
 
-    @unittest.expectedFailure
     def test_disjunctive_material_is_satisfied_by_one_branch(self) -> None:
         product = {"features": "100% cotton", "categories": "Shirts"}
         exact_count, hard_count = CatalogSearch._hard_constraint_exactness(
