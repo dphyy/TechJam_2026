@@ -81,7 +81,7 @@ def peak_rss_bytes() -> int:
 def source_hashes() -> dict[str, str]:
     paths = []
     for directory in ("mercury", "experiments", "baselines", "starter", "evaluator", "tests", "demo"):
-        paths.extend(sorted(Path(directory).glob("*.py")))
+        paths.extend(sorted(Path(directory).rglob("*.py")))
     paths.extend([Path("agent.py"), Path("docs/evaluation_config.json"), Path("docs/agent_api_contract.json"),
                   Path("requirements.txt"), Path("requirements-dev.txt"),
                   Path("requirements-neural.txt"), Path("requirements-neural.lock.txt")])
