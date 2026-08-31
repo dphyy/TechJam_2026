@@ -8,6 +8,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .budgets import budget_groups, budgets_allow, parse_budgets
+from .categories import category_choices, category_terms
+
 from .constraint_index import (
     ConstraintIndex,
     SQLiteConstraintIndex,
@@ -17,7 +20,6 @@ from .constraint_index import (
 )
 from .dialogue import Evidence, SessionState
 from .product_features import (
-    BUDGET_RE,
     FACET_PATTERNS,
     FIELD_ORDER,
     FIELD_WEIGHTS,
@@ -119,7 +121,7 @@ def _hard_constraint_and_expression(
     for item in evidence:
         if item.source not in {"hard_constraint", "override"}:
             continue
-        if BUDGET_RE.search(item.text):
+        if parse_budgets(item.text):
             continue
         branches = [" ".join(terms(branch)[:14]) for branch in alternative_values(item.text)]
         normalized = " OR ".join(f'"{branch}"' for branch in branches if branch)
@@ -132,7 +134,10 @@ def _hard_constraint_and_expression(
 
     if not hard_phrases:
         return ""
-    category_phrase = '"' + " ".join(category_terms) + '"'
+    category_phrase = " OR ".join('"' + " ".join(terms(branch)[:14]) + '"'
+                                  for branch in category_choices(category_text) if terms(branch))
+    if len(category_choices(category_text)) > 1:
+        category_phrase = f"({category_phrase})"
     return " AND ".join([category_phrase, *hard_phrases])
 
 
@@ -184,6 +189,10 @@ class CatalogSearch:
             token for (category,) in self.connection.execute("SELECT DISTINCT categories FROM products")
             for token in self._category_terms(terms(category))
         }
+        category_names = (self.constraint_index.category_to_asins if isinstance(self.constraint_index, ConstraintIndex)
+                          else (row[0] for row in self.connection.execute(
+                              "SELECT DISTINCT value FROM constraint_entries WHERE index_name = 'category_to_asins'")))
+        self.category_names = frozenset(category_terms(terms(name)) for name in category_names) - {()}
         self.vector_index = vector_index
         if self.vector_index is None and enable_vector_reranker:
             self.vector_index = CatalogVectorIndex(self.catalog_path)
@@ -638,20 +647,10 @@ class CatalogSearch:
         if product.price is None or policy.budget_violation_penalty <= 0.0:
             return 0.0
         score = 0.0
-        for budget in query.budgets:
-            relative_error = abs(product.price - budget.amount) / max(
-                budget.amount, 10.0
-            )
-            if budget.mode in {"under", "below", "maximum", "max"}:
-                violation = (2.0 if budget.amount <= 0.0 else
-                             max(0.0, (product.price - budget.amount) / budget.amount))
-            else:
-                violation = max(0.0, relative_error - 0.35)
-            score -= (
-                budget.weight
-                * policy.budget_violation_penalty
-                * min(violation, 2.0)
-            )
+        for group in budget_groups(query.budgets):
+            score -= min(sum(budget.weight * policy.budget_violation_penalty
+                             * min(budget.relative_violation(product.price), 2.0) for budget in branch)
+                         for branch in group)
         return score
 
     @staticmethod
@@ -699,7 +698,7 @@ class CatalogSearch:
             item
             for item in evidence
             if item.source in {"hard_constraint", "override"}
-            and not BUDGET_RE.search(item.text)
+            and not parse_budgets(item.text)
             and terms(item.text)
         ]
         if not hard_constraints:
@@ -716,6 +715,9 @@ class CatalogSearch:
         product: ProductFeatures, requested_category: str
     ) -> bool:
         """Prefer an exact catalog leaf over a deeper category containing it."""
+        choices = category_choices(requested_category)
+        if len(choices) > 1:
+            return any(CatalogSearch._category_leaf_match(product, choice) for choice in choices)
         requested = CatalogSearch._category_terms(terms(requested_category))
         category = CatalogSearch._category_terms(product.category_tokens)
         generic = {"clothing", "shoe", "jewelry"} - set(requested)
@@ -724,29 +726,16 @@ class CatalogSearch:
 
     @staticmethod
     def _category_terms(tokens) -> tuple[str, ...]:
-        tokens = tuple(tokens)
-        # The combined Amazon department is not evidence that every product
-        # is simultaneously clothing, shoes and jewelry. Preserve these words
-        # when they identify a real descendant or the requested category.
-        department_end = 0
-        while department_end < len(tokens) and tokens[department_end] in {"clothing", "shoes", "jewelry"}:
-            department_end += 1
-        if department_end >= 2:
-            tokens = tokens[department_end:]
-        aliases = {"women": "woman", "womens": "woman", "men": "man", "mens": "man",
-                   "jewellery": "jewelry"}
-        return tuple(aliases.get(token, token[:-1] if len(token) > 3 and token.endswith("s")
-                                 and not token.endswith(("ss", "us")) else token)
-                     # ProductFeatures.category_tokens also drops short tokens.
-                     # Normalize both sides identically (T-Shirts, ID Cases,
-                     # No Show Socks), or exact taxonomy can never match itself.
-                     for token in tokens if len(token) > 2)
+        return category_terms(tokens)
 
     @staticmethod
     def _category_status(product: ProductFeatures, requested_category: str,
                          vocabulary: set[str] | None = None) -> int:
         """1 compatible, 0 unknown/unconstrained, -1 incompatible taxonomy."""
         category_phrase = re.split(r"\b(?:with|for|that|having)\b", requested_category, maxsplit=1, flags=re.I)[0]
+        choices = category_choices(category_phrase)
+        if len(choices) > 1:
+            return max(CatalogSearch._category_status(product, choice, vocabulary) for choice in choices)
         requested = set(CatalogSearch._category_terms(terms(category_phrase)))
         if vocabulary is not None:
             # Free-form modifiers are not taxonomy: "blue waterproof bags"
@@ -945,6 +934,8 @@ class CatalogSearch:
     def _semantic_violation(product: ProductFeatures, query: CompiledQuery) -> bool:
         """Explicit contradictions outrank lexical tiers; unknown fields stay neutral."""
         query = resolve_query(product, query)
+        if product.price is not None and not budgets_allow(product.price, query.budgets, hard_only=True):
+            return True
         for item in query.evidence:
             if item.source == "exclusion" and CatalogSearch._exclusion_match(evidence_product(product, item), item):
                 return True
@@ -1007,16 +998,8 @@ class CatalogSearch:
 
         score = 0.0
         for budget in query.budgets:
-            if budget.mode in {"under", "below", "maximum", "max"}:
-                closeness = (
-                    1.0
-                    if product.price <= budget.amount
-                    else max(
-                        0.0,
-                        0.0 if budget.amount <= 0.0 else
-                        1.0 - (product.price - budget.amount) / budget.amount,
-                    )
-                )
+            if budget.hard:
+                closeness = max(0.0, 1.0 - budget.relative_violation(product.price))
             else:
                 closeness = max(
                     0.0,

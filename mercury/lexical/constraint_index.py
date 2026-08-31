@@ -6,8 +6,10 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
+from .budgets import parse_budgets
+
 from .product_features import (
-    BUDGET_RE, FACET_PATTERNS, affirmed_terms, alternative_values, denied_terms, terms,
+    FACET_PATTERNS, affirmed_terms, alternative_values, denied_terms, terms,
 )
 from .vector_index import catalog_sha256
 
@@ -133,7 +135,7 @@ class ConstraintIndex:
         """Return products satisfying every catalog-recognized exact value."""
         matched_sets: list[set[str]] = []
         for value in constraints:
-            if BUDGET_RE.search(value):
+            if parse_budgets(value):
                 continue
             matches = set().union(*(self.constraint_to_asins.get(normalize_constraint(branch), set())
                                     for branch in alternative_values(value)))
@@ -180,7 +182,7 @@ class SQLiteConstraintIndex:
     ) -> set[str]:
         matched_sets: list[set[str]] = []
         for value in constraints:
-            if BUDGET_RE.search(value):
+            if parse_budgets(value):
                 continue
             matches = set().union(*(self._matches("constraint_to_asins", normalize_constraint(branch))
                                     for branch in alternative_values(value)))

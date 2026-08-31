@@ -12,10 +12,11 @@ from pathlib import Path
 import sqlite3
 import sys
 
+from .budgets import budgets_allow, parse_budgets
+
 from .dialogue import Evidence, _infer_attribute
 from .product_features import (
     FACET_PATTERNS,
-    BUDGET_RE,
     FIELD_ORDER,
     ProductFeatures,
     ProductFeatureStore,
@@ -211,18 +212,20 @@ def constraint_receipts(products: list[dict], evidence: list[Evidence]) -> list[
             check = {"evidence_id": _evidence_id(raw), "value": raw.text,
                      "source_turn": raw.turn, "status": "unknown", "witnesses": []}
             if isinstance(features, ProductFeatures):
-                budget = BUDGET_RE.search(raw.text)
-                if item.is_budget and budget and item.source != "exclusion" and features.price is not None:
-                    amount = float(budget.group("amount"))
-                    mode = (budget.group("mode") or "around").lower()
-                    if math.isfinite(amount):
-                        check["witnesses"].append({"field": "price", "match_kind": "numeric_value",
-                                                  "catalog_value": features.price, "requested_value": amount,
-                                                  "mode": mode})
-                        if mode in {"under", "below", "maximum", "max"}:
-                            check["status"] = "supported" if features.price <= amount else "contradicted"
-                        checks.append(check)
-                        continue
+                budgets = parse_budgets(raw.text)
+                if item.is_budget and budgets and item.source != "exclusion":
+                    if features.price is not None:
+                        check["witnesses"].extend({"field": "price", "match_kind": "numeric_value",
+                                                   "catalog_value": features.price, "requested_value": budget.amount,
+                                                   "mode": budget.mode} for budget in budgets)
+                        hard = [budget for budget in budgets if budget.hard]
+                        if hard:
+                            if not budgets_allow(features.price, budgets, hard_only=True):
+                                check["status"] = "contradicted"
+                            elif all(budget.hard for budget in budgets) or budgets_allow(features.price, budgets):
+                                check["status"] = "supported"
+                    checks.append(check)
+                    continue
                 for branch in item.alternatives or (item,):
                     view = evidence_product(features, branch)
                     sequences = (view.field_sequences if branch.literal_absence and item.source != "exclusion"

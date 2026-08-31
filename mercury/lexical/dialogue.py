@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass, field, replace
 from enum import Enum
 
+from .budgets import NEGATIVE_SPEND, parse_budgets, separate_budget
+from .categories import asserted_category
 from .memory import LongTermUserProfile
 from .feedback import preference_content
 from .product_features import (
@@ -26,7 +28,7 @@ NO_PREFERENCE_RE = re.compile(
     r"(?:(?:material|colo[u]?r|size|style|fit|budget|lining|upper)\s+){0,2}preference\b",
     re.I,
 )
-LOOKING_FOR_RE = re.compile(r"\blooking for\s+(.+?)(?:[,.]|$)", re.I)
+LOOKING_FOR_RE = re.compile(r"\blooking for\s+(.+?)(?:[,.!?;]|$)", re.I)
 NEED_RE = re.compile(r"\bwhat i need is\s*:\s*(.+)$", re.I)
 REQUIREMENT_RE = re.compile(r"\bkey requirement is\s*:\s*(.+)$", re.I)
 MATTERS_RE = re.compile(r"\bwhat matters is\s*:\s*(.+)$", re.I)
@@ -93,7 +95,7 @@ def _derived(item: Evidence, value: str, derivation: str) -> Evidence:
 
 
 def _unasserted_correction(value: str) -> bool:
-    if not CORRECTION_MENTION_RE.search(value):
+    if not (CORRECTION_MENTION_RE.search(value) or re.search(r"\b(?:looking for|want|need|prefer)\b", value, re.I)):
         return False
     return bool(QUOTED_TEXT_RE.fullmatch(value) or re.match(
         r"^(?:if|suppose|supposing|imagine|hypothetically|maybe|perhaps|"
@@ -172,7 +174,7 @@ def _infer_attribute(value: str, fallback: str | None = None) -> str:
         aliases = {"fabric_type": "material", "fabric": "material", "colour": "color", "price": "budget"}
         if name not in {"feature", "features", "requirement"}:
             return aliases.get(name, name)
-    if "budget" in tokens or re.search(r"(?:\$|<=|under|below|around)\s*\$?\d", lowered):
+    if "budget" in tokens or parse_budgets(value):
         return "budget"
     if FACET_PATTERNS["material"].search(value) or "material" in tokens:
         return "material"
@@ -200,7 +202,7 @@ class SessionState:
     last_turn: int = 0
     long_term_profile: LongTermUserProfile | None = None
 
-    def observe(self, message: str, turn: int) -> None:
+    def observe(self, message: str, turn: int, *, category_names: frozenset[tuple[str, ...]] = frozenset()) -> None:
         """Convert the latest customer message into weighted preference evidence."""
         if turn <= self.last_turn:
             return
@@ -227,6 +229,12 @@ class SessionState:
                 return
             message = "; ".join(correction_values)
         is_override = bool(correction or OVERRIDE_RE.search(message))
+        inferred_category = asserted_category(message, category_names, correction=bool(correction),
+                                              answering=self._answer_attribute() == "category")
+        if inferred_category:
+            name, remainder = inferred_category
+            is_override |= bool(self.category_text and self.category_text != name)
+            message = f"I'm looking for {name}. {remainder}"
         if is_override and re.search(r"ignore my earlier preference", message, re.I):
             # "Ignore my earlier preference" explicitly retires the opening
             # preference. The replacement operation below additionally clears
@@ -293,8 +301,9 @@ class SessionState:
             remainder = _clean(remainder)
             if remainder:
                 self._apply_grouped_values(
-                    [remainder], 1.8, "initial_preference", turn,
-                    PreferenceOperation.APPEND,
+                    _split_constraints(remainder), 6.0 if is_override else 1.8,
+                    "override" if is_override else "initial_preference", turn,
+                    PreferenceOperation.REPLACE if is_override else PreferenceOperation.APPEND,
                 )
             return
 
@@ -367,6 +376,10 @@ class SessionState:
                     self.no_preference_attributes.add(attribute)
                 continue
             negative = NEGATIVE_CLAUSE_RE.match(clause)
+            if parse_budgets(clause) and re.match(r"^(?:(?:no|not)\s+(?:more|less|under|below|over|above)\b|" + NEGATIVE_SPEND + ")", clause, re.I):
+                self._apply_values([clause], "budget", weight, source, turn,
+                                   PreferenceOperation.REPLACE if source == "override" else PreferenceOperation.APPEND)
+                continue
             if negative:
                 value = _clean(re.sub(r",?\s+please$", "", negative.group(1), flags=re.I))
                 self._apply_values([value], _infer_attribute(value, self._answer_attribute()),
@@ -446,6 +459,7 @@ class SessionState:
         operation: PreferenceOperation,
     ) -> None:
         """Apply one operation to each affected attribute as a value set."""
+        values = [part for value in values for part in separate_budget(value)]
         grouped: dict[str | None, list[str]] = {}
         replacements: dict[tuple[str | None, str | None], list[str]] = {}
         fallback = self._answer_attribute()

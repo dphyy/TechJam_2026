@@ -209,7 +209,7 @@ class Agent:
             raise ValueError("turn must advance; conflicting or stale retries are not accepted")
         original_state = state
         state = deepcopy(original_state)
-        state.observe(user_message, turn)
+        state.observe(user_message, turn, category_names=getattr(self.search, "category_names", frozenset()))
         result = self.search.search_with_context(
             state, limit=max(1, min(int(top_k), 10))
         )

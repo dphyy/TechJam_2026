@@ -8,13 +8,10 @@ from functools import lru_cache
 from types import MappingProxyType
 from typing import Iterable, Mapping, Protocol
 
+from .budgets import BudgetPreference, parse_budgets
+
 
 TOKEN_RE = re.compile(r"[a-z0-9]+", re.I)
-BUDGET_RE = re.compile(
-    r"\b(?P<mode>under|below|maximum|max|around|about|budget(?:\s+around)?)?\s*"
-    r"\$\s*(?P<amount>\d+(?:\.\d+)?)",
-    re.I,
-)
 STOPWORDS = {
     "a", "about", "additional", "am", "an", "and", "are", "as", "at", "be",
     "but", "by", "do", "for", "from", "have", "i", "in", "is", "it", "looking",
@@ -299,13 +296,6 @@ class CompiledEvidence:
     alternatives: tuple[CompiledEvidence, ...] = ()
     exclusive_facets: tuple[tuple[str, tuple[str, ...]], ...] = ()
     literal_absence: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class BudgetPreference:
-    mode: str
-    amount: float
-    weight: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -630,7 +620,7 @@ class ProductFeatureStore:
                         for attribute, pattern in FACET_PATTERNS.items()
                         if pattern.search(scoped_value)
                     ),
-                    is_budget=bool(BUDGET_RE.search(item.text)),
+                    is_budget=bool(parse_budgets(item.text)),
                     scope=scope,
                     exclusive_facets=exclusive,
                     literal_absence=bool(denied_terms(value)),
@@ -643,15 +633,8 @@ class ProductFeatureStore:
                     branches = tuple(replace(branch, exclusive_facets=compiled.exclusive_facets) for branch in branches)
                 compiled = replace(compiled, alternatives=branches)
             compiled_evidence.append(compiled)
-            match = BUDGET_RE.search(item.text)
-            if match and getattr(item, "source", "") != "exclusion" and math.isfinite(float(match.group("amount"))):
-                budgets.append(
-                    BudgetPreference(
-                        mode=(match.group("mode") or "around").lower(),
-                        amount=float(match.group("amount")),
-                        weight=item.weight,
-                    )
-                )
+            if getattr(item, "source", "") != "exclusion":
+                budgets.extend(parse_budgets(item.text, item.weight))
 
         excluded_tokens = {
             token
