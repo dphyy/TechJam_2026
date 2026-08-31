@@ -8,7 +8,7 @@ import socket
 import time
 from collections import Counter
 from copy import deepcopy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,6 +17,7 @@ from experiments.run import ObservedAgent, peak_rss_bytes, source_hashes
 from mercury.catalog import product_from_dict
 from mercury.lexical import Agent, FULL_WIDTH_CONFIG
 from mercury.lexical.config import DEFAULT_AGENT_CONFIG
+from mercury.lexical.diagnostics import signature
 from mercury.lexical.question_planner import AdaptiveQuestionPlanner, QuestionPlan
 from mercury.lexical.retrieval import SearchResult
 from mercury.model_assets import file_sha256
@@ -90,7 +91,8 @@ class SearchExperiment:
         candidates = result.candidates
         ids = [str(item["parent_asin"]) for item in candidates]
         diagnostic = {"candidate_context_ids": ids, "ranked_context_ids": ids,
-                      "neural_prefix_ids": [], "fallbacks": [], "neural_pairs": 0}
+                      "neural_prefix_ids": [], "fallbacks": [], "neural_pairs": 0,
+                      "score_called": False, "inference_executed": False}
         self.last_diagnostics = diagnostic
         query = state.semantic_query()
         if self.config.ranking_policy == "lexical" or not query or not candidates:
@@ -102,16 +104,23 @@ class SearchExperiment:
         prefix_ids = [str(item["parent_asin"]) for item in prefix]
         diagnostic["neural_prefix_ids"] = prefix_ids
         prompt_before = self.ranker.prompt_tokens
+        evaluated_before = (self.ranker.cache_stats()["evaluated_pairs"]
+                            if isinstance(self.ranker, NeuralRanker) else None)
         try:
             pool = [Candidate(product_from_dict(product), float(product["_rank_score"]))
                     for product in prefix]
+            diagnostic["score_called"] = True
             logits = self.ranker.score(query, pool, document_mode="lexical")
+            diagnostic["inference_executed"] = (
+                self.ranker.cache_stats()["evaluated_pairs"] > evaluated_before
+                if evaluated_before is not None else None)
             if set(logits) != set(prefix_ids) or any(
                     type(value) not in (int, float) or not math.isfinite(value)
                     for value in logits.values()):
                 raise ValueError("Incomplete or non-finite candidate scores")
         except Exception as error:
             diagnostic["fallbacks"].append(type(error).__name__)
+            diagnostic["inference_executed"] = None
             return result
         diagnostic["neural_pairs"] = len(prefix)
         preserve = self.config.ranking_policy == "semantic_ties"
@@ -126,12 +135,15 @@ class SearchExperiment:
         diagnostic["ordering_changed"] = ordered_ids != ids
         # Keep lexical scores unchanged so a ranking ablation does not also
         # replace the numeric confidence inputs used by the breadth policy.
-        return SearchResult(
-            [(str(product["parent_asin"]), float(product["_rank_score"]))
-             for product in ordered[:limit]], ordered,
-            result.prompt_tokens + max(0, self.ranker.prompt_tokens - prompt_before),
-            result.ranking_mode,
-        )
+        return replace(result, recommendations=[
+            (str(product["parent_asin"]), float(product["_rank_score"]))
+            for product in ordered[:limit]], candidates=ordered,
+            prompt_tokens=result.prompt_tokens + max(0, self.ranker.prompt_tokens - prompt_before))
+
+    def close(self) -> None:
+        self.inner.close()
+        self.ranker = None
+        self.last_diagnostics.clear()
 
 
 class SynthesisAgent(Agent):
@@ -151,19 +163,41 @@ class SynthesisAgent(Agent):
         self.search = SearchExperiment(self.search, experiment, ranker)
         if experiment.question_policy == "open":
             self.question_planner = OpenQuestionPlanner(self.search.feature_store)
+        self.experiment_identity = {
+            "config_sha256": signature(asdict(experiment)),
+            "harness_sha256": file_sha256(Path(__file__)),
+            "model_asset_identity": getattr(ranker, "asset_identity", None),
+            "model_configuration_verified": isinstance(ranker, NeuralRanker),
+        }
+        if experiment.ranking_policy != "lexical" and ranker is None:
+            self.startup_fallbacks += ("optional_ranker_unavailable",)
         self.last_diagnostics: dict = {}
 
     def respond(self, session_id: str, user_message: str, turn: int, top_k: int) -> dict:
         response = super().respond(session_id, user_message, turn, top_k)
-        diagnostic = deepcopy(self.search.last_diagnostics)
+        diagnostic = self.last_diagnostics
+        if diagnostic.get("cache_hit"):
+            return response
+        wrapper = deepcopy(self.search.last_diagnostics)
+        fallbacks = list(dict.fromkeys(diagnostic.get("fallbacks", []) + wrapper["fallbacks"]))
+        diagnostic.update(wrapper)
+        diagnostic["fallbacks"] = fallbacks
         diagnostic.update({"experiment": asdict(self.experiment), "model_error": self.model_error,
+                           "experiment_identity": self.experiment_identity,
                            "returned_ids": [item["parent_asin"]
                                             for item in response["recommendations"]]})
+        diagnostic["effective_capabilities"]["components"]["neural_rerank"] = {
+            "requested": self.experiment.ranking_policy != "lexical",
+            "loaded": self.search.ranker is not None, "effective": wrapper["neural_pairs"] > 0,
+            "score_called": wrapper["score_called"],
+        }
+        diagnostic["current_call"]["inference_executed"] = wrapper["inference_executed"]
         self.last_diagnostics = diagnostic
         if self.experiment.full_width:
             expected = diagnostic["ranked_context_ids"][:min(10, top_k)]
             if diagnostic["returned_ids"] != expected:
                 raise AssertionError("Full-width control changed the raw ranked prefix")
+        self._diagnostics[session_id] = deepcopy(diagnostic)
         return response
 
 

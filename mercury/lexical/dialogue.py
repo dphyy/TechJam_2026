@@ -5,7 +5,9 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 
 from .memory import LongTermUserProfile
-from .product_features import FACET_PATTERNS, alternative_values, component_scope, component_value
+from .product_features import (
+    FACET_PATTERNS, alternative_values, component_scope, component_value, exclusive_facet_values,
+)
 
 
 OVERRIDE_RE = re.compile(
@@ -208,12 +210,22 @@ class SessionState:
         contrast = re.match(r"(.+?)\s+(?:rather than|instead of)\s+(.+)$", content, re.I)
         if contrast:
             content = f"not {contrast.group(2)}; {contrast.group(1)}"
-        clauses = [_clean(value) for value in re.split(
-            r"\s*(?:;|\bbut\b|\band\s+(?=(?:no|not|without)\b)|,\s*(?=(?:no|not|without|maybe|perhaps)\b))\s*",
-            content, flags=re.I,
-        )]
         reported = re.compile(r"\b(?:label|description|listing|package|tag)\s+(?:says|reads|states)\b", re.I)
         quote = re.compile(r'"[^"\n]*"|“[^”\n]*”|(?<!\w)\x27[^\x27\n]+\x27(?!\w)')
+        quoted_spans = [match.span() for match in quote.finditer(content)]
+        boundaries = re.finditer(
+            r"\s*(?:;|\bbut\b|\band\s+(?=(?:no|not|without)\b)|"
+            r",\s*(?=(?:no|not|without|maybe|perhaps)\b)|"
+            r"(?:,\s*(?:and\s+)?|\band\s+|[.!?]\s+)(?=i\s+(?:want|need|prefer|require)\b))\s*",
+            content, re.I,
+        )
+        clauses, start = [], 0
+        for boundary in boundaries:
+            if any(left <= boundary.start() < right for left, right in quoted_spans):
+                continue
+            clauses.append(_clean(content[start:boundary.start()]))
+            start = boundary.end()
+        clauses.append(_clean(content[start:]))
         explicit_requirement = source in {"hard_constraint", "override"}
         if not any(NO_PREFERENCE_RE.search(quote.sub("", clause)) or NEGATIVE_CLAUSE_RE.match(clause)
                    or not explicit_requirement and (UNCERTAIN_RE.match(clause) or reported.search(clause))
@@ -278,6 +290,9 @@ class SessionState:
                     old_values = {value.lower() for value in pattern.findall(item.text)}
                     new_values = {value.lower() for value in pattern.findall(" ".join(replacement_values))}
                     overlap = bool(old_values & new_values)
+                    exclusive = frozenset().union(*(exclusive_facet_values(value, attribute)
+                                                    for value in replacement_values))
+                    narrowed_values = bool(exclusive and old_values - exclusive)
                     changed_percentage = False
                     if attribute == "material":
                         def percentages(text: str) -> dict[str, float]:
@@ -292,7 +307,7 @@ class SessionState:
                         changed_percentage = any(old_percentages[value] != new_percentages[value]
                                                  for value in old_percentages.keys() & new_percentages.keys())
                     if (item.source == "exclusion" and old_values and new_values and not overlap
-                            or item.source != "exclusion" and overlap and not changed_percentage
+                            or item.source != "exclusion" and overlap and not changed_percentage and not narrowed_values
                             and len(alternative_values(item.text)) == 1):
                         retained.append(item)
                         continue

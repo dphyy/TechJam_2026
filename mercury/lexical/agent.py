@@ -1,10 +1,13 @@
 from collections import OrderedDict
 from copy import deepcopy
+import hashlib
 import math
 from pathlib import Path
+import time
 
 from .config import AgentConfig, DEFAULT_AGENT_CONFIG
 from .dialogue import SessionState
+from .diagnostics import capability_receipt, runtime_identity, turn_receipt
 from .memory import UserProfileStore
 from .question_planner import AdaptiveQuestionPlanner
 from .ranking import DEFAULT_RANKING_POLICIES, RankingPolicies
@@ -50,13 +53,44 @@ class Agent:
         self._profile_ids: dict[str, str] = {}
         self._ambiguity_deferred: set[str] = set()
         self._responses: dict[str, tuple[tuple[int, str, int], dict]] = {}
+        self._diagnostics: dict[str, dict] = {}
+        self._sources: dict[str, dict[int, dict]] = {}
+        self._last_diagnostics: dict = {}
         self.profile_store = UserProfileStore()
+        try:
+            self._identity = runtime_identity(
+                self.catalog_path, config, ranking_policies, self.search,
+                agent=self, planner=self.question_planner, search_factory=search_factory,
+                feature_cache_size=feature_cache_size, max_sessions=max_sessions,
+                share_profile_memory=share_profile_memory,
+            )
+        except Exception:
+            self.search.close()
+            raise
+        startup_fallbacks = list(capability_receipt(self._identity, config, self.search, {})["fallbacks"])
+        if self._identity["catalog_index"]["artifact_present"] and not self._identity["catalog_index"]["prebuilt_loaded"]:
+            startup_fallbacks.append("catalog_index_rebuilt")
+        self.startup_fallbacks = tuple(startup_fallbacks)
+
+    @property
+    def last_diagnostics(self) -> dict:
+        return deepcopy(self._last_diagnostics)
+
+    @last_diagnostics.setter
+    def last_diagnostics(self, value: dict) -> None:
+        """Allow specialized wrappers to publish a detached receipt."""
+        if not isinstance(value, dict):
+            raise ValueError("diagnostics must be an object")
+        self._last_diagnostics = deepcopy(value)
 
     def close(self) -> None:
         self._sessions.clear()
         self._profile_ids.clear()
         self._ambiguity_deferred.clear()
         self._responses.clear()
+        self._diagnostics.clear()
+        self._sources.clear()
+        self._last_diagnostics.clear()
         self.profile_store.profiles.clear()
         self.search.close()
 
@@ -64,6 +98,9 @@ class Agent:
         self._sessions.pop(session_id, None)
         self._ambiguity_deferred.discard(session_id)
         self._responses.pop(session_id, None)
+        self._diagnostics.pop(session_id, None)
+        self._sources.pop(session_id, None)
+        self._last_diagnostics = {}
         profile_id = self._profile_ids.pop(session_id, None)
         if profile_id is not None and profile_id not in self._profile_ids.values():
             self.profile_store.forget(profile_id)
@@ -100,6 +137,9 @@ class Agent:
             state.long_term_profile = None
             state.user_profile = {}
             self._responses.pop(session_id, None)
+            self._diagnostics.pop(session_id, None)
+            self._sources.pop(session_id, None)
+        self._last_diagnostics = {}
         self.profile_store.forget(profile_id)
 
     def respond(
@@ -109,6 +149,19 @@ class Agent:
         turn: int,
         top_k: int,
     ) -> dict:
+        try:
+            return self._respond(session_id, user_message, turn, top_k)
+        except Exception as exc:
+            self._last_diagnostics = {
+                "request_succeeded": False, "state_committed": False,
+                "turn": turn if type(turn) is int else None,
+                "error_type": type(exc).__name__, "fallbacks": [], "fallbacks_complete": False,
+                "identity": deepcopy(self._identity),
+            }
+            raise
+
+    def _respond(self, session_id: str, user_message: str, turn: int, top_k: int) -> dict:
+        started = time.perf_counter()
         if not isinstance(session_id, str) or not session_id:
             raise ValueError("respond requires a nonempty session ID")
         if not isinstance(user_message, str) or type(turn) is not int or not 1 <= turn <= 10:
@@ -118,10 +171,23 @@ class Agent:
         state = self._sessions.get(session_id)
         if state is None:
             raise RuntimeError("reset must be called before respond")
+        received_characters = len(user_message)
+        message_sha256 = hashlib.sha256(user_message.encode("utf-8")).hexdigest()
+        request = (turn, message_sha256, top_k)
         user_message = user_message[:8000]
-        request = (turn, user_message, top_k)
         previous = self._responses.get(session_id)
         if previous is not None and previous[0] == request:
+            self._sessions.move_to_end(session_id)
+            self._last_diagnostics = deepcopy(self._diagnostics.get(session_id, {}))
+            self._last_diagnostics.update(cache_hit=True, latency_seconds=time.perf_counter() - started,
+                                          current_call={"search_executed": False, "inference_executed": False})
+            original_vector_receipt = self._last_diagnostics.get("vector_stage", {})
+            self._last_diagnostics["vector_stage"] = {
+                "attempted": False, "inference_attempted": False, "status": "cached_response",
+                "returned_count": 0, "contribution_count": 0, "origin_receipt": original_vector_receipt,
+            }
+            vector_capability = self._last_diagnostics.get("effective_capabilities", {}).get("components", {}).get("vector_rerank", {})
+            vector_capability.update(attempted=False, status="cached_response")
             return deepcopy(previous[1])
         if turn <= state.last_turn:
             raise ValueError("turn must advance; conflicting or stale retries are not accepted")
@@ -205,6 +271,31 @@ class Agent:
         }
         self._validate_response(response, top_k)
         cached_response = deepcopy(response)
+        sources = dict(self._sources.get(session_id, {}))
+        sources[turn] = {"text": user_message, "message_sha256": message_sha256,
+                         "received_characters": received_characters, "accepted_characters": len(user_message),
+                         "complete": received_characters <= 8000}
+        diagnostics = turn_receipt(
+            before=original_state.evidence, state=state, previous=self._diagnostics.get(session_id, {}),
+            sources=sources, turn=turn, top_k=top_k, result=result, response=response,
+            identity=self._identity, config=self.config, search=self.search,
+            latency_seconds=time.perf_counter() - started, deferred=unresolved_siblings,
+        )
+        diagnostics["state_committed"] = True
+        diagnostics["output_width"].update(
+            policy_limit=recommendation_limit,
+            reason="ambiguity_deferred" if unresolved_siblings else
+            "candidate_shortfall" if len(response["recommendations"]) < recommendation_limit else
+            "full_width" if self.config.full_width else
+            "adaptive_policy" if self.config.recommendation_policy.adaptive else "fixed_width",
+        )
+        diagnostics["question"] = {"attribute": question_plan.attribute,
+                                    "information_gain": question_plan.information_gain,
+                                    "answerability": question_plan.answerability,
+                                    "expected_value": question_plan.expected_value}
+        diagnostics["current_call"] = {"search_executed": True,
+                                       "inference_executed": result.vector_stage.get("inference_attempted", False)}
+        cached_diagnostics = deepcopy(diagnostics)
         # Commit only after search, planning and response validation succeed.
         # Shared sessions keep the same profile object rather than a detached copy.
         original_profile = original_state.long_term_profile
@@ -219,6 +310,9 @@ class Agent:
         if unresolved_siblings:
             self._ambiguity_deferred.add(session_id)
         self._responses[session_id] = (request, cached_response)
+        self._diagnostics[session_id] = cached_diagnostics
+        self._sources[session_id] = sources
+        self._last_diagnostics = diagnostics
         return response
 
     def _validate_response(self, response: dict, top_k: int) -> None:

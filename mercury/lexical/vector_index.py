@@ -156,11 +156,16 @@ class CatalogVectorIndex:
         self._cache: OrderedDict[str, object] = OrderedDict()
         self._cache_capacity = cache_capacity
         self._disabled_reason_logged = False
+        self._last_call_status: dict = {"status": "not_called", "inference_attempted": False}
         self._load()
 
     @property
     def enabled(self) -> bool:
         return self.vectors is not None
+
+    @property
+    def last_call_status(self) -> dict:
+        return dict(self._last_call_status)
 
     def close(self) -> None:
         self._cache.clear()
@@ -252,12 +257,15 @@ class CatalogVectorIndex:
     def _embed_missing(self, texts: Sequence[str]) -> int:
         missing = list(dict.fromkeys(text for text in texts if text not in self._cache))
         if not missing:
+            self._last_call_status.update(status="cache_hit", inference_attempted=False)
             return 0
         client = self._ensure_client()
         if client is None or np is None:
+            self._last_call_status.update(status="client_unavailable", inference_attempted=False)
             return 0
         prompt_tokens = 0
         try:
+            self._last_call_status.update(inference_attempted=True)
             response = client.embeddings.create(
                 input=missing,
                 model=self.model,
@@ -285,8 +293,10 @@ class CatalogVectorIndex:
                 self._cache.move_to_end(text)
                 while len(self._cache) > self._cache_capacity:
                     self._cache.popitem(last=False)
+            self._last_call_status.update(status="inference_succeeded")
             return prompt_tokens
         except Exception as exc:
+            self._last_call_status.update(status="inference_failed", error_type=type(exc).__name__)
             LOGGER.warning("Vector retrieval failed for this call: %s", type(exc).__name__)
             return prompt_tokens
 
@@ -295,11 +305,14 @@ class CatalogVectorIndex:
         structured_query: str | None,
         limit: int = DEFAULT_VECTOR_LIMIT,
     ) -> VectorSearchResult:
+        self._last_call_status = {"status": "not_eligible", "inference_attempted": False}
         if not self.enabled or np is None or not structured_query:
+            self._last_call_status["status"] = "backend_unavailable" if not self.enabled or np is None else "empty_query"
             return VectorSearchResult(rows=[])
 
         query_text = _normalized_text(structured_query)[:MAX_QUERY_CHARACTERS]
         if not query_text:
+            self._last_call_status["status"] = "empty_query"
             return VectorSearchResult(rows=[])
 
         prompt_tokens = self._embed_missing([query_text])
@@ -311,10 +324,12 @@ class CatalogVectorIndex:
 
         scores = np.asarray(self.vectors @ query)
         if not np.all(np.isfinite(scores)):
+            self._last_call_status["status"] = "invalid_similarity"
             self._disable("vector search produced non-finite scores")
             return VectorSearchResult(rows=[], prompt_tokens=prompt_tokens)
         count = min(max(0, int(limit)), len(scores))
         if count == 0:
+            self._last_call_status["status"] = "empty_result"
             return VectorSearchResult(rows=[], prompt_tokens=prompt_tokens)
         if count == len(scores):
             indexes = np.arange(len(scores))

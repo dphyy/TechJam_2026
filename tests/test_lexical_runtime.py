@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 
 from mercury.lexical.agent import Agent
 from mercury.lexical.config import FULL_WIDTH_CONFIG
+from mercury.lexical.retrieval import CatalogSearch, SearchResult
 from mercury.lexical.vector_index import (
     CatalogVectorIndex,
     catalog_row_identity,
@@ -82,6 +83,16 @@ class AgentRuntimeTest(unittest.TestCase):
         agent.close()
         self.assertEqual(agent._responses, {})
 
+    def test_cached_retry_refreshes_session_retention(self):
+        agent = self.agent(max_sessions=2)
+        for session in ("first", "second"):
+            agent.reset(session, {})
+            agent.respond(session, "cotton shirt", 1, 10)
+        with patch.object(agent.search, "search_with_context", side_effect=AssertionError("repeat")):
+            agent.respond("first", "cotton shirt", 1, 10)
+        agent.reset("third", {})
+        self.assertEqual(set(agent._sessions), {"first", "third"})
+
     def test_invalid_reset_preserves_the_live_session(self):
         agent = self.agent()
         agent.reset("session", {})
@@ -120,6 +131,104 @@ class AgentRuntimeTest(unittest.TestCase):
         agent.reset("session", profile)
         profile["preference_tags"].append("leather")
         self.assertEqual(agent._sessions["session"].user_profile["preference_tags"], ["cotton"])
+
+    def test_failed_search_does_not_commit_state_or_shared_profile(self):
+        agent = self.agent(share_profile_memory=True)
+        agent.reset("first", {"profile_id": "shared", "preference_tags": ["cotton"]})
+        agent.reset("second", {"profile_id": "shared"})
+        state = agent._sessions["first"]
+        profile = state.long_term_profile
+        before = deepcopy(profile.snapshot())
+        message = "Actually, what I need is: leather."
+        with patch.object(agent.search, "search_with_context", side_effect=RuntimeError("injected failure")):
+            with self.assertRaises(RuntimeError):
+                agent.respond("first", message, 1, 10)
+        self.assertEqual(state.last_turn, 0)
+        self.assertEqual(state.evidence, [])
+        self.assertEqual(profile.snapshot(), before)
+        self.assertIs(agent._sessions["second"].long_term_profile, profile)
+        self.assertIs(agent.profile_store.profiles["shared"], profile)
+        response = agent.respond("first", message, 1, 10)
+        self.assertEqual(state.last_turn, 1)
+        self.assertIs(state.long_term_profile, profile)
+        self.assertEqual(agent.respond("first", message, 1, 10), response)
+
+    def test_failed_planner_question_mutation_is_discarded_before_retry(self):
+        agent = self.agent()
+        agent.reset("session", {})
+        state = agent._sessions["session"]
+        def fail_after_question(working, candidates, turn):
+            working.record_question("color")
+            raise RuntimeError("injected failure")
+        with patch.object(agent.question_planner, "choose", side_effect=fail_after_question):
+            with self.assertRaises(RuntimeError):
+                agent.respond("session", "cotton shirt", 1, 10)
+        self.assertEqual(state.asked_attributes, [])
+        self.assertEqual(state.messages, [])
+        self.assertFalse(agent._responses)
+        agent.respond("session", "cotton shirt", 1, 10)
+        self.assertEqual(state.last_turn, 1)
+        self.assertEqual(len(state.asked_attributes), 1)
+
+    def test_diagnostic_failure_rolls_back_profile_and_question_changes(self):
+        agent = self.agent(share_profile_memory=True)
+        agent.reset("first", {"profile_id": "shared", "preference_tags": ["cotton"]})
+        agent.reset("second", {"profile_id": "shared"})
+        state = agent._sessions["first"]
+        profile = state.long_term_profile
+        before = deepcopy(profile.snapshot())
+        message = "Actually, what I need is: leather."
+        with patch("mercury.lexical.agent.turn_receipt", side_effect=RuntimeError("receipt failure")):
+            with self.assertRaises(RuntimeError):
+                agent.respond("first", message, 1, 10)
+        self.assertEqual(state.last_turn, 0)
+        self.assertEqual(state.asked_attributes, [])
+        self.assertEqual(profile.snapshot(), before)
+        self.assertIs(agent._sessions["second"].long_term_profile, profile)
+        self.assertFalse(agent._responses)
+        response = agent.respond("first", message, 1, 10)
+        self.assertEqual(state.last_turn, 1)
+        self.assertEqual(agent.respond("first", message, 1, 10), response)
+
+    def test_invalid_response_does_not_commit_turn_or_ambiguity_state(self):
+        agent = self.agent()
+        agent.reset("session", {})
+        result = SearchResult([("0", float("nan"))], [])
+        with patch.object(agent.search, "search_with_context", return_value=result):
+            with self.assertRaises(ValueError):
+                agent.respond("session", "cotton shirt", 1, 10)
+        self.assertEqual(agent._sessions["session"].last_turn, 0)
+        self.assertFalse(agent._ambiguity_deferred)
+        self.assertFalse(agent._responses)
+        agent.respond("session", "cotton shirt", 1, 10)
+
+    def test_explicit_default_search_factory_preserves_response_bits(self):
+        default = self.agent()
+        injected = self.agent(search_factory=CatalogSearch)
+        for agent in (default, injected):
+            agent.reset("session", {"preference_tags": ["cotton"]})
+        messages = ("I'm looking for shirts.", "For that, what matters is: cotton.",
+                    "No preference for color.")
+        for turn, message in enumerate(messages, 1):
+            self.assertEqual(default.respond("session", message, turn, 10),
+                             injected.respond("session", message, turn, 10))
+
+    def test_full_message_hash_distinguishes_retries_after_truncation(self):
+        agent = self.agent()
+        agent.reset("session", {})
+        prefix = "cotton " * 1200
+        first = prefix + "first tail"
+        second = prefix + "second tail"
+        response = agent.respond("session", first, 1, 10)
+        with self.assertRaises(ValueError):
+            agent.respond("session", second, 1, 10)
+        self.assertEqual(len(agent._sessions["session"].messages), 1)
+        with patch.object(agent.search, "search_with_context", side_effect=AssertionError("repeat")):
+            self.assertEqual(agent.respond("session", first, 1, 10), response)
+        source = agent.last_diagnostics["evidence_sources"][0]
+        self.assertFalse(source["complete"])
+        self.assertEqual(source["received_characters"], len(first))
+        self.assertEqual(source["accepted_characters"], 8000)
 
 
 @unittest.skipIf(np is None, "optional array library unavailable")

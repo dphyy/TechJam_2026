@@ -4,7 +4,7 @@ import json
 import math
 import sqlite3
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .constraint_index import (
@@ -24,10 +24,10 @@ from .product_features import (
     ProductFeatureStore,
     ProductQuestionFeatures,
     alternative_values,
-    affirmed_terms,
-    component_scope,
     component_value,
+    evidence_contradiction,
     evidence_product,
+    hard_evidence_match,
     resolve_query,
     terms,
 )
@@ -68,6 +68,8 @@ class SearchResult:
     candidates: list[dict]
     prompt_tokens: int = 0
     ranking_mode: RankingMode | None = None
+    candidate_ids: tuple[str, ...] | None = None
+    vector_stage: dict = field(default_factory=dict)
 
 
 def _text(value: object) -> str:
@@ -337,7 +339,7 @@ class CatalogSearch:
 
     def search_with_context(self, state: SessionState, limit: int = 10) -> SearchResult:
         if not state.evidence:
-            return SearchResult(recommendations=[], candidates=[])
+            return SearchResult(recommendations=[], candidates=[], candidate_ids=())
 
         positive_evidence = [
             item for item in state.evidence if item.source != "exclusion"
@@ -449,6 +451,8 @@ class CatalogSearch:
         vector_scores: dict[str, float] = {}
         vector_confident = False
         structured_query = state.semantic_query()
+        vector_stage = {"attempted": False, "returned_count": 0, "contribution_count": 0,
+                        "confidence_gate": False, "status": "not_eligible"}
         if (
             policy.vector_scale > 0.0
             and self.vector_index is not None
@@ -457,6 +461,23 @@ class CatalogSearch:
             and structured_query
         ):
             vector_result = self.vector_index.search(structured_query, VECTOR_ROUTE_LIMIT)
+            try:
+                receipt = getattr(self.vector_index, "last_call_status", {})
+            except Exception:
+                receipt = {}
+            receipt = receipt if isinstance(receipt, dict) else {}
+            vector_stage.update(attempted=True, returned_count=len(vector_result.rows))
+            status = receipt.get("status")
+            known_statuses = {"not_called", "not_eligible", "cache_hit", "client_unavailable",
+                              "inference_succeeded", "inference_failed", "backend_unavailable",
+                              "empty_query", "invalid_similarity", "empty_result"}
+            vector_stage["status"] = (status if isinstance(status, str) and status in known_statuses else
+                                      "returned_results" if vector_result.rows else "empty_result_unknown")
+            inference_attempted = receipt.get("inference_attempted")
+            vector_stage["inference_attempted"] = inference_attempted if type(inference_attempted) is bool else None
+            error_type = receipt.get("error_type")
+            if isinstance(error_type, str) and len(error_type) <= 80 and error_type.isascii() and error_type.isidentifier():
+                vector_stage["error_type"] = error_type
             vector_prompt_tokens = vector_result.prompt_tokens
             category_vector_route = [
                 product
@@ -499,6 +520,8 @@ class CatalogSearch:
             candidates[parent_asin]["_vector_contribution"] = contribution
             candidates[parent_asin]["_ranking_mode"] = routing.mode.value
             ranked.append((parent_asin, base_score + contribution))
+            vector_stage["contribution_count"] += int(contribution != 0.0)
+        vector_stage["confidence_gate"] = vector_confident
         # Exact hard-constraint coverage defines explicit ranking tiers. The
         # requested leaf category and a cohesive sequence of disclosed details
         # then break otherwise ambiguous ties before the calibrated score.
@@ -539,6 +562,8 @@ class CatalogSearch:
             candidates=context,
             prompt_tokens=vector_prompt_tokens,
             ranking_mode=routing.mode,
+            candidate_ids=tuple(candidates),
+            vector_stage=vector_stage,
         )
 
     @staticmethod
@@ -672,19 +697,7 @@ class CatalogSearch:
             product = ProductFeatureStore(max_size=1).add("candidate", {
                 field: _text(product.get(field)) for field in FIELD_WEIGHTS
             })
-        exact_count = 0
-        for item in hard_constraints:
-            for branch in alternative_values(item.text):
-                scope = component_scope(branch)
-                normalized = " ".join(terms(component_value(branch) if scope else branch))
-                if scope:
-                    values = product.component_fields.get(scope, ())
-                    text = "\x1f".join(" ".join(affirmed_terms(value)) for value in values)
-                else:
-                    text = product.normalized_text
-                if normalized and normalized in text:
-                    exact_count += 1
-                    break
+        exact_count = sum(hard_evidence_match(product, item.text) for item in hard_constraints)
         return exact_count, len(hard_constraints)
 
     @staticmethod
@@ -898,11 +911,8 @@ class CatalogSearch:
             view = evidence_product(product, item)
             if item.source == "exclusion" and CatalogSearch._exclusion_match(view, item):
                 return True
-            if item.scope and item.source in {"hard_constraint", "override"}:
-                for attribute, expected in item.facets:
-                    actual = set(FACET_PATTERNS[attribute].findall(view.normalized_text))
-                    if actual and actual.isdisjoint(expected):
-                        return True
+            if item.source in {"hard_constraint", "override"} and evidence_contradiction(product, item):
+                return True
         return False
 
     @staticmethod

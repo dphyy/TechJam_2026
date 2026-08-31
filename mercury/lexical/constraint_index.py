@@ -6,7 +6,9 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
-from .product_features import BUDGET_RE, FACET_PATTERNS, alternative_values, terms
+from .product_features import (
+    BUDGET_RE, FACET_PATTERNS, affirmed_terms, alternative_values, denied_terms, terms,
+)
 from .vector_index import catalog_sha256
 
 
@@ -32,6 +34,12 @@ def _values(value: object) -> Iterable[str]:
     if value not in (None, ""):
         return (str(value),)
     return ()
+
+
+def _asserted_property(value: str) -> bool:
+    # Preserve literal absence properties, but never let dropped 'not' create
+    # the same exact key as an affirmative property.
+    return not denied_terms(value) or bool(set(terms(value)) & {"no", "without", "free"})
 
 
 class ConstraintIndex:
@@ -73,7 +81,7 @@ class ConstraintIndex:
 
         for value in _values(product.get("features")):
             key = self._add(self.feature_to_asins, value, parent_asin)
-            if key:
+            if key and _asserted_property(value):
                 self.constraint_to_asins[key].add(parent_asin)
 
         details = product.get("details")
@@ -83,10 +91,10 @@ class ConstraintIndex:
                     continue
                 rendered = f"{name}: {value}"
                 key = self._add(self.detail_to_asins, rendered, parent_asin)
-                if key:
+                if key and _asserted_property(rendered):
                     self.constraint_to_asins[key].add(parent_asin)
 
-        searchable = " ".join(
+        searchable = " ".join(" ".join(affirmed_terms(value)) for value in
             [
                 str(product.get("title") or ""),
                 *list(_values(product.get("features"))),

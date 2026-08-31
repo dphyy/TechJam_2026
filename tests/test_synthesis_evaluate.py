@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -43,6 +44,47 @@ class ExperimentTest(unittest.TestCase):
         self.assertEqual([item[0] for item in result.recommendations], ["b", "a", "c"])
         self.assertEqual(set(item[0] for item in result.recommendations), {"a", "b", "c"})
         self.assertEqual(result.recommendations[0][1], 2)
+
+    def test_semantic_reranking_preserves_complete_search_stage_receipts(self):
+        self.result = replace(self.result, candidate_ids=("a", "b", "c", "tail"),
+                              vector_stage={"attempted": False, "status": "not_requested"})
+        ranker = SimpleNamespace(prompt_tokens=0,
+                                 score=lambda *args, **kwargs: {"a": 0, "b": 1, "c": 2})
+        search = SearchExperiment(self.inner, ExperimentConfig(ranking_policy="semantic_ties"), ranker)
+        result = search.search_with_context(self.state)
+        self.assertEqual(result.candidate_ids, self.result.candidate_ids)
+        self.assertEqual(result.vector_stage, self.result.vector_stage)
+
+    def test_wrapper_capabilities_and_cross_session_retry_receipts_are_actual(self):
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = Path(directory) / "catalog.jsonl"
+            catalog.write_text("\n".join(json.dumps(product(str(index), 1)) for index in range(12)))
+            calls = []
+
+            def score(query, pool, **kwargs):
+                calls.append(query)
+                return {item.product.parent_asin: float(index) for index, item in enumerate(pool)}
+
+            agent = SynthesisAgent(catalog, ExperimentConfig(ranking_policy="semantic_ties", full_width=True),
+                                   ranker=SimpleNamespace(prompt_tokens=0, score=score))
+            self.addCleanup(agent.close)
+            first = "I'm looking for Shirts. A key requirement is: cotton."
+            agent.reset("first", {})
+            original = agent.respond("first", first, 1, 10)
+            receipt = agent.last_diagnostics
+            capability = receipt["effective_capabilities"]["components"]["neural_rerank"]
+            self.assertEqual(capability, {"requested": True, "loaded": True, "effective": True, "score_called": True})
+            self.assertIsNone(receipt["current_call"]["inference_executed"])
+            agent.reset("second", {})
+            agent.respond("second", "I'm looking for Shirts.", 1, 10)
+            count = len(calls)
+            self.assertEqual(agent.respond("first", first, 1, 10), original)
+            self.assertEqual(len(calls), count)
+            retried = agent.last_diagnostics
+            self.assertTrue(retried["cache_hit"])
+            self.assertEqual(retried["experiment_identity"], receipt["experiment_identity"])
+            self.assertEqual(retried["candidate_context_ids"], receipt["candidate_context_ids"])
+            self.assertFalse(retried["current_call"]["inference_executed"])
 
     def test_partial_foreign_nonfinite_and_failed_model_results_do_not_change_ranking(self):
         for logits in ({"a": 1}, {"a": 1, "b": 1, "c": 1, "foreign": 9},

@@ -16,6 +16,37 @@ from mercury.lexical.retrieval import CatalogSearch, _hard_constraint_and_expres
 
 
 class ActiveEvidenceTest(unittest.TestCase):
+    def test_exclusive_replacement_retires_an_incompatible_combination(self):
+        for value in ("blue only", "only blue", "color: blue only", "blue exclusively"):
+            with self.subTest(value=value):
+                state = SessionState({})
+                state.observe("A key requirement is: red and blue; cotton.", 1)
+                state.observe(f"Actually, what I need is: {value}.", 2)
+                self.assertEqual({item.text for item in state.evidence}, {"cotton", value})
+
+    def test_incidental_only_word_does_not_invent_exclusive_composition(self):
+        state = SessionState({})
+        state.observe("A key requirement is: cotton and polyester.", 1)
+        state.observe("Actually, what I need is: cotton only for work.", 2)
+        self.assertTrue(any(item.text == "cotton and polyester" for item in state.evidence))
+
+    def test_reported_quote_keeps_an_independent_affirmative_clause(self):
+        for separator in (", and ", "; ", ". ", " and "):
+            with self.subTest(separator=separator):
+                state = SessionState({})
+                state.observe('The label says "wool"' + separator + 'I need cotton.', 1)
+                self.assertEqual([item.text for item in state.evidence], ["I need cotton"])
+
+    def test_first_person_request_inside_reported_quote_is_not_an_instruction(self):
+        state = SessionState({})
+        state.observe('The label says "wool, and I need silk", and I need cotton.', 1)
+        self.assertEqual([item.text for item in state.evidence], ["I need cotton"])
+
+    def test_uncertain_clause_keeps_an_independent_clear_requirement(self):
+        state = SessionState({})
+        state.observe("Maybe wool, and I need cotton.", 1)
+        self.assertEqual([item.text for item in state.evidence], ["I need cotton"])
+
     def test_no_additional_preference_preserves_existing_requirements(self):
         for wording in ("I have no additional preference for feature.",
                         "I don't have an additional material preference.",

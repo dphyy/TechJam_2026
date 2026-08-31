@@ -55,6 +55,12 @@ FACET_PATTERNS = {
 FACET_ORDER = tuple(FACET_PATTERNS)
 FIELD_SEPARATOR = "\x1f"
 COMPONENT_RE = re.compile(r"\b(lining|upper|outsole|midsole|insole|sole|shell|sleeves?|pockets?|collar|hood)\b", re.I)
+NEGATION_RE = re.compile(
+    r"\b(?:no(?![- ]show\b)|not|without|free of|doesn't contain|does not contain)\b"
+    r"[^,;.!?]*?(?=$|[,;.!?]|\b(?:but|however|whereas|while)\b|"
+    r"\band\s+(?:the|its|a|an|with)\b)", re.I,
+)
+FREE_RE = re.compile(r"\b(?P<value>\w+)[- ]free\b", re.I)
 
 
 @lru_cache(maxsize=4096)
@@ -78,10 +84,68 @@ def component_value(value: str) -> str:
 
 def affirmed_terms(value: str) -> tuple[str, ...]:
     """Only explicit positive wording may prove an excluded value is present."""
-    value = re.sub(r"\bnot (?:only|just)\b", "", value, flags=re.I)
-    value = re.sub(r"\b\w+[- ]free\b", "", value, flags=re.I)
-    value = re.sub(r"\b(?:no|not|without|free of|doesn't contain|does not contain)\b[^,;.!?]*", "", value, flags=re.I)
-    return tuple(terms(value))
+    value = _negation_text(value)
+    return tuple(terms(NEGATION_RE.sub(" ", FREE_RE.sub(" ", value))))
+
+
+def _negation_text(value: str) -> str:
+    value = re.sub(r"\bnot (?:only|just|exclusively)\b", "", value, flags=re.I)
+    # Uncertain composition is neither an affirmative witness nor an explicit denial.
+    return re.sub(
+        r"\b(?:not (?:necessarily|always)|may not|might not|"
+        r"not (?:sure|clear|known|certain)(?: whether| if)?)\b[^,;.!?]*",
+        "", value, flags=re.I,
+    )
+
+
+def denied_terms(value: str) -> tuple[tuple[str, ...], ...]:
+    """Preserve local explicit absences separately from missing catalog facts."""
+    value = _negation_text(value)
+    denied = [tuple(terms(match.group("value"))) for match in FREE_RE.finditer(value)]
+    value = FREE_RE.sub(" ", value)
+    for match in NEGATION_RE.finditer(value):
+        wording = re.sub(
+            r"^(?:no|not|without|free of|doesn't contain|does not contain)\b",
+            "", match.group(), flags=re.I,
+        )
+        if tokens := tuple(terms(wording)):
+            denied.append(tokens)
+    return tuple(denied)
+
+
+@lru_cache(maxsize=4096)
+def exclusive_facet_values(value: str, attribute: str) -> frozenset[str]:
+    """Recognize a complete, explicit facet restriction, never an incidental 'only'."""
+    pattern = FACET_PATTERNS.get(attribute)
+    if pattern is None or re.search(r"[\"'“”‘’]", value):
+        return frozenset()
+    body = value.strip().rstrip(".!?").strip()
+    label = "(?:color|colour)" if attribute == "color" else re.escape(attribute)
+    body = re.sub(rf"^{label}\s*:\s*", "", body, flags=re.I)
+    if re.match(r"^(?:only|exclusively)\s+", body, re.I):
+        body = re.sub(r"^(?:only|exclusively)\s+", "", body, flags=re.I)
+    elif re.search(r"\s+(?:only|exclusively)$", body, re.I):
+        body = re.sub(r"\s+(?:only|exclusively)$", "", body, flags=re.I)
+    else:
+        return frozenset()
+    values = frozenset(match.group().lower() for match in pattern.finditer(body))
+    remainder = pattern.sub("", body)
+    if values and not re.sub(r"\b(?:and|or)\b|[\s,/&]+", "", remainder, flags=re.I):
+        return values
+    return frozenset()
+
+
+def _evidence_value(value: str) -> tuple[str, tuple[tuple[str, tuple[str, ...]], ...]]:
+    exclusive = tuple(
+        (attribute, tuple(sorted(values)))
+        for attribute in FACET_ORDER
+        if (values := exclusive_facet_values(value, attribute))
+    )
+    if exclusive:
+        # The operator is semantic; it is not a catalog keyword requirement.
+        value = re.sub(r"\b(?:only|exclusively)\b", "", value, flags=re.I)
+        value = re.sub(r"^\s*(?:" + "|".join(FACET_ORDER) + r"|colour)\s*:\s*", "", value, flags=re.I)
+    return value, exclusive
 
 
 @lru_cache(maxsize=4096)
@@ -113,17 +177,31 @@ def _component_fields(fields: Mapping[str, str]) -> Mapping[str, tuple[str, ...]
             matches = list(COMPONENT_RE.finditer(clause))
             if not matches:
                 continue
-            # Prefix records include flattened structured details: lining cotton upper leather.
-            prefix = not clause[:matches[0].start()].strip(" ,:")
+            # Both flattened labels and natural subject/predicate prose are supported.
+            first_prefix = bool(re.fullmatch(r"\s*(?:(?:the|its|a|an)\s+)?", clause[:matches[0].start()], re.I))
+            prefix_modes = []
+            for index, match in enumerate(matches):
+                end = matches[index + 1].start() if index + 1 < len(matches) else len(clause)
+                after = clause[match.end():end].strip()
+                explicit_prefix = bool(re.match(r"(?::|(?:is|are|was|were|material|color|colour)\b)", after, re.I))
+                has_value = any(pattern.search(after) for name, pattern in FACET_PATTERNS.items() if name in {"material", "color"})
+                prefix_modes.append(explicit_prefix or (first_prefix and has_value))
             for index, match in enumerate(matches):
                 owner = match.group().lower().rstrip("s")
-                if prefix or clause[match.end():].lstrip().startswith(":"):
+                if prefix_modes[index]:
                     end = matches[index + 1].start() if index + 1 < len(matches) else len(clause)
                     value = clause[match.end():end].strip(" ,:")
+                    if index + 1 < len(matches) and not prefix_modes[index + 1]:
+                        # A mixed record: 'lining cotton and leather upper'.
+                        value = re.split(r"\b(?:and|but|with)\b|,", value, flags=re.I)[0]
+                    value = re.sub(r"\b(?:and|but|with)\s*(?:(?:the|its|a|an)\s*)?$", "", value, flags=re.I)
+                    value = re.sub(r"^(?:is|are|was|were)\s+", "", value, flags=re.I).strip()
                     rendered = f"{match.group()} {value}"
                 else:
                     start = matches[index - 1].end() if index else 0
                     value = clause[start:match.start()].strip(" ,:")
+                    value = re.split(r"\b(?:and|but|with)\b|,", value, flags=re.I)[-1].strip()
+                    value = re.sub(r"^(?:the|its|a|an)\s+", "", value, flags=re.I)
                     rendered = f"{value} {match.group()}"
                 if value:
                     slots = scoped.setdefault(owner, [""] * len(FIELD_ORDER))
@@ -136,7 +214,7 @@ class EvidenceLike(Protocol):
     weight: float
 
 
-def terms(value: object, *, min_length: int = 2) -> list[str]:
+def terms(value: object, *, min_length: int = 1) -> list[str]:
     return [
         token.lower()
         for token in TOKEN_RE.findall(str(value or ""))
@@ -181,6 +259,7 @@ class ProductFeatures:
     rating_number: int
     component_fields: Mapping[str, tuple[str, ...]] = dataclass_field(default_factory=dict)
     affirmed_sequences: tuple[tuple[str, ...], ...] = ()
+    denied_sequences: tuple[tuple[str, ...], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,6 +284,8 @@ class CompiledEvidence:
     is_budget: bool
     scope: str | None = None
     alternatives: tuple[CompiledEvidence, ...] = ()
+    exclusive_facets: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    literal_absence: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,10 +303,16 @@ class CompiledQuery:
 
 
 def evidence_product(product: ProductFeatures, evidence: CompiledEvidence) -> ProductFeatures:
-    if evidence.scope is None:
-        return product
-    values = product.component_fields.get(evidence.scope, ("",) * len(FIELD_ORDER))
-    sequences = tuple(affirmed_terms(value) for value in values)
+    if evidence.scope:
+        values = product.component_fields.get(evidence.scope, ("",) * len(FIELD_ORDER))
+        sequences = tuple(tuple(terms(value)) if evidence.literal_absence else affirmed_terms(value)
+                          for value in values)
+        denied = tuple(sequence for value in values for sequence in denied_terms(value))
+    else:
+        sequences = product.field_sequences if evidence.literal_absence else product.affirmed_sequences
+        if not sequences or sequences == product.field_sequences:
+            return product
+        denied = product.denied_sequences
     weights: dict[str, float] = {}
     for name, sequence in zip(FIELD_ORDER, sequences):
         for token in sequence:
@@ -234,16 +321,83 @@ def evidence_product(product: ProductFeatures, evidence: CompiledEvidence) -> Pr
                    normalized_text=FIELD_SEPARATOR.join(" ".join(sequence) for sequence in sequences),
                    field_sequences=sequences,
                    affirmed_sequences=sequences,
+                   denied_sequences=denied,
                    feature_tokens=frozenset(sequences[FIELD_ORDER.index("features")]))
+
+
+def _sequence_match(tokens: tuple[str, ...], sequences: tuple[tuple[str, ...], ...]) -> bool:
+    return bool(tokens) and any(
+        sequence[start:start + len(tokens)] == tokens
+        for sequence in sequences
+        for start in range(len(sequence) - len(tokens) + 1)
+    )
+
+
+def evidence_contradiction(product: ProductFeatures, evidence: CompiledEvidence) -> bool:
+    """Require explicit adverse evidence; an unmentioned attribute is unknown."""
+    return _view_contradiction(evidence_product(product, evidence), evidence)
+
+
+def _view_contradiction(view: ProductFeatures, evidence: CompiledEvidence) -> bool:
+    if not evidence.literal_absence:
+        wanted = tuple(terms(component_value(evidence.normalized_query))) if evidence.scope else evidence.tokens
+        denied = _sequence_match(wanted, view.denied_sequences)
+        # A short material denial also contradicts a longer requested description.
+        for _, expected in evidence.facets:
+            denied |= any(_sequence_match(tuple(terms(value)), view.denied_sequences)
+                          and not _sequence_match(tuple(terms(value)), view.affirmed_sequences)
+                          for value in expected)
+        if denied and not _sequence_match(wanted, view.affirmed_sequences):
+            return True
+    for attribute, allowed in evidence.exclusive_facets:
+        actual = set(FACET_PATTERNS[attribute].findall(view.normalized_text))
+        if actual - set(allowed):
+            return True
+    if evidence.scope:
+        for attribute, expected in evidence.facets:
+            actual = set(FACET_PATTERNS[attribute].findall(view.normalized_text))
+            if actual and actual.isdisjoint(expected):
+                return True
+    return False
+
+
+@lru_cache(maxsize=4096)
+def _compile_hard_evidence(value: str) -> CompiledEvidence:
+    value, exclusive = _evidence_value(value)
+    scope = component_scope(value)
+    searchable = component_value(value) if scope else value
+    tokens = tuple(dict.fromkeys(terms(searchable)))
+    return CompiledEvidence(
+        tokens=tokens, normalized_query=" ".join(tokens), weight=1.0,
+        source="hard_constraint", attribute=None,
+        facets=tuple((name, tuple(sorted(set(pattern.findall(searchable.lower())))))
+                     for name, pattern in FACET_PATTERNS.items() if pattern.search(searchable)),
+        is_budget=False, scope=scope, exclusive_facets=exclusive,
+        literal_absence=bool(denied_terms(value)),
+    )
+
+
+def hard_evidence_match(product: ProductFeatures, value: str) -> bool:
+    evidence = _compile_hard_evidence(value)
+    for branch in alternative_values(value):
+        item = _compile_hard_evidence(branch)
+        if evidence.exclusive_facets:
+            item = replace(item, exclusive_facets=evidence.exclusive_facets)
+        view = evidence_product(product, item)
+        if _sequence_match(item.tokens, view.field_sequences) and not _view_contradiction(view, item):
+            return True
+    return False
 
 
 def resolve_query(product: ProductFeatures, query: CompiledQuery) -> CompiledQuery:
     """Count an OR group once, using its strongest available lexical witness."""
     if not any(item.alternatives for item in query.evidence):
         return query
-    def support(item: CompiledEvidence) -> tuple[bool, float, float]:
+    def support(item: CompiledEvidence) -> tuple[bool, bool, float, float]:
         view = evidence_product(product, item)
-        return (bool(item.tokens) and item.normalized_query in view.normalized_text,
+        compatible = item.source == "exclusion" or not _view_contradiction(view, item)
+        return (_sequence_match(item.tokens, view.field_sequences) and compatible,
+                compatible,
                 sum(token in view.token_weights for token in item.tokens) / max(1, len(item.tokens)),
                 sum(view.token_weights.get(token, 0.0) for token in item.tokens) / max(1, len(item.tokens)))
     return replace(query, evidence=tuple(max(item.alternatives, key=support) if item.alternatives else item
@@ -321,6 +475,8 @@ class ProductFeatureStore:
             rating_number=_non_negative_int(rating_number),
             component_fields=_component_fields(fields),
             affirmed_sequences=tuple(affirmed_terms(fields.get(name, "")) for name in FIELD_ORDER),
+            denied_sequences=tuple(sequence for name in FIELD_ORDER
+                                   for sequence in denied_terms(fields.get(name, ""))),
         )
         self._insert(parent_asin, features)
         return features
@@ -413,6 +569,7 @@ class ProductFeatureStore:
         budgets: list[BudgetPreference] = []
         for item in evidence:
             def compile_value(value: str) -> CompiledEvidence:
+                value, exclusive = _evidence_value(value)
                 scope = component_scope(value)
                 scoped_value = component_value(value) if scope and getattr(item, "source", "") == "exclusion" else value
                 unique_terms = tuple(dict.fromkeys(terms(scoped_value)))
@@ -439,11 +596,16 @@ class ProductFeatureStore:
                     ),
                     is_budget=bool(BUDGET_RE.search(item.text)),
                     scope=scope,
+                    exclusive_facets=exclusive,
+                    literal_absence=bool(denied_terms(value)),
                 )
             compiled = compile_value(item.text)
             alternatives = alternative_values(item.text)
             if len(alternatives) > 1:
-                compiled = replace(compiled, alternatives=tuple(compile_value(value) for value in alternatives))
+                branches = tuple(compile_value(value) for value in alternatives)
+                if compiled.exclusive_facets:
+                    branches = tuple(replace(branch, exclusive_facets=compiled.exclusive_facets) for branch in branches)
+                compiled = replace(compiled, alternatives=branches)
             compiled_evidence.append(compiled)
             match = BUDGET_RE.search(item.text)
             if match and getattr(item, "source", "") != "exclusion" and math.isfinite(float(match.group("amount"))):
