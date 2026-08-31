@@ -13,6 +13,12 @@ from .product_features import (
 OVERRIDE_RE = re.compile(
     r"\b(actually|instead|changed my mind|ignore|no longer|rather than)\b", re.I
 )
+CORRECTION_PREFIX_RE = re.compile(
+    r"^(?:correction\s*[:,]\s*(?:make that\s+)?|(?:please\s+)?make that\s+|"
+    r"(?:let me\s+)?correct that\s*[:,]\s*)(.+)$", re.I,
+)
+CORRECTION_MENTION_RE = re.compile(r"\b(?:correction|make that|correct that)\b", re.I)
+QUOTED_TEXT_RE = re.compile(r'"[^"\n]*"|“[^”\n]*”|(?<!\w)\x27[^\x27\n]+\x27(?!\w)')
 NO_PREFERENCE_RE = re.compile(
     r"\b(?:do not|don't|dont|no)\s+(?:have\s+)?(?:an?\s+)?(?:additional\s+)?"
     r"(?:(?:material|colo[u]?r|size|style|fit|budget|lining|upper)\s+){0,2}preference\b",
@@ -77,6 +83,31 @@ def _split_constraints(value: str) -> list[str]:
     return [cleaned for part in value.split(";") if (cleaned := _clean(part))]
 
 
+def _unasserted_correction(value: str) -> bool:
+    if not CORRECTION_MENTION_RE.search(value):
+        return False
+    return bool(QUOTED_TEXT_RE.fullmatch(value) or re.match(
+        r"^(?:if|suppose|supposing|imagine|hypothetically|maybe|perhaps|"
+        r"i (?:might|may|would)|i(?:'m| am)? not|(?:please )?(?:do not|don't|dont|no)|"
+        r"(?:the )?(?:label|description|listing|package|tag) (?:says|reads|states))\b",
+        value, re.I,
+    ))
+
+
+def _correction_payload(value: str) -> str:
+    """Remove control clauses while retaining each replacement phrase verbatim."""
+    spans = [match.span() for match in QUOTED_TEXT_RE.finditer(value)]
+    parts, start = [], 0
+    for boundary in re.finditer(r";|,?\s+(?:but|and)\s+(?=keep\b)", value, re.I):
+        if any(left <= boundary.start() < right for left, right in spans):
+            continue
+        parts.append(_clean(value[start:boundary.start()]))
+        start = boundary.end()
+    parts.append(_clean(value[start:]))
+    return "; ".join(part for part in parts if part and not re.match(r"^keep\b", part, re.I)
+                     and not UNCERTAIN_RE.match(part) and not _unasserted_correction(part))
+
+
 def _infer_attribute(value: str, fallback: str | None = None) -> str:
     """Infer the facet named by a value, preserving a specific asked facet."""
     lowered = value.casefold()
@@ -123,7 +154,17 @@ class SessionState:
         message = _clean(str(message))
         self.messages.append(message)
 
-        is_override = bool(OVERRIDE_RE.search(message))
+        if _unasserted_correction(message):
+            self._observe_special_clauses(message, turn, source="clarification",
+                                          weight=2.5 if turn > 1 else 2.0,
+                                          allow_control_prefixes=False)
+            return
+        correction = CORRECTION_PREFIX_RE.match(message)
+        if correction:
+            message = _correction_payload(correction.group(1))
+            if not message:
+                return
+        is_override = bool(correction or OVERRIDE_RE.search(message))
         if is_override and re.search(r"ignore my earlier preference", message, re.I):
             # "Ignore my earlier preference" explicitly retires the opening
             # preference. The replacement operation below additionally clears
@@ -144,11 +185,16 @@ class SessionState:
                 )
 
         special_message = message
-        source, weight = "clarification", 2.5 if turn > 1 else 2.0
+        source, weight = (("override", 6.0) if correction else ("clarification", 2.5 if turn > 1 else 2.0))
         if category_match and not any(pattern.search(message) for pattern in (NEED_RE, REQUIREMENT_RE, MATTERS_RE)):
             special_message = _clean(message[category_match.end():])
             source, weight = "initial_preference", 1.8
         if self._observe_special_clauses(special_message, turn, source=source, weight=weight):
+            return
+
+        if correction and not category_match:
+            self._apply_grouped_values(_split_constraints(message), 6.0, "override", turn,
+                                       PreferenceOperation.REPLACE)
             return
 
         match = NEED_RE.search(message)
@@ -197,21 +243,24 @@ class SessionState:
                 PreferenceOperation.REPLACE if is_override else PreferenceOperation.APPEND,
             )
 
-    def _observe_special_clauses(self, message: str, turn: int, *, source: str, weight: float) -> bool:
+    def _observe_special_clauses(self, message: str, turn: int, *, source: str, weight: float,
+                                 allow_control_prefixes: bool = True) -> bool:
         """Handle local polarity and retractions without rewriting ordinary positives."""
         content = message
         for pattern, candidate_source, candidate_weight in (
             (NEED_RE, "override", 6.0), (REQUIREMENT_RE, "hard_constraint", 3.8),
             (MATTERS_RE, "clarification", 3.3),
         ):
-            if match := pattern.search(content):
+            if allow_control_prefixes and (match := pattern.search(content)):
                 content, source, weight = match.group(1), candidate_source, candidate_weight
                 break
-        contrast = re.match(r"(.+?)\s+(?:rather than|instead of)\s+(.+)$", content, re.I)
-        if contrast:
-            content = f"not {contrast.group(2)}; {contrast.group(1)}"
+        contrast = re.match(r"(.+?)\s+(?P<link>rather than|instead of)\s+(.+)$", content, re.I)
+        if (allow_control_prefixes and contrast and not any(
+                quoted.start() <= contrast.start("link") < quoted.end()
+                for quoted in QUOTED_TEXT_RE.finditer(content))):
+            content = f"not {contrast.group(3)}; {contrast.group(1)}"
         reported = re.compile(r"\b(?:label|description|listing|package|tag)\s+(?:says|reads|states)\b", re.I)
-        quote = re.compile(r'"[^"\n]*"|“[^”\n]*”|(?<!\w)\x27[^\x27\n]+\x27(?!\w)')
+        quote = QUOTED_TEXT_RE
         quoted_spans = [match.span() for match in quote.finditer(content)]
         boundaries = re.finditer(
             r"\s*(?:;|\bbut\b|\band\s+(?=(?:no|not|without)\b)|"
@@ -228,14 +277,16 @@ class SessionState:
         clauses.append(_clean(content[start:]))
         explicit_requirement = source in {"hard_constraint", "override"}
         if not any(NO_PREFERENCE_RE.search(quote.sub("", clause)) or NEGATIVE_CLAUSE_RE.match(clause)
-                   or not explicit_requirement and (UNCERTAIN_RE.match(clause) or reported.search(clause))
+                   or not explicit_requirement and (UNCERTAIN_RE.match(clause) or reported.search(clause)
+                                                     or _unasserted_correction(clause))
                    for clause in clauses):
             return False
         for raw in clauses:
             clause = _clean(raw)
             if not clause:
                 continue
-            if not explicit_requirement and (UNCERTAIN_RE.match(clause) or reported.search(clause)):
+            if not explicit_requirement and (UNCERTAIN_RE.match(clause) or reported.search(clause)
+                                             or _unasserted_correction(clause)):
                 continue
             if neutral := NO_PREFERENCE_RE.search(quote.sub("", clause)):
                 attribute = _infer_attribute(clause)
@@ -329,6 +380,7 @@ class SessionState:
     ) -> None:
         """Apply one operation to each affected attribute as a value set."""
         grouped: dict[str | None, list[str]] = {}
+        replacements: dict[tuple[str | None, str | None], list[str]] = {}
         fallback = self._answer_attribute()
         for value in values:
             attribute = (
@@ -337,9 +389,21 @@ class SessionState:
                 else fallback
             )
             grouped.setdefault(attribute, []).append(value)
+            if operation == PreferenceOperation.REPLACE:
+                owner = component_scope(value)
+                attributes = {attribute}
+                if attribute in {*FACET_PATTERNS, "budget", "feature", "other", None} or owner:
+                    attributes.update(name for name, pattern in FACET_PATTERNS.items() if pattern.search(value))
+                for affected in sorted(attributes, key=lambda item: item or ""):
+                    replacements.setdefault((affected, owner), []).append(value)
+        # Retire against the complete replacement set before adding any new
+        # chunk, so a later facet cannot accidentally prune an earlier new one.
+        for (attribute, owner), replacement_values in replacements.items():
+            self._retire(attribute, owner, replacement_values)
         for attribute, attribute_values in grouped.items():
             self._apply_values(
-                attribute_values, attribute, weight, source, turn, operation
+                attribute_values, attribute, weight, source, turn, operation,
+                retire_existing=operation != PreferenceOperation.REPLACE,
             )
 
     def _apply_values(
@@ -350,12 +414,14 @@ class SessionState:
         source: str,
         turn: int,
         operation: PreferenceOperation,
+        *,
+        retire_existing: bool = True,
     ) -> None:
         """Replace, append to, or exclude from one attribute's active set."""
         cleaned = [value for raw in values if (value := _clean(raw))]
         if not cleaned:
             return
-        if operation == PreferenceOperation.REPLACE:
+        if operation == PreferenceOperation.REPLACE and retire_existing:
             for owner in {component_scope(value) for value in cleaned}:
                 self._retire(attribute, owner, [value for value in cleaned if component_scope(value) == owner])
         elif operation == PreferenceOperation.EXCLUDE:

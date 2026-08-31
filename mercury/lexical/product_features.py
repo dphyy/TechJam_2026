@@ -181,11 +181,14 @@ def _component_fields(fields: Mapping[str, str]) -> Mapping[str, tuple[str, ...]
             first_prefix = bool(re.fullmatch(r"\s*(?:(?:the|its|a|an)\s+)?", clause[:matches[0].start()], re.I))
             prefix_modes = []
             for index, match in enumerate(matches):
+                start = matches[index - 1].end() if index else 0
+                before = re.split(r"\b(?:and|but|with)\b|,", clause[start:match.start()], flags=re.I)[-1]
+                local_prefix = bool(re.fullmatch(r"\s*(?:(?:the|its|a|an)\s+)?", before, re.I))
                 end = matches[index + 1].start() if index + 1 < len(matches) else len(clause)
                 after = clause[match.end():end].strip()
                 explicit_prefix = bool(re.match(r"(?::|(?:is|are|was|were|material|color|colour)\b)", after, re.I))
-                has_value = any(pattern.search(after) for name, pattern in FACET_PATTERNS.items() if name in {"material", "color"})
-                prefix_modes.append(explicit_prefix or (first_prefix and has_value))
+                has_value = bool(terms(after))
+                prefix_modes.append(explicit_prefix or ((first_prefix or local_prefix) and has_value))
             for index, match in enumerate(matches):
                 owner = match.group().lower().rstrip("s")
                 if prefix_modes[index]:

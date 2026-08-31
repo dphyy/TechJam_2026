@@ -204,12 +204,13 @@ def default_catalog_index_path(catalog_path: str | Path) -> Path:
 
 
 def _catalog_text(value: object) -> str:
+    """Keep structured entries separate without changing their searchable words."""
     if value is None:
         return ""
     if isinstance(value, dict):
-        return " ".join(f"{key} {item}" for key, item in value.items())
+        return "; ".join(f"{key} {_catalog_text(item)}" for key, item in value.items())
     if isinstance(value, list):
-        return " ".join(str(item) for item in value)
+        return "; ".join(_catalog_text(item) for item in value)
     return str(value)
 
 

@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
 
 from mercury.fusion import make_agent
-from mercury.lexical.constraint_index import ConstraintIndex
+from mercury.lexical.constraint_index import ConstraintIndex, _catalog_text, open_catalog_index
 from mercury.lexical.dialogue import Evidence
 from mercury.lexical.product_features import (
-    ProductFeatureStore, exclusive_facet_values, hard_evidence_match, resolve_query,
+    ProductFeatureStore, exclusive_facet_values, hard_evidence_match, resolve_query, terms,
 )
-from mercury.lexical.retrieval import CatalogSearch
+from mercury.lexical.preprocessing import build_catalog_index
+from mercury.lexical.retrieval import CatalogSearch, _text
 
 
 class LexicalSemanticsTest(unittest.TestCase):
@@ -42,6 +44,7 @@ class LexicalSemanticsTest(unittest.TestCase):
             ("Its lining is cotton; its upper is leather", "Its upper is cotton"),
             ("A cotton lining and a leather upper", "A cotton upper"),
             ("lining cotton and leather upper", "upper cotton"),
+            ("A cotton lining and upper leather", "A leather lining and upper cotton"),
         )):
             with self.subTest(wrong_text=wrong_text):
                 wrong = self.product(f"wrong{index}", description=wrong_text)
@@ -126,6 +129,17 @@ class LexicalSemanticsTest(unittest.TestCase):
         self.assertFalse(hard_evidence_match(product, "lining: cotton"))
         self.assertTrue(CatalogSearch._semantic_violation(product, lining))
 
+    def test_component_extraction_retains_generic_values_and_three_owners(self) -> None:
+        product = self.product("generic", details="pocket zippered lining cotton upper leather")
+        self.assertTrue(hard_evidence_match(product, "pocket: zippered"))
+        self.assertTrue(hard_evidence_match(product, "lining: cotton"))
+        self.assertTrue(hard_evidence_match(product, "upper: leather"))
+        natural = self.product("natural", description="The lining is cotton and the upper is leather and the sole is rubber")
+        self.assertTrue(hard_evidence_match(natural, "lining: cotton"))
+        self.assertTrue(hard_evidence_match(natural, "upper: leather"))
+        self.assertTrue(hard_evidence_match(natural, "sole: rubber"))
+        self.assertFalse(hard_evidence_match(natural, "upper: cotton"))
+
     def test_exclusive_facet_is_a_semantic_operator_with_bounded_scope(self) -> None:
         blue = self.product("blue", details="Color blue")
         mixed = self.product("mixed", details="Color red and blue")
@@ -164,6 +178,56 @@ class LexicalSemanticsTest(unittest.TestCase):
             index.add_product({"parent_asin": identifier, "features": [wording], "categories": ["shirts"]})
         self.assertEqual(index.exact_intersection("shirts", ["cotton"]), {"good"})
         self.assertEqual(index.exact_intersection("shirts", ["cotton free"]), {"absence"})
+
+    def test_recursive_catalog_serialization_keeps_entry_boundaries_and_word_tokens(self) -> None:
+        value = {"lining": ["No cotton", "Linen"],
+                 "upper": {"material": "Leather", "color": "Blue"}}
+        old_text = " ".join(f"{key} {item}" for key, item in value.items())
+        serialized = _catalog_text(value)
+        self.assertEqual(serialized, "lining No cotton; Linen; upper material Leather; color Blue")
+        self.assertEqual(_text(value), serialized)
+        self.assertEqual(terms(serialized), terms(old_text))
+
+    def test_structured_negation_boundaries_match_live_and_persisted_indexes(self) -> None:
+        variants = (
+            {"features": ["No cotton", "Linen"]},
+            {"features": ["No cotton", ["Linen", "Plain finish"]]},
+            {"details": {"Material": "No cotton", "Fabric": "Linen"}},
+            {"description": ["No cotton", {"Composition": "Linen"}]},
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            for index, fields in enumerate(variants):
+                with self.subTest(fields=fields):
+                    path = Path(directory) / f"structured{index}.jsonl"
+                    rows = [{"parent_asin": "A", "categories": ["shirts"], **fields},
+                            {"parent_asin": "B", "categories": ["shirts"], "features": ["Plain fabric"]}]
+                    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+                    def replay(expected_prebuilt: bool):
+                        agent = make_agent(path, fullwidth=True)
+                        try:
+                            self.assertEqual(agent.search.using_prebuilt_index, expected_prebuilt)
+                            agent.reset("s", {})
+                            agent.respond("s", "I'm looking for shirts.", 1, 10)
+                            result = agent.respond("s", "A key requirement is: linen.", 2, 10)
+                            self.assertEqual(result["recommendations"][0]["parent_asin"], "A")
+                            self.assertEqual(set(agent.diagnostics["stage_ids"]["raw_ranked"]), {"A", "B"})
+                            return result
+                        finally:
+                            agent.close()
+
+                    live = replay(False)
+                    artifact = build_catalog_index(path)
+                    self.assertEqual(replay(True), live)
+                    # An unchanged catalog hash does not excuse stale flattened text.
+                    with sqlite3.connect(artifact) as connection:
+                        field = next(iter(fields))
+                        connection.execute(f"UPDATE products SET {field}=? WHERE parent_asin='A'",
+                                           ("No cotton Linen",))
+                    stale_bytes = artifact.read_bytes()
+                    self.assertIsNone(open_catalog_index(path, artifact))
+                    self.assertEqual(replay(False), live)
+                    self.assertEqual(artifact.read_bytes(), stale_bytes)
 
     def test_semantic_repairs_choose_valid_product_end_to_end(self) -> None:
         cases = (

@@ -10,6 +10,7 @@ from pathlib import Path
 from .constraint_index import (
     ConstraintIndex,
     SQLiteConstraintIndex,
+    _catalog_text,
     default_catalog_index_path,
     open_catalog_index,
 )
@@ -73,13 +74,7 @@ class SearchResult:
 
 
 def _text(value: object) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, dict):
-        return " ".join(f"{key} {item}" for key, item in value.items())
-    if isinstance(value, list):
-        return " ".join(str(item) for item in value)
-    return str(value)
+    return _catalog_text(value)
 
 
 def _or_expression(values: list[str], limit: int = 48) -> str:

@@ -16,6 +16,91 @@ from mercury.lexical.retrieval import CatalogSearch, _hard_constraint_and_expres
 
 
 class ActiveEvidenceTest(unittest.TestCase):
+    def test_natural_correction_replaces_multiple_facets_and_preserves_kept_evidence(self):
+        for opening in ("Correction: make that", "Correction:", "Make that", "Let me correct that:"):
+            with self.subTest(opening=opening):
+                state = SessionState({})
+                state.observe("A key requirement is: navy; wool; machine washable.", 1)
+                kept = state.evidence[-1]
+                state.observe(f"{opening} green and linen, but keep machine washable.", 2)
+                self.assertEqual({item.text for item in state.evidence}, {"green and linen", "machine washable"})
+                self.assertIn(kept, state.evidence)
+                self.assertEqual(len([item for item in state.evidence if item.turn == 2]), 1)
+                replacement = next(item for item in state.evidence if item.turn == 2)
+                self.assertEqual(replacement.operation, PreferenceOperation.REPLACE)
+                self.assertEqual(replacement.source, "override")
+
+    def test_existing_override_phrase_replaces_every_named_facet(self):
+        state = SessionState({})
+        state.observe("A key requirement is: black; wool; side vents.", 1)
+        state.observe("Actually, what I need is: green linen.", 2)
+        self.assertEqual({item.text for item in state.evidence}, {"green linen", "side vents"})
+
+    def test_multifacet_replacement_preserves_compatible_composition(self):
+        state = SessionState({})
+        state.observe("A key requirement is: black; 80% cotton and 20% polyester; rounded hem.", 1)
+        state.observe("Correction: blue cotton.", 2)
+        self.assertEqual({item.text for item in state.evidence},
+                         {"blue cotton", "80% cotton and 20% polyester", "rounded hem"})
+
+    def test_multifacet_replacement_is_atomic_across_value_groups(self):
+        state = SessionState({})
+        state.observe("A key requirement is: black; wool.", 1)
+        state.observe("Actually, what I need is: blue cotton; red.", 2)
+        self.assertEqual({item.text for item in state.evidence}, {"blue cotton", "red"})
+
+    def test_multifacet_component_correction_preserves_another_owner(self):
+        state = SessionState({})
+        state.observe("A key requirement is: lining: black cotton; upper: brown leather; side vents.", 1)
+        state.observe("Correction: lining: blue silk.", 2)
+        self.assertEqual({item.text for item in state.evidence},
+                         {"lining: blue silk", "upper: brown leather", "side vents"})
+
+    def test_unasserted_correction_words_do_not_change_active_preferences(self):
+        for message in ('"Correction: make that blue canvas."',
+                        'The label says "Correction: make that blue canvas."',
+                        "Do not make that blue canvas.",
+                        "I'm not making a correction: blue canvas.",
+                        "If I make a correction, make that blue canvas.",
+                        "Maybe a correction to blue canvas."):
+            with self.subTest(message=message):
+                state = SessionState({})
+                state.observe("A key requirement is: black; leather.", 1)
+                before = list(state.evidence)
+                state.observe(message, 2)
+                self.assertEqual(state.evidence, before)
+
+    def test_quoted_correction_does_not_hide_an_independent_request(self):
+        state = SessionState({})
+        state.observe("A key requirement is: black; leather.", 1)
+        state.observe('The label says "Correction: blue canvas", and I need an adjustable strap.', 2)
+        self.assertEqual({item.text for item in state.evidence},
+                         {"black", "leather", "I need an adjustable strap"})
+
+    def test_explicit_correction_keeps_a_requested_literal_contrast(self):
+        state = SessionState({})
+        phrase = 'a graphic reading "blue rather than black"'
+        state.observe(f"Correction: {phrase}.", 1)
+        self.assertEqual([item.text for item in state.evidence], [phrase])
+        self.assertEqual(state.evidence[0].source, "override")
+
+    def test_unasserted_correction_cannot_activate_earlier_override_controls(self):
+        messages = (
+            '"Correction: ignore my earlier preference. What I need is: blue canvas."',
+            'The label says "Correction: ignore my earlier preference. What I need is: blue canvas."',
+            "If I make a correction, ignore my earlier preference. What I need is: blue canvas.",
+            '"Correction: blue canvas rather than black leather."',
+            "If I make a correction, blue canvas instead of black leather.",
+        )
+        for message in messages:
+            with self.subTest(message=message):
+                state = SessionState({})
+                state.observe("I'm looking for bags. I prefer black leather.", 1)
+                before = list(state.evidence)
+                state.observe(message, 2)
+                self.assertEqual(state.evidence, before)
+                self.assertEqual(state.category_text, "bags")
+
     def test_exclusive_replacement_retires_an_incompatible_combination(self):
         for value in ("blue only", "only blue", "color: blue only", "blue exclusively"):
             with self.subTest(value=value):
@@ -249,6 +334,27 @@ class EvidenceRankingTest(unittest.TestCase):
 
     def product(self, key, **fields):
         return self.store.add(key, fields)
+
+    def test_natural_correction_ranks_the_new_combination_without_narrowing_output(self):
+        from mercury.lexical.agent import Agent
+        from mercury.lexical.config import FULL_WIDTH_CONFIG
+
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = Path(directory) / "catalog.jsonl"
+            products = [{"parent_asin": "wanted", "categories": ["bags"],
+                         "features": ["green linen", "adjustable strap"]}]
+            products.extend({"parent_asin": f"old{index}", "categories": ["bags"],
+                             "features": ["navy wool", "adjustable strap"], "rating_number": 100000}
+                            for index in range(11))
+            catalog.write_text("\n".join(json.dumps(product) for product in products) + "\n")
+            agent = Agent(catalog, config=FULL_WIDTH_CONFIG)
+            self.addCleanup(agent.close)
+            agent.reset("authored", {})
+            agent.respond("authored", "I'm looking for bags. A key requirement is: navy; wool; adjustable strap.", 1, 10)
+            response = agent.respond("authored", "Correction: make that green and linen, but keep the adjustable strap.", 2, 10)
+            self.assertEqual(response["recommendations"][0]["parent_asin"], "wanted")
+            self.assertEqual(len(response["recommendations"]), 10)
+            self.assertEqual(agent.last_diagnostics["stage_counts"]["retrieval_union"], len(products))
 
     def test_or_satisfies_one_hard_group_and_scores_strongest_witness_once(self):
         item = Evidence("cotton or linen", 3.8, "hard_constraint", 1)
