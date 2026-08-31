@@ -177,6 +177,7 @@ _REPLACEMENT = re.compile(
     r"\b(?:actually|instead|rather than|after all|on second thought|change|switch|replace|"
     r"make that|go with|changed my mind|scratch that|swap(?: it| that)?)\b"
 )
+_CORRECTION_HEADER = re.compile(r"^(?:please\s+)?correction\s*:\s*")
 _IMPLICIT_PREFERENCE_SHIFT = re.compile(
     r"\b(?:let'?s try|back to|(?:works|sounds|feels|looks|seems) better|"
     r"makes? (?:more|better) sense|not feeling)\b"
@@ -806,18 +807,24 @@ class SessionState:
         result: list[_Assertion] = []
         residual_assertions: list[_Assertion] = []
         qualified_component_contrast = bool(_NOT_JUST_COMPONENT.search(text))
-        clauses = re.split(
-            r"(?<!\d)\.(?!\d)|[;!?]|,(?!\d)|\bbut\b|"
-            r"\band\s+(?=(?:i\s+(?:need|want|prefer|don't|do not)|it\s+(?:must|needs|should)))",
+        pieces = re.split(
+            r"((?<!\d)\.(?!\d)|[;!?]|,(?!\d)|\bbut\b|"
+            r"\band\s+(?=(?:i\s+(?:need|want|prefer|don't|do not)|it\s+(?:must|needs|should))))",
             text,
         )
-        clauses = [part for clause in clauses for part in _scoped_conjuncts(
-            clause, parse_alternatives=self.alternatives_mode != "off",
-        )]
+        clauses: list[tuple[str, bool]] = []
+        for index in range(0, len(pieces), 2):
+            parts = _scoped_conjuncts(pieces[index], parse_alternatives=self.alternatives_mode != "off")
+            comma_follows = index + 1 < len(pieces) and pieces[index + 1] == ","
+            clauses.extend((part, comma_follows and offset == len(parts) - 1)
+                           for offset, part in enumerate(parts))
         unproductive = False
         pending_replacement = False
-        for clause_index, clause in enumerate(clauses):
-            clause = clause.strip()
+        comma_replacement = False
+        for clause_index, (clause, comma_follows) in enumerate(clauses):
+            inherited_comma_replacement = comma_replacement
+            comma_replacement = False
+            clause = _CORRECTION_HEADER.sub("actually ", clause.strip())
             if not clause:
                 continue
             attributes = _mentioned_attributes(clause)
@@ -839,8 +846,7 @@ class SessionState:
             no_preference = (
                 _NO_PREFERENCE.search(clause)
                 or re.search(r"\bdon't have (?:a |any )?preference\b", clause)
-                or (_CANONICAL_NO_PREFERENCE.search(clause)
-                    if self.canonical_state_semantics else None)
+                or _CANONICAL_NO_PREFERENCE.search(clause)
             )
             if self.alternatives_mode != "off" and no_preference and re.match(r"(?:any|either)\b", no_preference.group()):
                 # Stop at this acceptance segment, not a later independent list.
@@ -883,11 +889,19 @@ class SessionState:
                 _REPLACEMENT.search(clause)
                 or _IMPLICIT_PREFERENCE_SHIFT.search(clause)
                 or pending_replacement
+                or (inherited_comma_replacement and not additive)
                 or (turn_replacement and not _ADDITIVE.search(clause))
             )
             discourse = [("discourse", "", match.start(), match.end()) for match in re.finditer(r"\bworks\b", clause)] if alternatives else []
+            discourse.extend(
+                ("discourse", "", match.start(), match.end())
+                for match in re.finditer(r"\b(?:is|are|would be|seems?|sounds?|looks?)\s+(?:suitable|acceptable)\b", clause)
+                if any(attribute != "category" and end <= match.start() and _polarity(clause, start, end) == 1
+                       for attribute, _, start, end in mentions)
+            )
             residuals = _residuals(clause, mentions + discourse + [("quantity", value, start, end) for value, start, end in quantities])
             pending_replacement = replacement and not mentions and not residuals
+            comma_replacement = comma_follows and (inherited_comma_replacement or replacement)
             owner_spans = [(attribute, value, start, end) for attribute, value, start, end in mentions if attribute not in {"budget", "size"}]
             for attribute, value, start, end in mentions:
                 catalog_match = catalog_sources.get((attribute, value, start, end))
@@ -928,8 +942,6 @@ class SessionState:
                                          replacement or replace_material, clause=clause_index,
                                          choice_replacement=attribute in choice_replacements))
             for value, start, end in residuals:
-                if self.canonical_state_semantics and value in {"correction", "suitable"}:
-                    continue
                 not_just_match = _NOT_JUST_COMPONENT.search(clause)
                 if not_just_match and not_just_match.start() < start:
                     # The component is insufficient on its own, not forbidden.
