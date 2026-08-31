@@ -229,14 +229,14 @@ def _compact(value: object, limit: int = 32) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()[:limit].rstrip()
 
 
-def _optional_float(value: object) -> float | None:
+def _optional_float(value: object, *, allow_zero: bool = False) -> float | None:
     if isinstance(value, bool):
         return None
     try:
         parsed = float(value)
     except (TypeError, ValueError):
         return None
-    return parsed if math.isfinite(parsed) and parsed > 0.0 else None
+    return parsed if math.isfinite(parsed) and (parsed >= 0.0 if allow_zero else parsed > 0.0) else None
 
 
 def _non_negative_int(value: object) -> int:
@@ -472,7 +472,7 @@ class ProductFeatureStore:
             field_sequences=tuple(sequences[field] for field in FIELD_ORDER),
             feature_tokens=feature_tokens,
             category_tokens=category_tokens,
-            price=_optional_float(price),
+            price=_optional_float(price, allow_zero=True),
             brand=_compact(fields.get("store", "")).casefold(),
             average_rating=parsed_rating,
             rating_number=_non_negative_int(rating_number),

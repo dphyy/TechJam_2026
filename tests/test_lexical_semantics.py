@@ -229,6 +229,43 @@ class LexicalSemanticsTest(unittest.TestCase):
                     self.assertEqual(replay(False), live)
                     self.assertEqual(artifact.read_bytes(), stale_bytes)
 
+    def test_zero_price_is_known_without_changing_rating_or_invalid_number_rules(self) -> None:
+        for index, zero in enumerate((0, 0.0, "0", "0.00")):
+            product = self.store.add(f"zero{index}", {}, price=zero, average_rating=zero)
+            self.assertEqual(product.price, 0.0)
+            self.assertEqual(product.average_rating, 0.0)
+            budget = self.store.compile_query([Evidence("maximum $0", 3.8, "hard_constraint", 1)])
+            self.assertGreater(CatalogSearch._price_score(product, budget), 0)
+        for index, invalid in enumerate((None, "", True, False, -1, "-1", "inf", "nan")):
+            product = self.store.add(f"invalid{index}", {}, price=invalid, average_rating=invalid)
+            self.assertIsNone(product.price)
+            self.assertEqual(product.average_rating, 0.0)
+
+    def test_actual_budget_responses_distinguish_zero_price_from_missing_price(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "prices.jsonl"
+            rows = [{"parent_asin": identifier, "categories": ["shirts"], "price": price}
+                    for identifier, price in (("zero", 0), ("limit", 25), ("over", 26), ("unknown", None))]
+            path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+            agent = make_agent(path, fullwidth=True)
+            try:
+                for budget in (0, 25):
+                    with self.subTest(budget=budget):
+                        agent.reset("s", {})
+                        agent.respond("s", "I'm looking for shirts.", 1, 10)
+                        result = agent.respond("s", f"A key requirement is: maximum ${budget}.", 2, 10)
+                        statuses = {row["parent_asin"]: next(item["status"] for item in row["evidence"]
+                                    if item["value"] == f"maximum ${budget}")
+                                    for row in agent.last_diagnostics["constraint_checks"]}
+                        self.assertEqual(statuses, {"zero": "supported", "unknown": "unknown",
+                                         "over": "contradicted", "limit": "supported" if budget == 25 else "contradicted"})
+                        self.assertEqual({row["parent_asin"] for row in result["recommendations"]},
+                                         {"zero", "limit", "over", "unknown"})
+                        if budget == 0:
+                            self.assertEqual(result["recommendations"][0]["parent_asin"], "zero")
+            finally:
+                agent.close()
+
     def test_semantic_repairs_choose_valid_product_end_to_end(self) -> None:
         cases = (
             ("Shirts", {"features": ["No cotton"]}, {"features": ["Cotton"]}, "cotton", False),

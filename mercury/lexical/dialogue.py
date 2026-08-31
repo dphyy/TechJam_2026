@@ -399,7 +399,13 @@ class SessionState:
         # Retire against the complete replacement set before adding any new
         # chunk, so a later facet cannot accidentally prune an earlier new one.
         for (attribute, owner), replacement_values in replacements.items():
+            prior = list(self.evidence)
             self._retire(attribute, owner, replacement_values)
+            if self.long_term_profile is not None and owner is None:
+                remaining = set(self.evidence)
+                for old in prior:
+                    if old not in remaining and old.source not in {"category", "exclusion"}:
+                        self.long_term_profile.reject(attribute or "other", old.text)
         for attribute, attribute_values in grouped.items():
             self._apply_values(
                 attribute_values, attribute, weight, source, turn, operation,

@@ -6,9 +6,11 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from mercury.lexical.constraint_index import ConstraintIndex, open_catalog_index
 from mercury.lexical.dialogue import Evidence, PreferenceOperation, SessionState
+from mercury.lexical.memory import LongTermUserProfile
 from mercury.lexical.preprocessing import build_catalog_index
 from mercury.lexical.product_features import ProductFeatureStore
 from mercury.lexical.ranking import DEFAULT_RANKING_POLICIES
@@ -16,6 +18,30 @@ from mercury.lexical.retrieval import CatalogSearch, _hard_constraint_and_expres
 
 
 class ActiveEvidenceTest(unittest.TestCase):
+    def test_multifacet_correction_retires_only_removed_secondary_profile_values(self):
+        profile = LongTermUserProfile("authored")
+        profile.seed(["black", "leather", "casual"])
+        state = SessionState({}, long_term_profile=profile)
+        state.observe("A key requirement is: black; leather; adjustable strap.", 1)
+        prior = list(state.evidence)
+        state.observe("Correction: make that blue and canvas, but keep the adjustable strap.", 2)
+        self.assertNotIn(("color", "black"), profile.learned)
+        self.assertNotIn(("material", "leather"), profile.learned)
+        self.assertIn(("style", "casual"), profile.learned)
+        removed = [item for item in prior if item not in state.evidence]
+        self.assertEqual([(item.text, item.turn) for item in removed], [("black", 1), ("leather", 1)])
+        self.assertEqual([item.text for item in state.evidence if item.turn == 1], ["adjustable strap"])
+
+    def test_compatible_secondary_profile_value_is_not_retired(self):
+        profile = LongTermUserProfile("authored")
+        profile.seed(["blue", "cotton", "casual"])
+        state = SessionState({}, long_term_profile=profile)
+        state.observe("A key requirement is: blue; cotton; rounded hem.", 1)
+        state.observe("Correction: blue linen.", 2)
+        self.assertIn(("color", "blue"), profile.learned)
+        self.assertIn(("style", "casual"), profile.learned)
+        self.assertTrue(any(item.text == "blue" and item.turn == 1 for item in state.evidence))
+
     def test_natural_correction_replaces_multiple_facets_and_preserves_kept_evidence(self):
         for opening in ("Correction: make that", "Correction:", "Make that", "Let me correct that:"):
             with self.subTest(opening=opening):
@@ -334,6 +360,37 @@ class EvidenceRankingTest(unittest.TestCase):
 
     def product(self, key, **fields):
         return self.store.add(key, fields)
+
+    def test_multifacet_profile_retirement_commits_only_after_a_valid_response(self):
+        from copy import deepcopy
+        from mercury.lexical.agent import Agent
+        from mercury.lexical.config import FULL_WIDTH_CONFIG
+
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = Path(directory) / "catalog.jsonl"
+            catalog.write_text(json.dumps({"parent_asin": "bag", "categories": ["bags"],
+                                            "features": ["blue canvas", "adjustable strap"]}) + "\n")
+            agent = Agent(catalog, config=FULL_WIDTH_CONFIG, share_profile_memory=True)
+            self.addCleanup(agent.close)
+            agent.reset("first", {"profile_id": "shared", "preference_tags": ["black", "leather", "casual"]})
+            agent.reset("second", {"profile_id": "shared"})
+            agent.respond("first", "I'm looking for bags. A key requirement is: black; leather; adjustable strap.", 1, 10)
+            state = agent._sessions["first"]
+            profile = state.long_term_profile
+            original_evidence, original_profile = list(state.evidence), deepcopy(profile.snapshot())
+            correction = "Correction: make that blue and canvas, but keep the adjustable strap."
+            with patch.object(agent.search, "search_with_context", side_effect=RuntimeError("temporary failure")):
+                with self.assertRaises(RuntimeError):
+                    agent.respond("first", correction, 2, 10)
+            self.assertEqual(state.evidence, original_evidence)
+            self.assertEqual(profile.snapshot(), original_profile)
+            agent.respond("first", correction, 2, 10)
+            self.assertIs(agent._sessions["second"].long_term_profile, profile)
+            self.assertNotIn(("color", "black"), profile.learned)
+            self.assertIn(("style", "casual"), profile.learned)
+            self.assertEqual({(item["value"], item["source_turn"], item["retired_turn"])
+                              for item in agent.last_diagnostics["retired_preferences"]},
+                             {("black", 1, 2), ("leather", 1, 2)})
 
     def test_natural_correction_ranks_the_new_combination_without_narrowing_output(self):
         from mercury.lexical.agent import Agent
