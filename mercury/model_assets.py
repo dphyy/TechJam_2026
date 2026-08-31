@@ -10,6 +10,7 @@ MODELS = {
         "repo_id": "BAAI/bge-small-en-v1.5",
         "revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
         "weights_sha256": "3c9f31665447c8911517620762200d2245a2518d6e7208acc78cd9db317e21ad",
+        "metadata_sha256": "b4b9461186c74ddbad9653357d78c73b12faa9b8e61e136759b353b546cd6316",
         "license": "MIT",
         "required": ["model.safetensors", "config.json", "tokenizer_config.json",
                      "modules.json", "1_Pooling/config.json"],
@@ -18,6 +19,7 @@ MODELS = {
         "repo_id": "cross-encoder/ms-marco-MiniLM-L6-v2",
         "revision": "233902d25c440f23af6f7d6e94d2946bac0bee0a",
         "weights_sha256": "821d1aa69520101d6e0737f78a042ae25b19e5cb9160701909d10434f4aeb0ae",
+        "metadata_sha256": "ed466f09238356bd21a5b860b96cba763359329d42e8bd73338684a381143b66",
         "license": "Apache-2.0",
         "required": ["model.safetensors", "config.json", "tokenizer_config.json"],
     },
@@ -39,6 +41,21 @@ MODELS = {
 
 # Cross-encoder kinds selectable by configuration; the default stays first.
 RERANKERS = ("reranker", "reranker_domain_v1", "bge_reranker_base")
+
+_LOADER_SUFFIXES = (".json", ".txt", ".model")
+
+
+def _mapping_digest(value: dict) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def model_asset_identity(manifest: dict) -> str:
+    """Identity of verified inference inputs, independent of documentation files."""
+    return _mapping_digest({
+        "revision": manifest.get("revision"),
+        "files": {name: checksum for name, checksum in manifest.get("files", {}).items()
+                  if name.endswith((*_LOADER_SUFFIXES, ".safetensors"))},
+    })
 
 
 def file_sha256(path: Path) -> str:
@@ -65,11 +82,26 @@ def verify_model(path: Path, kind: str) -> dict:
     if not {"tokenizer.json", "vocab.txt"} & files.keys():
         raise ValueError("Model manifest is missing tokenizer vocabulary")
     for name, checksum in files.items():
-        if not isinstance(name, str) or not isinstance(checksum, str) or len(checksum) != 64:
+        if (not isinstance(name, str) or not isinstance(checksum, str) or len(checksum) != 64
+                or any(char not in "0123456789abcdef" for char in checksum)):
             raise ValueError("Invalid model file checksum entry")
+        if (not name or Path(name).is_absolute() or Path(name).as_posix() != name
+                or ".." in Path(name).parts or "\\" in name or name == "asset_manifest.json"):
+            raise ValueError("Invalid model manifest path")
         target = (path / name).resolve()
         if not target.is_relative_to(path.resolve()):
             raise ValueError("Invalid model manifest path")
         if file_sha256(target) != checksum:
             raise ValueError(f"Changed {kind} model metadata: {name}")
+    metadata = {name: checksum for name, checksum in files.items() if name.endswith(_LOADER_SUFFIXES)}
+    observed_metadata = {
+        file.relative_to(path).as_posix() for file in path.rglob("*")
+        if file.is_file() and file.name.endswith(_LOADER_SUFFIXES)
+        and file.name != "asset_manifest.json" and ".cache" not in file.relative_to(path).parts
+    }
+    if observed_metadata != metadata.keys():
+        raise ValueError("Model loader metadata differs from manifest")
+    expected_metadata = spec.get("metadata_sha256")
+    if expected_metadata is not None and _mapping_digest(metadata) != expected_metadata:
+        raise ValueError(f"Unexpected {kind} loader metadata checksum")
     return manifest

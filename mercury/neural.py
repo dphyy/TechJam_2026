@@ -10,7 +10,7 @@ from pathlib import Path
 from threading import RLock
 
 from mercury.catalog import Catalog
-from mercury.model_assets import MODELS, file_sha256, verify_model
+from mercury.model_assets import MODELS, file_sha256, model_asset_identity, verify_model
 from mercury.product_types import classify_product
 from mercury.review_prior import ADJUSTMENT_KEY
 from mercury.types import Candidate, Preference, Product
@@ -25,6 +25,17 @@ PROTECTED_DOCUMENT_WORD_LIMIT = 160
 _NEURAL_SCORE_KEYS = frozenset({
     "neural_logit", "neural_rank", "neural_margin", "neural_fusion_weight",
 })
+
+
+def _backend_identity(owner, attributes: tuple[str, ...]) -> str:
+    """Track replaced inference objects without keeping old models or raw IDs."""
+    current = tuple(getattr(owner, name, None) for name in attributes)
+    previous = getattr(owner, "_identity_bindings", ())
+    if len(current) != len(previous) or any(left is not right for left, right in zip(current, previous)):
+        owner._identity_generation = getattr(owner, "_identity_generation", 0) + 1
+        owner._identity_bindings = current
+    payload = [getattr(owner, "asset_identity", ""), getattr(owner, "_identity_generation", 0)]
+    return hashlib.sha256(json.dumps(payload, separators=(",", ":")).encode()).hexdigest()
 
 
 def _head_document_text(product: Product) -> str:
@@ -215,12 +226,13 @@ def _model_options(device: str, threads: int) -> dict:
 
 
 def load_encoder(path: Path, device: str = "cpu", threads: int = 4):
-    verify_model(path, "embedding")
+    manifest = verify_model(path, "embedding")
     options = _model_options(device, threads)
     from sentence_transformers import SentenceTransformer
 
     encoder = SentenceTransformer(str(path), **options)
     encoder.max_seq_length = MAX_LENGTH
+    encoder.asset_identity = model_asset_identity(manifest)
     return encoder
 
 
@@ -240,7 +252,14 @@ class DenseIndex:
         self.vectors = np.load(root / "vectors.npy", mmap_mode="r", allow_pickle=False)
         validate_vectors(self.vectors, len(self.ids))
         self.encoder = load_encoder(artifact_dir / "models" / "embedding", device, threads)
+        self.asset_identity = hashlib.sha256(json.dumps({
+            "model": self.encoder.asset_identity, "index": manifest,
+        }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         self.prompt_tokens = 0
+
+    @property
+    def backend_identity(self) -> str:
+        return _backend_identity(self, ("encoder", "vectors", "ids"))
 
     def search(self, query: str, limit: int) -> list[str]:
         import numpy as np
@@ -272,13 +291,14 @@ class NeuralRanker:
         if type(batch_size) is not int or batch_size not in {16, 30, 32}:
             raise ValueError("batch_size must be one of 16, 30, or 32")
         path = artifact_dir / "models" / kind
-        verify_model(path, kind)
+        manifest = verify_model(path, kind)
         options = _model_options(device, threads)
         from sentence_transformers import CrossEncoder
         import torch
 
         self.model = CrossEncoder(str(path), max_length=MAX_LENGTH,
                                   activation_fn=torch.nn.Identity(), **options)
+        self.asset_identity = model_asset_identity(manifest)
         self.kind = kind
         self.device = device
         self.threads = threads
@@ -294,6 +314,10 @@ class NeuralRanker:
         self._evaluated_pairs = 0
         self._last_prediction_token_lengths: list[int] = []
         self._last_pair_receipts: list[dict] = []
+
+    @property
+    def backend_identity(self) -> str:
+        return _backend_identity(self, ("model",))
 
     def pair_receipts(self) -> list[dict]:
         """Return bounded non-label serialization evidence for the latest call."""
@@ -336,6 +360,8 @@ class NeuralRanker:
             candidate.product.parent_asin,
             hashlib.sha256(document.encode("utf-8")).digest(),
             MAX_LENGTH,
+            getattr(self, "asset_identity", None),
+            self.backend_identity,
         )
 
     def _predict_logits(self, effective_query: str, documents: list[str]) -> list[float]:
