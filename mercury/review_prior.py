@@ -14,20 +14,23 @@ STAR_PSEUDOCOUNT = 20
 ADJUSTMENT_KEY = "review_prior_adjustment"
 
 
-def review_signal(product: Product, mode: str) -> float:
+def review_signal(product: Product, mode: str, count_fraction: float = .5) -> float:
+    if type(count_fraction) not in (int, float) or not 0 <= count_fraction <= 1:
+        raise ValueError("Count fraction must be finite and in [0, 1]")
     count = review_count(product.rating_number)
     popularity = min(1.0, math.log1p(count) / math.log1p(COUNT_SATURATION))
     rating = star_rating(product.average_rating)
     raw_quality = (rating - 3.0) / 2.0 if rating is not None else 0.0
     quality = raw_quality * count / (count + STAR_PSEUDOCOUNT)
     signals = {"none": 0.0, "count": popularity, "raw_stars": raw_quality,
-               "stars": quality, "mixed": .5 * popularity + .5 * quality}
+               "stars": quality, "mixed": count_fraction * popularity + (1 - count_fraction) * quality}
     if mode not in signals:
         raise ValueError(f"Unknown review prior mode: {mode}")
     return signals[mode]
 
 
-def rank_review_prior(candidates: list[Candidate], mode: str, weight: float) -> list[Candidate]:
+def rank_review_prior(candidates: list[Candidate], mode: str, weight: float,
+                      count_fraction: float = .5) -> list[Candidate]:
     """Replace one bonus on the current score scale, preserving guarded separation.
 
     Neural score replacement must drop ADJUSTMENT_KEY. A later, smaller prior
@@ -36,6 +39,8 @@ def rank_review_prior(candidates: list[Candidate], mode: str, weight: float) -> 
     """
     if type(weight) not in (int, float) or not 0 <= weight <= .30:
         raise ValueError("Review prior weight must be finite and in [0, .30]")
+    if type(count_fraction) not in (int, float) or not 0 <= count_fraction <= 1:
+        raise ValueError("Count fraction must be finite and in [0, 1]")
     if mode not in {"none", "count", "raw_stars", "stars", "mixed"}:
         raise ValueError(f"Unknown review prior mode: {mode}")
     if not candidates or ((not weight or mode == "none") and not any(
@@ -54,7 +59,7 @@ def rank_review_prior(candidates: list[Candidate], mode: str, weight: float) -> 
     for item, base in zip(candidates, bases):
         parts = dict(item.route_scores)
         parts.pop(ADJUSTMENT_KEY, None)
-        adjustment = weight * review_signal(item.product, mode)
+        adjustment = weight * review_signal(item.product, mode, count_fraction)
         if adjustment:
             parts[ADJUSTMENT_KEY] = adjustment
         result.append(Candidate(item.product, base + adjustment, parts))

@@ -79,6 +79,11 @@ admission and final-ordering roles. It finds 198/200 public targets at `0.866792
 improves all three Cycle 5 splits, and slightly improves the lower-popularity Cycle 3
 counter-test. Both local constraint checks remain enabled. See the
 [comparison, token costs, and remaining parser limitations](docs/REVIEW_PRIOR_RESULTS.md).
+A subsequent 45-setting ratio/stage-weight search used new family-disjoint
+development and reserved packs, without rerunning public or old confirmations.
+Count-only improved the reserved score but failed the predeclared development-gain
+threshold, so the 50:50 production blend remains unchanged; see the
+[fresh tuning results and data-scope limits](docs/REVIEW_PRIOR_TUNING_RESULTS.md).
 Direct neural-weight tuning over `0.60`–`0.90` also found no candidate that cleared the registered practical-gain gate, so the selected `0.75` weight remains unchanged; see [the tuning result](docs/NEURAL_WEIGHT_TUNING_RESULTS.md).
 
 Release and experiment interpretation is fixed as follows:

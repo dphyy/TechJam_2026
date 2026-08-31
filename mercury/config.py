@@ -53,6 +53,7 @@ class Config:
     retrieval_mode: str = "broad"
     rerank_document_mode: str = "head"
     review_prior_mode: str = "none"
+    review_prior_count_fraction: float = 0.5
     constraint_check_stage: str = "both"
     review_prior_pre_weight: float = 0.0
     review_prior_post_weight: float = 0.0
@@ -191,6 +192,7 @@ class Config:
                     "mixed_scoped_weight",
                     "buying_dense_weight", "browsing_dense_weight", "mixed_dense_weight", "question_turn_cost",
                     "profile_weight", "soft_price_weight", "soft_negative_weight",
+                    "review_prior_count_fraction",
                     "minimum_retrieval_specificity",
                     "cascade_threshold", "cascade_low_overlap", "cascade_low_confidence",
                     "neural_low_margin_weight"):

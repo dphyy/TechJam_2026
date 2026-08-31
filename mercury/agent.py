@@ -616,7 +616,8 @@ class Agent:
             if not any("neural_rank" in item.route_scores for item in pool):
                 return pool
             return rank_review_prior(pool, self.config.review_prior_mode,
-                                     self.config.review_prior_post_weight)
+                                     self.config.review_prior_post_weight,
+                                     count_fraction=self.config.review_prior_count_fraction)
 
         cached = self._cache.get(session_id)
         cache_hit = sufficiency.action != "clarify_first" and cached is not None and cached[0] == cache_key
@@ -679,7 +680,8 @@ class Agent:
             if self.config.product_guard:
                 candidates = _apply_product_guard(candidates, preferences, fallbacks)
             candidates = rank_review_prior(candidates, self.config.review_prior_mode,
-                                           self.config.review_prior_pre_weight)
+                                           self.config.review_prior_pre_weight,
+                                           count_fraction=self.config.review_prior_count_fraction)
             stage_counts["guarded_before_truncation"] = len(candidates)
             stage_ids["guarded_before_truncation"] = [
                 item.product.parent_asin for item in candidates
@@ -1164,6 +1166,7 @@ class Agent:
             ],
             "review_prior": {
                 "mode": self.config.review_prior_mode,
+                "count_fraction": self.config.review_prior_count_fraction,
                 "pre_weight": self.config.review_prior_pre_weight,
                 "post_weight": self.config.review_prior_post_weight,
                 "adjustments": {item.product.parent_asin: item.route_scores.get(ADJUSTMENT_KEY, 0.0)

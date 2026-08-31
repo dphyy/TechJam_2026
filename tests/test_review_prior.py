@@ -14,6 +14,18 @@ def candidate(identifier, count=0, stars=None, score=1.0, title="Shirt"):
 
 
 class ReviewPriorTest(unittest.TestCase):
+    def test_mix_ratio_endpoints_and_default(self):
+        product = candidate("a", 1000, 4.5).product
+        self.assertEqual(review_signal(product, "mixed", 0), review_signal(product, "stars"))
+        self.assertEqual(review_signal(product, "mixed", 1), review_signal(product, "count"))
+        self.assertEqual(review_signal(product, "mixed"), review_signal(product, "mixed", .5))
+        for value in (-.1, 1.1, True, float("nan"), float("inf")):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    Config(review_prior_count_fraction=value)
+                with self.assertRaises(ValueError):
+                    rank_review_prior([], "mixed", 0, value)
+
     def test_safe_metadata_and_no_text_pollution(self):
         for value in (None, True, -1, 1.5, float("nan"), float("inf"), "unknown", [], {}):
             with self.subTest(value=value):
