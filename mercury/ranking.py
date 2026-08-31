@@ -298,6 +298,12 @@ def rank_constraints(candidates: list[Candidate], preferences: list[Preference])
     return sorted(result, key=lambda item: -item.score)
 
 
+def contradicts_hard_constraints(product: Product, preferences: list[Preference]) -> bool:
+    """Audit observed contradictions, not missing/unknown metadata."""
+    return any(max(preference_evidence(product, preference) for preference in group) < 0.0
+               for group in _constraint_groups(preferences))
+
+
 def rank_soft_negatives(candidates: list[Candidate], preferences: list[Preference],
                         weight: float) -> list[Candidate]:
     """Apply a bounded, idempotent demotion for explicitly soft exclusions."""

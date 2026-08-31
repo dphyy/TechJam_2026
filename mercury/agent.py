@@ -25,10 +25,11 @@ from mercury.hypotheses import build_intent_hypotheses
 from mercury.planning import build_retrieval_plan
 from mercury.policy import choose_policy
 from mercury.profile import distill_profile, rank_profile_prior
-from mercury.ranking import (rank_candidates, rank_composition_evidence, rank_constraints,
+from mercury.ranking import (contradicts_hard_constraints, rank_candidates, rank_composition_evidence, rank_constraints,
                              rank_product_compatibility, rank_role_evidence, rank_soft_negatives,
                              rank_soft_prices)
 from mercury.retrieval import SparseIndex, fuse_routes, terms
+from mercury.review_prior import ADJUSTMENT_KEY, rank_review_prior
 from mercury.state import SessionState
 from mercury.sufficiency import decide_retrieval_sufficiency
 from mercury.types import Candidate, ComputeCascadeDecision, Preference, RetrievalPlan
@@ -595,6 +596,28 @@ class Agent:
             sufficiency.action,
         )
         fallbacks = list(self.startup_fallbacks)
+        constraint_checks: list[dict] = []
+
+        def checked_constraints(pool: list[Candidate], stage: str) -> list[Candidate]:
+            if self.config.constraint_check_stage not in {"both", stage}:
+                return pool
+            checked_at = time.perf_counter()
+            result = _apply_constraints(pool, preferences, fallbacks)
+            constraint_checks.append({
+                "stage": stage, "seconds": time.perf_counter() - checked_at,
+                "reordered": [item.product.parent_asin for item in pool]
+                != [item.product.parent_asin for item in result],
+                "contradicted_candidates": sum("constraint_penalty" in item.route_scores for item in result),
+            })
+            return result
+
+        def post_neural_prior(pool: list[Candidate]) -> list[Candidate]:
+            # A second use only makes sense after an actual score replacement.
+            if not any("neural_rank" in item.route_scores for item in pool):
+                return pool
+            return rank_review_prior(pool, self.config.review_prior_mode,
+                                     self.config.review_prior_post_weight)
+
         cached = self._cache.get(session_id)
         cache_hit = sufficiency.action != "clarify_first" and cached is not None and cached[0] == cache_key
         minimal_probe = sufficiency.action == "minimal_probe"
@@ -649,12 +672,14 @@ class Agent:
                 except (RuntimeError, ValueError, TypeError) as error:
                     fallbacks.append("ranking")
                     LOGGER.warning("Evidence ranking failed: %s", type(error).__name__)
-            candidates = _apply_constraints(candidates, preferences, fallbacks)
+            candidates = checked_constraints(candidates, "pre")
             candidates = rank_soft_negatives(
                 candidates, preferences, self.config.soft_negative_weight,
             )
             if self.config.product_guard:
                 candidates = _apply_product_guard(candidates, preferences, fallbacks)
+            candidates = rank_review_prior(candidates, self.config.review_prior_mode,
+                                           self.config.review_prior_pre_weight)
             stage_counts["guarded_before_truncation"] = len(candidates)
             stage_ids["guarded_before_truncation"] = [
                 item.product.parent_asin for item in candidates
@@ -823,7 +848,8 @@ class Agent:
             composition_witnesses: dict[str, list[dict]] = {}
             if self.config.composition_evidence:
                 candidates, composition_witnesses = rank_composition_evidence(candidates, preferences)
-            candidates = _apply_constraints(candidates, preferences, fallbacks)
+            candidates = post_neural_prior(candidates)
+            candidates = checked_constraints(candidates, "post")
             candidates = rank_soft_negatives(
                 candidates, preferences, self.config.soft_negative_weight,
             )
@@ -832,7 +858,7 @@ class Agent:
                 candidates = rank_profile_prior(
                     candidates, distill_profile(state.profile), self.config.profile_weight,
                 )
-                candidates = _apply_constraints(candidates, preferences, fallbacks)
+                candidates = checked_constraints(candidates, "post")
             if self.config.product_guard:
                 candidates = _apply_product_guard(candidates, preferences, fallbacks)
             stage_counts["guarded_after_rerank"] = len(candidates)
@@ -905,7 +931,8 @@ class Agent:
                         candidates, composition_witnesses = rank_composition_evidence(
                             candidates, preferences,
                         )
-                    candidates = _apply_constraints(candidates, preferences, fallbacks)
+                    candidates = post_neural_prior(candidates)
+                    candidates = checked_constraints(candidates, "post")
                     candidates = rank_soft_negatives(
                         candidates, preferences, self.config.soft_negative_weight,
                     )
@@ -916,7 +943,7 @@ class Agent:
                         candidates = rank_profile_prior(
                             candidates, distill_profile(state.profile), self.config.profile_weight,
                         )
-                        candidates = _apply_constraints(candidates, preferences, fallbacks)
+                        candidates = checked_constraints(candidates, "post")
                     if self.config.product_guard:
                         candidates = _apply_product_guard(candidates, preferences, fallbacks)
                     frontier_scored_this_turn = [item.product.parent_asin for item in frontier]
@@ -1130,6 +1157,18 @@ class Agent:
                 pair_receipts = []
         component_latency["response_assembly"] = time.perf_counter() - assembly_started
         self.last_diagnostics = {
+            "constraint_checks": constraint_checks,
+            "returned_constraint_contradictions": [
+                identifier for identifier in ranked
+                if contradicts_hard_constraints(self.catalog.by_id[identifier], preferences)
+            ],
+            "review_prior": {
+                "mode": self.config.review_prior_mode,
+                "pre_weight": self.config.review_prior_pre_weight,
+                "post_weight": self.config.review_prior_post_weight,
+                "adjustments": {item.product.parent_asin: item.route_scores.get(ADJUSTMENT_KEY, 0.0)
+                                for item in candidates},
+            },
             "query": query, "source_alias_query": source_alias_query,
             "vocabulary_expansion_query": vocabulary_expansion_query,
             "revision": state.revision, "cache_hit": cache_hit, "slate_page": page,

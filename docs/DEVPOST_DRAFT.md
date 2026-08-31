@@ -28,13 +28,13 @@ More components did not consistently mean better search. Positive-evidence boost
 
 | Evidence | HitRate@10 | TechnicalScore |
 |---|---:|---:|
-| Current selected realistic-shopping release, whole public development set | 98.00% | 0.844994 |
+| Current selected mixed-review-prior release, whole public development set | 99.00% | 0.866792 |
 | Frozen selected agent, 160 development sessions | 88.75% | 0.775118 |
 | Frozen selected agent, 40 reserved public sessions | 92.50% | 0.833146 |
 | Selected agent, descriptive whole-public offline reproduction | 89.50% | 0.786724 |
 | Original starter, same whole-public set | 12.50% | 0.106710 |
 
-The current 31 August reproduction found 196/200 public targets, with MRR 0.640647, MTTC 2.860, p95 turn latency 0.791 seconds and no fallbacks. A stable Top 10 advances to the strongest unseen products; a detected correction or override clears exposure history and resets to page 1, protecting results that were previously visible before becoming eligible. Both frozen 30- and 60-candidate variants previously found 37/40 reserved targets; the 30-candidate version was selected for equal hit rate, slightly higher score and approximately half the reranking work. Runtime paid API/compute cost was US$0, excluding existing hardware and utilities.
+The current 31 August comparison found 198/200 public targets, with MRR 0.683974, MTTC 2.670, p95 turn latency 0.356 seconds and no fallbacks. A bounded mix of review count and confidence-adjusted ratings improves admission and ordering. A stable Top 10 advances to the strongest unseen products; a detected correction or override clears exposure history and resets to page 1. Both frozen 30- and 60-candidate variants previously found 37/40 reserved targets; the 30-candidate version was selected for equal hit rate, slightly higher score and approximately half the reranking work. Runtime paid API/compute cost was US$0, excluding existing hardware and utilities. The review-prior report discloses validation MRR and Cycle 3 token trade-offs plus residual parser limitations.
 
 These numbers are consumed public simulator evidence, not a private-test forecast or real purchase uplift. Broader correction phrasing and generic negative-feedback handling are now regression-tested. A preregistered low-margin ranking experiment was rejected after MRR and score declined, so the public entrypoint was not changed. Next steps are broader independent conversational testing and final host/data-packaging confirmation.
 

@@ -82,6 +82,7 @@ def _metric_row(result: dict, diagnostics: dict, startup_fallbacks: dict,
         "ever_ranked_recall": diagnostics["ever_ranked_recall"],
         "ever_route_depth_recall": diagnostics["ever_route_depth_recall"],
         "max_rss_bytes": max_rss_bytes,
+        "constraint_audit": diagnostics.get("constraint_audit", {}),
     }
 
 
@@ -115,6 +116,7 @@ def evaluate_suite(specs: list[SuiteSpec], catalog: Path, dataset: Path) -> dict
                 "kind": spec.kind,
                 "config_path": str(spec.config_path) if spec.config_path else None,
                 "config": config.to_dict() if config is not None else None,
+                "sessions": result["sessions"],
                 "metrics": _metric_row(
                     result,
                     diagnostics,
@@ -149,6 +151,7 @@ def evaluate_suite(specs: list[SuiteSpec], catalog: Path, dataset: Path) -> dict
         "suite_max_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         * (1 if platform.system() == "Darwin" else 1024),
         "source_changed_during_run": source_before != source_hashes(),
+        "source_hashes": source_before,
         "runs": runs,
         "interpretation": (
             "Public and synthetic scores are development evidence, not private-test performance. "

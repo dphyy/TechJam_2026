@@ -12,6 +12,7 @@ from threading import RLock
 from mercury.catalog import Catalog
 from mercury.model_assets import MODELS, file_sha256, verify_model
 from mercury.product_types import classify_product
+from mercury.review_prior import ADJUSTMENT_KEY
 from mercury.types import Candidate, Preference, Product
 
 
@@ -181,7 +182,7 @@ def fuse_neural_logits(
         score = ((1.0 - applied_weight) * 61.0 / (61.0 + index)
                  + applied_weight * 61.0 / (60.0 + neural_rank))
         parts = {key: value for key, value in item.route_scores.items()
-                 if key != "constraint_penalty" and key not in _NEURAL_SCORE_KEYS}
+                 if key not in {"constraint_penalty", ADJUSTMENT_KEY} and key not in _NEURAL_SCORE_KEYS}
         result.append(Candidate(item.product, score, {
             **parts,
             "neural_logit": float(logits[identifier]),
@@ -196,7 +197,7 @@ def fuse_neural_logits(
     for rank, item in enumerate(unscored, scored_count + 1):
         score = floor * (60.0 + scored_count) / (60.0 + rank)
         parts = {key: value for key, value in item.route_scores.items()
-                 if key != "constraint_penalty" and key not in _NEURAL_SCORE_KEYS}
+                 if key not in {"constraint_penalty", ADJUSTMENT_KEY} and key not in _NEURAL_SCORE_KEYS}
         result.append(Candidate(item.product, score, parts))
     return result
 

@@ -73,6 +73,32 @@ def negated_match(text: str, start: int, end: int) -> bool:
                 or re.match(r"[- ]free\b", after, re.I))
 
 
+def review_count(value: object) -> int:
+    """Treat invalid/missing review counts as unknown, never a loader failure."""
+    if isinstance(value, str):
+        value = value.strip()
+        if not re.fullmatch(r"(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.0+)?", value):
+            return 0
+        value = value.replace(",", "").split(".")[0]
+        # More digits than any useful count: saturate without unbounded int parsing.
+        return min(int(value), 10**15) if len(value) <= 16 else 10**15
+    if type(value) is int:
+        return max(0, min(value, 10**15))
+    if type(value) is float and math.isfinite(value) and value >= 0 and value.is_integer():
+        return int(min(value, 10**15))
+    return 0
+
+
+def star_rating(value: object) -> float | None:
+    if type(value) not in (int, float, str):
+        return None
+    try:
+        rating = float(value)
+    except (ValueError, OverflowError):
+        return None
+    return rating if math.isfinite(rating) and 1 <= rating <= 5 else None
+
+
 def product_from_dict(row: dict) -> Product:
     identifier = row.get("parent_asin")
     if not isinstance(identifier, str) or not identifier.strip():
@@ -107,7 +133,8 @@ def product_from_dict(row: dict) -> Product:
     price, lower_bound = _price(row.get("price"))
     return Product(identifier, fields["title"], fields,
                    {key: tuple(sorted(values)) for key, values in found.items()},
-                   tuple(evidence), price, lower_bound)
+                   tuple(evidence), price, lower_bound,
+                   review_count(row.get("rating_number")), star_rating(row.get("average_rating")))
 
 
 class Catalog:

@@ -52,6 +52,10 @@ class Config:
     rerank_admission: str = "prefix"
     retrieval_mode: str = "broad"
     rerank_document_mode: str = "head"
+    review_prior_mode: str = "none"
+    constraint_check_stage: str = "both"
+    review_prior_pre_weight: float = 0.0
+    review_prior_post_weight: float = 0.0
     insufficient_action: str = "minimal_probe"
     reranker_model: str = "reranker"
     turn_budget_seconds: float = 0.0
@@ -125,6 +129,8 @@ class Config:
             "rerank_admission": {"prefix", "stratified", "cover", "fusion", "linear", "linear_v2"},
             "retrieval_mode": {"broad", "field_union", "factored"},
             "rerank_document_mode": {"head", "lexical", "protected"},
+            "review_prior_mode": {"none", "count", "raw_stars", "stars", "mixed"},
+            "constraint_check_stage": {"both", "pre", "post", "none"},
             "insufficient_action": {"minimal_probe", "clarify_first"},
             "reranker_model": set(RERANKERS),
             "device": {"cpu", "mps", "cuda"},
@@ -134,6 +140,10 @@ class Config:
                 raise ValueError(f"Invalid {key}: {getattr(self, key)!r}")
         if self.alternatives_mode == "grouped" and self.state_mode != "ledger":
             raise ValueError("Grouped alternatives require ledger state")
+        for key, ceiling in (("review_prior_pre_weight", .30), ("review_prior_post_weight", .02)):
+            value = getattr(self, key)
+            if type(value) not in (int, float) or not 0 <= value <= ceiling:
+                raise ValueError(f"{key} must be a finite number in [0, {ceiling}]")
         for key in ("dense", "neural_rerank", "contrast", "evidence_ranking",
                     "routed_retrieval", "product_guard", "structured_rerank", "over_general_cutoff",
                     "profile_prior", "soft_preference_decay", "scoped_preferences",

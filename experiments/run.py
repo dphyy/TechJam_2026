@@ -171,7 +171,19 @@ def summarize_traces(traces: list[list[dict]], samples: list[dict], result_sessi
                     or all(not item.get("diagnostics", {}).get("query") for item in session)):
                 taxonomy["state_or_intent_signal"] += 1
     count = len(samples)
-    return {"turn_count": len(latencies), "p50_seconds": statistics.median(latencies),
+    checks = [check for session in traces for item in session
+              for check in item.get("diagnostics", {}).get("constraint_checks", [])]
+    audit = {
+        stage: {"calls": sum(check["stage"] == stage for check in checks),
+                "reordered_calls": sum(check["stage"] == stage and check["reordered"] for check in checks),
+                "seconds": sum(check["seconds"] for check in checks if check["stage"] == stage)}
+        for stage in ("pre", "post")
+    }
+    audit["returned_contradictions"] = sum(
+        len(item.get("diagnostics", {}).get("returned_constraint_contradictions", []))
+        for session in traces for item in session
+    )
+    return {"turn_count": len(latencies), "constraint_audit": audit, "p50_seconds": statistics.median(latencies),
             "p95_seconds": latencies[min(len(latencies) - 1, int(0.95 * len(latencies)))],
             "max_seconds": max(latencies), "fallback_turns": fallback_turns, "cached_turns": cached_turns,
             "ever_ranked_recall": {str(key): value / count for key, value in recalls.items()} if instrumented else None,

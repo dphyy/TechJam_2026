@@ -18,6 +18,7 @@ This is a preparation build dated 26 August 2026, not a submitted entry or a cla
 - [x] Produce the final 24-call alternatives comparison replay and [recording guide](DEMO_SCRIPT.md), clearly separating real catalog exchanges from the invented correctness witness. Encoding and public upload remain pending.
 - [x] Restore the landing README with current setup, evaluation, caveats and the judge-showcase command.
 - [x] Merge confidence-gated intent, semantic reset and repeat-driven unseen paging; reproduce the selected release at 0.844994 with zero fallbacks and agent errors.
+- [x] Add bounded mixed review priors; public score 0.866792, Cycle 5 and Cycle 3 comparisons, constraint ablations, and remaining negation-scope limitations documented in REVIEW_PRIOR_RESULTS.md.
 - [x] Reject unguarded early paging after its intent-override regression, then promote a separately registered override-reset guard under the TechnicalScore non-decline rule.
 - [x] Screen preregistered low-margin neural fusion; reject it after MRR and TechnicalScore declined, preserving the receipts and disabled implementation.
 

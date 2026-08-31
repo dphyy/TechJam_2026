@@ -41,7 +41,10 @@ user message
 -> optional category-scoped retrieval
 -> route fusion
 -> contradiction guard
+-> bounded review-count / confidence-adjusted-rating prior
+-> truncate to 120 candidates
 -> local MiniLM rerank of the top 30 candidates
+-> small review prior on the new neural score scale
 -> contradiction guard again
 -> apply a small soft-price preference (unknown prices remain neutral)
 -> choose ask_attribute
@@ -70,6 +73,12 @@ Margin-aware neural fusion was similarly rejected after a preregistered Cycle 5 
 Paging from the first repeated ranking was also rejected: it improved some ordinary-session turns but hid pre-override targets that were not yet eligible to score, reducing TechnicalScore from `0.839176` to `0.829540`. See [the early-paging result](docs/EARLY_PAGING_RESULTS.md).
 A guarded follow-up fixes that failure by resetting to page 1 on detected intent overrides. It preserves 0.97 HitRate and raises TechnicalScore slightly to `0.839390`, so it is selected under the registered non-decline rule. See [the guarded result](docs/EARLY_PAGING_OVERRIDE_RESET_RESULTS.md).
 The merged realistic-shopping policy then adds stable Top-10 repeat detection and highest-ranked-unseen pages while clearing exposure history on semantic intent changes. It finds 196/200 public targets and raises the consumed-development TechnicalScore to `0.844994`; see [the matched result and behaviour audit](docs/REALISTIC_SHOPPING_MERGE_RESULTS.md).
+
+The current release adds a capped mixed review-count/star-rating prior, with separate
+admission and final-ordering roles. It finds 198/200 public targets at `0.866792`,
+improves all three Cycle 5 splits, and slightly improves the lower-popularity Cycle 3
+counter-test. Both local constraint checks remain enabled. See the
+[comparison, token costs, and remaining parser limitations](docs/REVIEW_PRIOR_RESULTS.md).
 Direct neural-weight tuning over `0.60`–`0.90` also found no candidate that cleared the registered practical-gain gate, so the selected `0.75` weight remains unchanged; see [the tuning result](docs/NEURAL_WEIGHT_TUNING_RESULTS.md).
 
 Release and experiment interpretation is fixed as follows:
@@ -194,9 +203,10 @@ Recent local public-set metrics:
 | Original baseline | 0.125000 | 0.068034 | 9.810000 | 0.106710 |
 | Mercury sparse fallback | 0.850000 | 0.535673 | 3.745000 | 0.730802 |
 | Mercury selected neural, historical fixed slate | 0.895000 | 0.613746 | 3.245000 | 0.786724 |
-| Mercury selected neural, realistic-shopping release | 0.980000 | 0.640647 | 2.860000 | 0.844994 |
+| Mercury neural, historical realistic-shopping release | 0.980000 | 0.640647 | 2.860000 | 0.844994 |
+| Mercury selected neural, bounded mixed review prior | 0.990000 | 0.683974 | 2.670000 | 0.866792 |
 
-The current result was reproduced on 30 August from the hardened source with 0 fallbacks and 0 agent-error turns. Public-set results are consumed development evidence, not private-test performance. The tracked [machine-readable result](docs/current-results.json) is the single current headline; historical rows remain tied to their original source/configuration.
+The current result was measured on 31 August with 0 fallbacks and 0 agent-error turns. Public-set results are consumed development evidence, not private-test performance. The tracked [machine-readable result](docs/current-results.json) is the single current headline; historical rows remain tied to their original source/configuration.
 
 ## Judge Showcase
 

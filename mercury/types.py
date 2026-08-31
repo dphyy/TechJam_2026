@@ -21,6 +21,8 @@ class Product:
     evidence: tuple[FacetEvidence, ...] = ()
     price: float | None = None
     price_lower_bound: bool = False
+    rating_number: int = 0
+    average_rating: float | None = None
 
     @property
     def text(self) -> str:

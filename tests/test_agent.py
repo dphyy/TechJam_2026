@@ -17,6 +17,7 @@ from mercury.model_assets import MODELS, file_sha256
 from mercury.neural import DOCUMENT_VERSION, fuse_neural_logits
 from mercury.planning import build_retrieval_plan
 from mercury.retrieval import terms
+from mercury.review_prior import rank_review_prior
 from mercury.types import Candidate
 
 
@@ -24,6 +25,32 @@ CONTRACT = json.loads((Path(__file__).resolve().parents[1] / "docs" / "agent_api
 
 
 class AgentTest(unittest.TestCase):
+    def test_review_prior_stages_are_distinct_and_cached_turns_do_not_repeat_them(self):
+        self.agent.config = replace(self.agent.config, evidence_ranking=False,
+                                    review_prior_mode="count", review_prior_pre_weight=.3,
+                                    review_prior_post_weight=.02)
+        def rerank(query, pool, limit, weight):
+            return fuse_neural_logits(pool, {item.product.parent_asin: 1.0 for item in pool[:limit]}, weight)
+        self.agent.reranker = SimpleNamespace(rank=rerank, prompt_tokens=0)
+        self.agent.reset("prior", {})
+        with patch("mercury.agent.rank_review_prior", wraps=rank_review_prior) as apply_prior:
+            self.agent.respond("prior", "A cotton shirt", 1, 10)
+            self.assertEqual([call.args[2] for call in apply_prior.call_args_list], [.3, .02])
+            self.assertEqual([check["stage"] for check in self.agent.last_diagnostics["constraint_checks"]],
+                             ["pre", "post"])
+            apply_prior.reset_mock()
+            self.agent.respond("prior", "A cotton shirt", 2, 10)
+            self.assertTrue(self.agent.last_diagnostics["cache_hit"])
+            self.assertEqual(apply_prior.call_count, 0)
+
+    def test_review_prior_not_reapplied_without_neural_score_replacement(self):
+        self.agent.config = replace(self.agent.config, review_prior_mode="count",
+                                    review_prior_pre_weight=.3, review_prior_post_weight=.02)
+        self.agent.reset("prior", {})
+        with patch("mercury.agent.rank_review_prior", wraps=rank_review_prior) as apply_prior:
+            self.agent.respond("prior", "A cotton shirt", 1, 10)
+            self.assertEqual([call.args[2] for call in apply_prior.call_args_list], [.3])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / "catalog.jsonl"
@@ -980,6 +1007,7 @@ class AgentTest(unittest.TestCase):
         for field in Config.__dataclass_fields__:
             if field not in tuned_fields | {
                 "slate_paging_first_turn", "slate_reset_on_override", "repeat_driven_paging",
+                "review_prior_mode", "review_prior_pre_weight", "review_prior_post_weight",
             }:
                 self.assertEqual(getattr(selected, field), getattr(historical, field), field)
 
@@ -1007,7 +1035,7 @@ class AgentTest(unittest.TestCase):
 
     def test_historical_margin_fusion_config_preserves_its_registered_paging_fields(self):
         root = Path(__file__).resolve().parents[1] / "configs"
-        selected = Config.load(root / "selected.json")
+        selected = Config.load(root / "review_prior_control.json")
         self.assertEqual(
             Config.load(root / "margin_fusion.json"),
             replace(selected, neural_margin_fusion=True,
@@ -1018,7 +1046,7 @@ class AgentTest(unittest.TestCase):
 
     def test_early_paging_candidate_only_changes_the_registered_start_turn(self):
         root = Path(__file__).resolve().parents[1] / "configs"
-        selected = Config.load(root / "selected.json")
+        selected = Config.load(root / "review_prior_control.json")
         self.assertEqual(
             Config.load(root / "paging_from_start.json"),
             replace(selected, slate_reset_on_override=False, repeat_driven_paging=False),
@@ -1026,22 +1054,26 @@ class AgentTest(unittest.TestCase):
 
     def test_early_paging_override_reset_candidate_only_changes_registered_paging_fields(self):
         root = Path(__file__).resolve().parents[1] / "configs"
-        selected = Config.load(root / "selected.json")
+        selected = Config.load(root / "review_prior_control.json")
         self.assertEqual(
             Config.load(root / "paging_from_start_override_reset.json"),
             replace(selected, repeat_driven_paging=False),
         )
 
-    def test_realistic_shopping_candidate_is_the_promoted_selected_config(self):
+    def test_review_prior_extends_the_historical_realistic_shopping_config(self):
         root = Path(__file__).resolve().parents[1] / "configs"
+        selected = Config.load(root / "selected.json")
+        self.assertEqual(selected, Config.load(root / "review_prior_mixed_both.json"))
+        self.assertEqual(selected.constraint_check_stage, "both")
         self.assertEqual(
             Config.load(root / "realistic_shopping_candidate.json"),
-            Config.load(root / "selected.json"),
+            replace(selected, review_prior_mode="none", review_prior_pre_weight=0,
+                    review_prior_post_weight=0),
         )
 
     def test_frontier_configs_only_change_registered_fields(self):
         root = Path(__file__).resolve().parents[1] / "configs"
-        selected = Config.load(root / "selected.json")
+        selected = Config.load(root / "review_prior_control.json")
         self.assertEqual(
             Config.load(root / "frontier_seen_aware.json"),
             replace(selected, repeat_driven_paging=False, seen_aware_slate=True),
@@ -1054,7 +1086,7 @@ class AgentTest(unittest.TestCase):
 
     def test_page_local_config_only_enables_the_registered_bounded_candidate(self):
         root = Path(__file__).resolve().parents[1] / "configs"
-        selected = Config.load(root / "selected.json")
+        selected = Config.load(root / "review_prior_control.json")
         self.assertEqual(
             Config.load(root / "page_local_rerank.json"),
             replace(
@@ -1067,7 +1099,7 @@ class AgentTest(unittest.TestCase):
 
     def test_neural_cache_config_only_enables_the_registered_capacity(self):
         root = Path(__file__).resolve().parents[1] / "configs"
-        selected = Config.load(root / "selected.json")
+        selected = Config.load(root / "review_prior_control.json")
         self.assertEqual(
             Config.load(root / "neural_logit_cache.json"),
             replace(selected, repeat_driven_paging=False, neural_logit_cache=True,
