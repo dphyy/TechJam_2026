@@ -122,6 +122,11 @@ class AgentConfig:
     enable_vector_reranker: bool = False
     recommendation_policy: RecommendationPolicy = RecommendationPolicy()
     full_width: bool = False
+    tentative_on_ambiguity: bool = False
+
+    def __post_init__(self) -> None:
+        if type(self.tentative_on_ambiguity) is not bool:
+            raise ValueError("tentative_on_ambiguity must be boolean")
 
 
 DEFAULT_AGENT_CONFIG = AgentConfig()

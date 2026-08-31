@@ -13,11 +13,12 @@ from .product_features import (
 OVERRIDE_RE = re.compile(
     r"\b(actually|instead|changed my mind|ignore|no longer|rather than)\b", re.I
 )
+CORRECTION_ACTION = r"(?:make that|change(?: that| it)? to)"
 CORRECTION_PREFIX_RE = re.compile(
-    r"^(?:correction\s*[:,]\s*(?:make that\s+)?|(?:please\s+)?make that\s+|"
+    rf"^(?:correction\s*[:,]\s*(?:{CORRECTION_ACTION}\s+)?|(?:please\s+)?{CORRECTION_ACTION}\s+|"
     r"(?:let me\s+)?correct that\s*[:,]\s*)(.+)$", re.I,
 )
-CORRECTION_MENTION_RE = re.compile(r"\b(?:correction|make that|correct that)\b", re.I)
+CORRECTION_MENTION_RE = re.compile(rf"\b(?:correction|{CORRECTION_ACTION}|correct that)\b", re.I)
 QUOTED_TEXT_RE = re.compile(r'"[^"\n]*"|“[^”\n]*”|(?<!\w)\x27[^\x27\n]+\x27(?!\w)')
 NO_PREFERENCE_RE = re.compile(
     r"\b(?:do not|don't|dont|no)\s+(?:have\s+)?(?:an?\s+)?(?:additional\s+)?"
@@ -73,6 +74,8 @@ class Evidence:
     turn: int
     attribute: str | None = None
     operation: PreferenceOperation = PreferenceOperation.APPEND
+    raw_chunk: str | None = None
+    derivation: str | None = None
 
 
 def _clean(value: str) -> str:
@@ -81,6 +84,11 @@ def _clean(value: str) -> str:
 
 def _split_constraints(value: str) -> list[str]:
     return [cleaned for part in value.split(";") if (cleaned := _clean(part))]
+
+
+def _derived(item: Evidence, value: str, derivation: str) -> Evidence:
+    raw_chunk = item.raw_chunk if item.derivation is not None else item.text
+    return replace(item, text=value, raw_chunk=raw_chunk, derivation=derivation)
 
 
 def _unasserted_correction(value: str) -> bool:
@@ -94,7 +102,7 @@ def _unasserted_correction(value: str) -> bool:
     ))
 
 
-def _correction_payload(value: str) -> str:
+def _correction_payload(value: str) -> tuple[list[str], list[str]]:
     """Remove control clauses while retaining each replacement phrase verbatim."""
     spans = [match.span() for match in QUOTED_TEXT_RE.finditer(value)]
     parts, start = [], 0
@@ -104,8 +112,53 @@ def _correction_payload(value: str) -> str:
         parts.append(_clean(value[start:boundary.start()]))
         start = boundary.end()
     parts.append(_clean(value[start:]))
-    return "; ".join(part for part in parts if part and not re.match(r"^keep\b", part, re.I)
-                     and not UNCERTAIN_RE.match(part) and not _unasserted_correction(part))
+    replacements, options = [], []
+    for part in parts:
+        if match := re.fullmatch(r"keep\s+(?:the\s+)?(.+?)\s+as\s+(?:(?:an?|another)\s+)?option(?:\s+too)?", part, re.I):
+            options.append(match.group(1))
+        elif (part and not re.match(r"^keep\b", part, re.I)
+              and not UNCERTAIN_RE.match(part) and not _unasserted_correction(part)):
+            replacements.append(part)
+    return replacements, options
+
+
+def _with_kept_options(values: list[str], options: list[str]) -> tuple[list[str], dict[str, str]]:
+    """Broaden one unambiguous facet without weakening the other requirements."""
+    values = list(values)
+    derived = {}
+    for option in options:
+        facets = [name for name, pattern in FACET_PATTERNS.items() if pattern.search(option)]
+        if len(facets) != 1:
+            continue
+        attribute = facets[0]
+        pattern = FACET_PATTERNS[attribute]
+        owner = component_scope(option)
+        matching = [index for index, value in enumerate(values)
+                    if pattern.search(value) and (owner is None or component_scope(value) == owner)
+                    and len(alternative_values(value)) == 1]
+        if len(matching) != 1:
+            continue
+        index = matching[0]
+        value = values[index]
+        matches = list(pattern.finditer(value))
+        if len(matches) != 1:
+            continue
+        owner = component_scope(value)
+        option_value = component_value(option) if component_scope(option) else option
+        group = f"{matches[0].group()} or {option_value}"
+        if owner:
+            group = f"{owner}: {group}"
+        remainder = _clean(pattern.sub("", value))
+        remainder = _clean(re.sub(r"^(?:and|or)\b|\b(?:and|or)$", "", remainder, flags=re.I))
+        remainder_value = component_value(remainder) if owner else remainder
+        remainder_value = re.sub(rf"^(?:{attribute}|colour)\s*:\s*", "", remainder_value, flags=re.I)
+        replacement = [group]
+        derived[group] = "kept_facet_alternative"
+        if re.search(r"[a-z0-9]", remainder_value, re.I):
+            replacement.append(remainder)
+            derived[remainder] = "remaining_replacement"
+        values[index:index + 1] = replacement
+    return values, derived
 
 
 def _infer_attribute(value: str, fallback: str | None = None) -> str:
@@ -151,7 +204,8 @@ class SessionState:
         if turn <= self.last_turn:
             return
         self.last_turn = turn
-        message = _clean(str(message))
+        raw_message = str(message)
+        message = _clean(raw_message)
         self.messages.append(message)
 
         if _unasserted_correction(message):
@@ -160,10 +214,14 @@ class SessionState:
                                           allow_control_prefixes=False)
             return
         correction = CORRECTION_PREFIX_RE.match(message)
+        correction_values, correction_derivations = [], {}
         if correction:
-            message = _correction_payload(correction.group(1))
-            if not message:
+            correction_values, options = _correction_payload(correction.group(1))
+            if not LOOKING_FOR_RE.search(correction.group(1)):
+                correction_values, correction_derivations = _with_kept_options(correction_values, options)
+            if not correction_values:
                 return
+            message = "; ".join(correction_values)
         is_override = bool(correction or OVERRIDE_RE.search(message))
         if is_override and re.search(r"ignore my earlier preference", message, re.I):
             # "Ignore my earlier preference" explicitly retires the opening
@@ -190,11 +248,13 @@ class SessionState:
             special_message = _clean(message[category_match.end():])
             source, weight = "initial_preference", 1.8
         if self._observe_special_clauses(special_message, turn, source=source, weight=weight):
+            self._annotate_derived(turn, raw_message, correction_derivations)
             return
 
         if correction and not category_match:
-            self._apply_grouped_values(_split_constraints(message), 6.0, "override", turn,
+            self._apply_grouped_values(correction_values, 6.0, "override", turn,
                                        PreferenceOperation.REPLACE)
+            self._annotate_derived(turn, raw_message, correction_derivations)
             return
 
         match = NEED_RE.search(message)
@@ -265,6 +325,7 @@ class SessionState:
         boundaries = re.finditer(
             r"\s*(?:;|\bbut\b|\band\s+(?=(?:no|not|without)\b)|"
             r",\s*(?=(?:no|not|without|maybe|perhaps)\b)|"
+            r"[.!?]\s+(?=(?:i\s+)?(?:have\s+no|do not|don't|dont|no|not|without|avoid|anything but)\b)|"
             r"(?:,\s*(?:and\s+)?|\band\s+|[.!?]\s+)(?=i\s+(?:want|need|prefer|require)\b))\s*",
             content, re.I,
         )
@@ -303,7 +364,7 @@ class SessionState:
                 continue
             negative = NEGATIVE_CLAUSE_RE.match(clause)
             if negative:
-                value = _clean(negative.group(1))
+                value = _clean(re.sub(r",?\s+please$", "", negative.group(1), flags=re.I))
                 self._apply_values([value], _infer_attribute(value, self._answer_attribute()),
                                    3.8, "exclusion", turn, PreferenceOperation.EXCLUDE)
                 continue
@@ -359,15 +420,17 @@ class SessionState:
                                                  for value in old_percentages.keys() & new_percentages.keys())
                     if (item.source == "exclusion" and old_values and new_values and not overlap
                             or item.source != "exclusion" and overlap and not changed_percentage and not narrowed_values
-                            and len(alternative_values(item.text)) == 1):
+                            and len(alternative_values(item.text)) == 1
+                            and all(len(alternative_values(value)) == 1 for value in replacement_values)):
                         retained.append(item)
                         continue
             other_facets = [name for name, candidate in FACET_PATTERNS.items()
                             if name != attribute and candidate.search(item.text)]
             if pattern and other_facets:
                 remainder = _clean(pattern.sub("", item.text))
+                remainder = _clean(re.sub(r"^(?:and|or)\b|\b(?:and|or)$", "", remainder, flags=re.I))
                 if remainder:
-                    retained.append(replace(item, text=remainder))
+                    retained.append(_derived(item, remainder, "facet_removed"))
         self.evidence = retained
 
     def _apply_grouped_values(
@@ -442,7 +505,12 @@ class SessionState:
                         remaining = [branch for branch in branches
                                      if not self._conflicts_with_exclusion(replace(item, text=branch), value, attribute)]
                         if remaining:
-                            retained.append(replace(item, text=" or ".join(remaining)))
+                            retained.append(_derived(item, " or ".join(remaining), "excluded_alternative_removed"))
+                    else:
+                        phrase = component_value(value) if component_scope(value) else value
+                        remainder = _clean(re.sub(rf"(?<!\w){re.escape(phrase)}(?!\w)", "", item.text, flags=re.I))
+                        if remainder != item.text and any(pattern.search(remainder) for pattern in FACET_PATTERNS.values()):
+                            retained.append(_derived(item, remainder, "excluded_phrase_removed"))
                 self.evidence = retained
 
         for value in cleaned:
@@ -471,6 +539,17 @@ class SessionState:
 
     def _answer_attribute(self) -> str | None:
         return self.asked_attributes[-1] if self.asked_attributes else None
+
+    def _annotate_derived(self, turn: int, raw_chunk: str, derivations: dict[str, str]) -> None:
+        if derivations:
+            self.evidence = [replace(item, raw_chunk=raw_chunk, derivation=derivations[item.text])
+                             if item.turn == turn and item.text in derivations else item
+                             for item in self.evidence]
+
+    def forget_provenance(self) -> None:
+        """Keep active semantics and routing history, but discard source chunks."""
+        self.evidence = [replace(item, raw_chunk=None) if item.raw_chunk is not None else item
+                         for item in self.evidence]
 
     def _add(
         self,

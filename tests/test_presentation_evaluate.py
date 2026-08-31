@@ -19,6 +19,7 @@ from experiments.presentation_evaluate import (
 )
 from mercury.lexical.agent import Agent
 from mercury.lexical.config import AgentConfig, FULL_WIDTH_CONFIG, RecommendationPolicy
+from mercury.lexical.diagnostics import signature
 from mercury.lexical.question_planner import QuestionPlan
 from mercury.lexical.retrieval import SearchResult
 
@@ -206,7 +207,12 @@ class PresentationPolicyTest(unittest.TestCase):
         self.assertEqual(response["ask_attribute"], "other")
         diagnostic = agent.last_diagnostics
         self.assertEqual(diagnostic["base_returned_ids"], [])
-        self.assertEqual(diagnostic["output_width"], {"before": 0, "after": 1, "delta": 1, "ambiguity_deferred": True})
+        self.assertEqual({key: diagnostic["output_width"][key] for key in ("before", "after", "delta")},
+                         {"before": 0, "after": 1, "delta": 1})
+        self.assertTrue(diagnostic["output_width"]["base_ambiguity_deferred"])
+        self.assertFalse(diagnostic["output_width"]["ambiguity_deferred"])
+        self.assertEqual(diagnostic["output_width"]["returned"], 1)
+        self.assertEqual(diagnostic["output_width"]["policy_limit"], 1)
         self.assertEqual(diagnostic["reasons"], ["tentative_top1_after_ambiguity_deferral"])
         self.assertEqual(self.ids(agent, "A key requirement is: cotton.", 2), ["0", "1"])
 
@@ -214,6 +220,84 @@ class PresentationPolicyTest(unittest.TestCase):
         agent = self.fixture("tentative_top1", rows=[])
         self.assertEqual(self.ids(agent, "I prefer cotton", 1), [])
         self.assertFalse(agent.last_diagnostics["output_width"]["ambiguity_deferred"])
+
+    def test_tentative_policy_keeps_empty_slate_when_leader_is_known_violation(self) -> None:
+        rows = [candidate(str(index), index, ambiguous=True, violation=True) for index in range(2)]
+        agent = self.fixture("tentative_top1", rows=rows)
+        response = agent.respond("session", "I'm looking for shirts. No leather.", 1, 2)
+        self.assertEqual(response["recommendations"], [])
+        receipt = agent.last_diagnostics
+        self.assertEqual(receipt["reasons"], ["tentative_top1_blocked_known_violation"])
+        self.assertEqual(receipt["stage_receipts"]["returned"]["count"], 0)
+        self.assertTrue(receipt["output_width"]["ambiguity_deferred"])
+        self.assertTrue(receipt["question_unchanged"])
+
+    def test_real_tentative_response_retains_base_receipts_and_adds_actual_witnesses(self) -> None:
+        path = Path(self.directory.name) / "identical.jsonl"
+        path.write_text("".join(json.dumps({"parent_asin": key, "title": "Shirt", "categories": ["shirts"],
+                                           "features": ["cotton"]}) + "\n" for key in ("A", "B")))
+        agent = make_agent(path, "tentative_top1")
+        self.addCleanup(agent.close)
+        agent.reset("session", {})
+        response = agent.respond("session", "I'm looking for shirts.", 1, 10)
+        base, receipt = agent.inner.last_diagnostics, agent.last_diagnostics
+        self.assertEqual(len(response["recommendations"]), 1)
+        self.assertEqual(base["stage_ids"]["returned"], [])
+        for key in ("identity", "evidence", "evidence_sources", "preferences", "retired_preferences", "effective_capabilities"):
+            self.assertEqual(receipt[key], base[key])
+        for name in ("retrieval_union", "question_context", "ranked_prefix"):
+            self.assertEqual(receipt["stage_receipts"][name], base["stage_receipts"][name])
+        shown = [item["parent_asin"] for item in response["recommendations"]]
+        self.assertEqual(receipt["stage_receipts"]["returned"]["sha256"], signature(shown))
+        self.assertEqual(receipt["constraint_checks"][0]["parent_asin"], shown[0])
+        self.assertEqual(receipt["constraint_checks"][0]["evidence"][0]["status"], "supported")
+        self.assertTrue(receipt["constraint_checks"][0]["evidence"][0]["witnesses"])
+        self.assertEqual(len(receipt["presentation_identity"]["implementation_sha256"]), 64)
+        self.assertEqual(receipt["presentation_identity"]["config_sha256"], signature({"policy": "tentative_top1"}))
+        detached = agent.last_diagnostics
+        detached["identity"]["catalog_sha256"] = "changed"
+        detached["evidence"]["active"].clear()
+        self.assertEqual(agent.last_diagnostics, receipt)
+        self.assertEqual(agent.inner.last_diagnostics, base)
+
+    def test_rejection_records_a_presentation_branch_beyond_the_unchanged_raw_prefix(self) -> None:
+        agent = self.fixture()
+        self.ids(agent, "I prefer cotton", 1)
+        self.assertEqual(self.ids(agent, "Those options aren't right.", 2), ["2", "3"])
+        receipt = agent.last_diagnostics
+        self.assertEqual(receipt["stage_ids"]["ranked_prefix"], ["0", "1"])
+        self.assertEqual(receipt["stage_ids"]["presentation_prefix"], ["2", "3"])
+        self.assertEqual(receipt["stage_ids"]["returned"], ["2", "3"])
+        self.assertEqual(receipt["stage_relationships"]["returned_parent"], "presentation_prefix")
+        self.assertFalse(receipt["stage_receipts"]["retrieval_union"]["available"])
+        self.assertEqual([row["parent_asin"] for row in receipt["constraint_checks"]], ["2", "3"])
+
+    def test_cached_presentation_retains_its_own_base_receipt_and_reports_no_new_work(self) -> None:
+        agent = self.fixture("tentative_top1", ambiguous=True)
+        first = agent.respond("session", "I prefer cotton", 1, 2)
+        original = agent.last_diagnostics
+        agent.reset("other", {})
+        agent.respond("other", "I prefer blue", 1, 2)
+        with patch.object(agent.inner, "respond", side_effect=AssertionError("cached request executed")):
+            self.assertEqual(agent.respond("session", "I prefer cotton", 1, 2), first)
+        receipt = agent.last_diagnostics
+        for key in ("identity", "evidence", "stage_receipts", "constraint_checks", "presentation_identity"):
+            self.assertEqual(receipt[key], original[key])
+        self.assertEqual(receipt["current_call"], {"search_executed": False, "inference_executed": False,
+                                                  "presentation_executed": False})
+        self.assertFalse(receipt["vector_stage"]["attempted"])
+        self.assertEqual(receipt["vector_stage"]["origin_receipt"], original["vector_stage"])
+
+    def test_failed_inner_turn_publishes_failure_receipt_without_replacing_successful_cache(self) -> None:
+        agent = self.fixture()
+        first = agent.respond("session", "I prefer cotton", 1, 2)
+        with patch.object(agent.observer.inner, "search_with_context", side_effect=RuntimeError("transient")):
+            with self.assertRaises(RuntimeError):
+                agent.respond("session", "Those options aren't right.", 2, 2)
+        self.assertFalse(agent.last_diagnostics["request_succeeded"])
+        self.assertFalse(agent.last_diagnostics["state_committed"])
+        self.assertEqual(agent.respond("session", "I prefer cotton", 1, 2), first)
+        self.assertTrue(agent.last_diagnostics["request_succeeded"])
 
     def test_explicit_rejection_does_not_record_a_slate_that_was_never_shown(self) -> None:
         agent = self.fixture(ambiguous=True)

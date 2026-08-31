@@ -146,12 +146,19 @@ def runtime_identity(catalog_path: Path, config, policies, search, *, agent, pla
 
 
 def _evidence_id(item: Evidence) -> str:
-    return signature((item.text, item.weight, item.source, item.turn, item.attribute, item.operation.value))
+    value = (item.text, item.weight, item.source, item.turn, item.attribute, item.operation.value)
+    if item.raw_chunk is not None or item.derivation is not None:
+        value += (item.raw_chunk, item.derivation)
+    return signature(value)
 
 
 def _record(item: Evidence, raw_chunk: str | None = None) -> dict:
+    raw_chunk = item.raw_chunk if item.derivation is not None else raw_chunk or item.text
     return {"evidence_id": _evidence_id(item), "attribute": _infer_attribute(item.text, item.attribute),
-            "value": item.text, "raw_chunk": item.text if raw_chunk is None else raw_chunk,
+            "value": item.text, "raw_chunk": raw_chunk[:8000] if raw_chunk is not None else None,
+            "raw_chunk_available": raw_chunk is not None,
+            "raw_chunk_complete": raw_chunk is not None and len(raw_chunk) <= 8000,
+            "derived": item.derivation is not None, "derivation": item.derivation,
             "source_turn": item.turn, "source_kind": item.source, "weight": item.weight,
             "operation": item.operation.value, "scope": component_scope(item.text),
             "polarity": -1 if item.source == "exclusion" else 1,

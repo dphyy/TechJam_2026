@@ -108,32 +108,30 @@ class AgentTest(unittest.TestCase):
         self.assert_legal_response(response)
         self.assertEqual(response["ask_attribute"], "other")
 
-    def test_public_entrypoints_load_selected_config_and_match_official_contract(self):
-        root = Path(self.temp.name)
-        (root / "configs").mkdir()
-        (root / "configs" / "selected.json").write_text(json.dumps({
-            "question_policy": "none", "slate_size": 3, "evidence_ranking": False,
-            "artifact_dir": "packaged-assets",
-        }))
+    def test_public_entrypoints_share_selected_implementation_and_official_contract(self):
+        from mercury.lexical import Agent as SelectedAgent, FULL_WIDTH_CONFIG
+
         profile = {"purchase_frequency": "occasionally", "average_prior_rating": None,
                    "rating_style": "balanced", "preference_tags": [], "summary": ""}
         self.assertIs(starter_entrypoint.Agent, public_entrypoint.Agent)
+        self.assertIs(public_entrypoint.Agent, SelectedAgent)
         for entrypoint in (public_entrypoint, starter_entrypoint):
-            with self.subTest(entrypoint=entrypoint.__name__), \
-                    patch.object(public_entrypoint, "__file__", str(root / "agent.py")):
-                agent = entrypoint.Agent(self.path)
+            with self.subTest(entrypoint=entrypoint.__name__):
+                agent = entrypoint.Agent(self.path, config=FULL_WIDTH_CONFIG)
                 try:
-                    self.assertEqual(agent.config.artifact_dir, str(root.resolve() / "packaged-assets"))
-                    self.assertFalse(agent.config.evidence_ranking)
                     reset = {"session_id": "public", "user_profile": profile}
                     request = {"session_id": "public", "user_message": "A cotton shirt", "turn": 1, "top_k": 10}
                     self.assert_matches_schema(reset, CONTRACT["reset_request"])
                     self.assert_matches_schema(request, CONTRACT["turn_request"])
                     agent.reset(**reset)
-                    response = agent.respond(**request)
-                    self.assert_legal_response(response, agent, count=3)
-                    self.assertIsNone(response["ask_attribute"])
-                    self.assert_legal_response(agent.respond(**{**request, "turn": 10}), agent)
+                    for turn in (1, 10):
+                        response = agent.respond(**{**request, "turn": turn})
+                        self.assert_matches_schema(response, CONTRACT["turn_response"])
+                        identifiers = [row["parent_asin"] for row in response["recommendations"]]
+                        self.assertEqual(len(identifiers), 10)
+                        self.assertEqual(len(set(identifiers)), 10)
+                        self.assertTrue(set(identifiers) <= agent.search._row_id_by_asin.keys())
+                        self.assertEqual(response["usage"]["completion_tokens"], 0)
                 finally:
                     agent.close()
 

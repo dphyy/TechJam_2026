@@ -24,6 +24,7 @@ from .product_features import (
     ProductFeatures,
     ProductFeatureStore,
     ProductQuestionFeatures,
+    _sequence_match,
     alternative_values,
     component_value,
     evidence_contradiction,
@@ -388,24 +389,25 @@ class CatalogSearch:
         exact_hard_matches: set[str] = set()
         semantic_violations: dict[str, bool] = {}
         token_document_frequency = self._candidate_token_frequency(candidates.values())
+        needs_facets = policy.contradiction_penalty > 0.0 and any(
+            item.source in {"hard_constraint", "override"} and item.facets
+            for item in query.evidence
+        )
         for parent_asin, product in candidates.items():
             features = product["_features"]
-            semantic_violations[parent_asin] = self._semantic_violation(features, query)
-            needs_facets = policy.contradiction_penalty > 0.0 and any(
-                item.source in {"hard_constraint", "override"} and item.facets
-                for item in query.evidence
-            )
+            candidate_query = resolve_query(features, query)
+            semantic_violations[parent_asin] = self._semantic_violation(features, candidate_query)
             question_features = (
                 self.feature_store.question_features(product)
                 if needs_facets
                 else None
             )
             score = 85.0 * policy.rrf_scale * rrf[parent_asin]
-            score += policy.constraint_scale * self._constraint_score(features, query)
+            score += policy.constraint_scale * self._constraint_score(features, candidate_query)
             score += policy.price_scale * self._price_score(features, query)
             score += policy.quality_scale * self._quality_tiebreak(features)
             score += self._constraint_fit_adjustment(
-                features, question_features, query, policy
+                features, question_features, candidate_query, policy
             )
             score += self._budget_violation_adjustment(features, query, policy)
             profile_bonus = self._profile_bonus(features, state, policy)
@@ -428,11 +430,11 @@ class CatalogSearch:
                 features, state.category_text
             )
             constraint_sequence_matches[parent_asin] = (
-                self._constraint_sequence_match(features, query)
+                self._constraint_sequence_match(features, candidate_query)
             )
             catalog_tiebreaks[parent_asin] = self._catalog_tiebreak(
                 features,
-                query,
+                candidate_query,
                 state.category_text,
                 token_document_frequency,
                 len(candidates),
@@ -816,19 +818,11 @@ class CatalogSearch:
                 for token in set(chunk)
             ) / len(set(chunk))
             best = 0.0
-            for sequence in view.field_sequences:
-                positions = [
-                    index for index in range(len(sequence) - len(chunk) + 1)
-                    if sequence[index:index + len(chunk)] == chunk
-                ]
-                if positions:
-                    best = max(best, rarity * (1.0 + min(len(chunk), 8) / 8.0))
+            if _sequence_match(chunk, view.field_sequences):
+                best = max(best, rarity * (1.0 + min(len(chunk), 8) / 8.0))
             field_score += best
             feature_sequence = view.field_sequences[FIELD_ORDER.index("features")]
-            if any(
-                feature_sequence[index:index + len(chunk)] == chunk
-                for index in range(len(feature_sequence) - len(chunk) + 1)
-            ):
+            if _sequence_match(chunk, (feature_sequence,)):
                 feature_matches += 1
 
         # Multiple independently disclosed chunks in the feature field are a
@@ -892,19 +886,14 @@ class CatalogSearch:
 
     @staticmethod
     def _exclusion_match(product: ProductFeatures, item) -> bool:
-        return bool(item.tokens) and any(
-            sequence[start:start + len(item.tokens)] == item.tokens
-            for sequence in product.affirmed_sequences
-            for start in range(len(sequence) - len(item.tokens) + 1)
-        )
+        return _sequence_match(item.tokens, product.affirmed_sequences)
 
     @staticmethod
     def _semantic_violation(product: ProductFeatures, query: CompiledQuery) -> bool:
         """Explicit contradictions outrank lexical tiers; unknown fields stay neutral."""
         query = resolve_query(product, query)
         for item in query.evidence:
-            view = evidence_product(product, item)
-            if item.source == "exclusion" and CatalogSearch._exclusion_match(view, item):
+            if item.source == "exclusion" and CatalogSearch._exclusion_match(evidence_product(product, item), item):
                 return True
             if item.source in {"hard_constraint", "override"} and evidence_contradiction(product, item):
                 return True

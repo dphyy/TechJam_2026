@@ -20,6 +20,7 @@ from experiments.synthesis_evaluate import EVALUATOR_SHA256
 from mercury.lexical.agent import Agent
 from mercury.lexical.config import DEFAULT_AGENT_CONFIG, FULL_WIDTH_CONFIG
 from mercury.lexical.dialogue import PreferenceOperation
+from mercury.lexical.diagnostics import constraint_receipts, signature, stage_receipt
 from mercury.lexical.product_features import component_scope, terms
 from mercury.model_assets import file_sha256
 
@@ -114,6 +115,7 @@ class ContextObserver:
     def __init__(self, inner) -> None:
         self.inner = inner
         self.context: tuple[ContextItem, ...] = ()
+        self.products: tuple[dict, ...] = ()
         self.calls = 0
 
     def __getattr__(self, name: str):
@@ -135,6 +137,7 @@ class ContextObserver:
         if any(identifier not in seen for identifier, _ in result.recommendations):
             raise ValueError("Search recommendations must belong to their context")
         self.context = tuple(context)
+        self.products = tuple(dict(product) for product in result.candidates)
         self.calls += 1
         return result
 
@@ -162,7 +165,20 @@ class PresentationAgent:
         self.inner.search = self.observer
         self._receipts: dict[str, PresentationReceipt] = {}
         self.last_diagnostics: dict = {}
+        self.presentation_identity = {
+            "implementation_sha256": file_sha256(Path(__file__)),
+            "config_sha256": signature(asdict(config)),
+            "scope": "Presentation implementation and policy only; identity retains the underlying agent binding.",
+        }
         self._closed = False
+
+    @property
+    def last_diagnostics(self) -> dict:
+        return deepcopy(self._last_diagnostics)
+
+    @last_diagnostics.setter
+    def last_diagnostics(self, value: dict) -> None:
+        self._last_diagnostics = deepcopy(value)
 
     def _require_open(self) -> None:
         if self._closed:
@@ -181,6 +197,7 @@ class PresentationAgent:
         self.last_diagnostics = {}
 
     def respond(self, session_id: str, user_message: str, turn: int, top_k: int) -> dict:
+        started = time.perf_counter()
         self._require_open()
         if not isinstance(session_id, str) or not session_id or not isinstance(user_message, str):
             raise ValueError("A session ID and text message are required")
@@ -192,8 +209,20 @@ class PresentationAgent:
         request = (turn, hashlib.sha256(user_message.encode("utf-8")).hexdigest(), top_k)
         previous = self._receipts.get(session_id)
         if previous is not None and previous.request == request:
-            self.last_diagnostics = deepcopy(previous.diagnostics)
-            self.last_diagnostics["cache_hit"] = True
+            diagnostic = deepcopy(previous.diagnostics)
+            diagnostic.update(cache_hit=True, latency_seconds=time.perf_counter() - started,
+                              current_call={"search_executed": False, "inference_executed": False,
+                                            "presentation_executed": False})
+            origin = diagnostic.get("vector_stage", {})
+            diagnostic["vector_stage"] = {"attempted": False, "inference_attempted": False,
+                                          "status": "cached_response", "returned_count": 0,
+                                          "contribution_count": 0, "origin_receipt": origin}
+            components = diagnostic.get("effective_capabilities", {}).get("components", {})
+            if "vector_rerank" in components:
+                components["vector_rerank"].update(attempted=False, status="cached_response")
+            if "neural_rerank" in components:
+                components["neural_rerank"].update(score_called=False)
+            self.last_diagnostics = diagnostic
             self.inner._sessions.move_to_end(session_id)
             return deepcopy(previous.response)
         if turn <= state.last_turn:
@@ -201,7 +230,13 @@ class PresentationAgent:
         before_category, before_values = tuple(terms(state.category_text)), _positive_context(state)
         deferred_before = session_id in self.inner._ambiguity_deferred
         calls_before = self.observer.calls
-        base_response = self.inner.respond(session_id, user_message, turn, top_k)
+        try:
+            base_response = self.inner.respond(session_id, user_message, turn, top_k)
+        except Exception:
+            diagnostic = deepcopy(self.inner.last_diagnostics)
+            diagnostic.update(presentation=asdict(self.config), presentation_identity=deepcopy(self.presentation_identity))
+            self.last_diagnostics = diagnostic
+            raise
         if self.observer.calls == calls_before:
             raise RuntimeError("A fresh response must expose its own search context")
         state = self.inner._sessions[session_id]
@@ -234,10 +269,12 @@ class PresentationAgent:
             if ordered != raw:
                 reasons.append("explicit_rejection_stable_partition")
         response = deepcopy(base_response)
-        if self.config.policy == "tentative_top1" and ambiguity and raw:
+        if self.config.policy == "tentative_top1" and ambiguity and raw and not raw[0].violation:
             response["recommendations"] = [{"parent_asin": raw[0].identifier,
                                             "score": round(raw[0].score, 6)}]
             reasons.append("tentative_top1_after_ambiguity_deferral")
+        elif self.config.policy == "tentative_top1" and ambiguity and raw and raw[0].violation:
+            reasons.append("tentative_top1_blocked_known_violation")
         elif self.config.policy == "explicit_rejection" and ordered != raw and base_ids:
             response["recommendations"] = [{"parent_asin": item.identifier, "score": round(item.score, 6)}
                                            for item in ordered[:len(base_ids)]]
@@ -248,8 +285,17 @@ class PresentationAgent:
         returned = tuple(item["parent_asin"] for item in response["recommendations"])
         if len(returned) != len(set(returned)) or not set(returned) <= set(raw_ids):
             raise RuntimeError("Presentation changed candidate membership")
-        diagnostic = {
+        diagnostic = deepcopy(self.inner.last_diagnostics)
+        base_width = deepcopy(diagnostic.get("output_width", {}))
+        width = {**base_width, "before": len(base_ids), "after": len(returned),
+                 "delta": len(returned) - len(base_ids), "returned": len(returned),
+                 "base_ambiguity_deferred": ambiguity, "ambiguity_deferred": ambiguity and not returned}
+        if list(returned) != base_ids:
+            width.update(reason=reasons[0], policy_limit=len(returned))
+        diagnostic.update({
             "presentation": asdict(self.config), "cache_hit": False,
+            "presentation_identity": deepcopy(self.presentation_identity),
+            "base_output_width": base_width,
             "candidate_context_ids": raw_ids, "ranked_context_ids": raw_ids,
             "presentation_context_ids": [item.identifier for item in ordered],
             "base_returned_ids": base_ids, "returned_ids": list(returned),
@@ -257,13 +303,30 @@ class PresentationAgent:
             "previously_shown_ids": list(previous.shown) if previous else [],
             "newly_rejected_ids": newly_rejected, "rejected_ids": sorted(rejected),
             "rejection_memory_reset": reset_reason, "forgotten_rejected_ids": forgotten,
-            "output_width": {"before": len(base_ids), "after": len(returned),
-                             "delta": len(returned) - len(base_ids), "ambiguity_deferred": ambiguity},
+            "output_width": width,
             "ordering_changed": [item.identifier for item in ordered] != raw_ids,
             "question_unchanged": response["message"] == base_response["message"]
                                   and response["ask_attribute"] == base_response["ask_attribute"],
             "known_violation_tier_preserved": True,
+            "latency_seconds": time.perf_counter() - started,
+        })
+        for name, identifiers in (("presentation_context", [item.identifier for item in ordered]),
+                                  ("presentation_prefix", list(returned)), ("returned", list(returned))):
+            receipt = stage_receipt(identifiers)
+            diagnostic.setdefault("stage_receipts", {})[name] = receipt
+            diagnostic.setdefault("stage_ids", {})[name] = receipt["ids"]
+            diagnostic.setdefault("stage_counts", {})[name] = receipt["count"]
+        diagnostic["stage_relationships"] = {
+            "presentation_context_parent": "question_context",
+            "presentation_prefix_parent": "presentation_context",
+            "returned_parent": "presentation_prefix",
+            "ranked_prefix": "Unchanged underlying ranking before presentation; rejection may select beyond this prefix.",
         }
+        diagnostic.setdefault("current_call", {})["presentation_executed"] = True
+        if list(returned) != base_ids:
+            products = {product["parent_asin"]: product for product in self.observer.products}
+            diagnostic["constraint_checks"] = constraint_receipts([products[key] for key in returned], state.evidence)
+        diagnostic["constraint_checks_origin"] = "presentation_shown_products" if list(returned) != base_ids else "base_response"
         self._receipts[session_id] = PresentationReceipt(request, returned, frozenset(rejected),
                                                          deepcopy(response), deepcopy(diagnostic))
         self._prune()
@@ -285,6 +348,7 @@ class PresentationAgent:
         self._receipts.clear()
         self.last_diagnostics = {}
         self.observer.context = ()
+        self.observer.products = ()
         self.inner.close()
 
 

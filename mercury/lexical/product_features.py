@@ -61,6 +61,15 @@ NEGATION_RE = re.compile(
     r"\band\s+(?:the|its|a|an|with)\b)", re.I,
 )
 FREE_RE = re.compile(r"\b(?P<value>\w+)[- ]free\b", re.I)
+POLARITY_CUE_RE = re.compile(r"\b(?:no|not|without|free|doesn't)\b", re.I)
+NOT_ONLY_RE = re.compile(r"\bnot (?:only|just|exclusively)\b", re.I)
+UNCERTAINTY_RE = re.compile(
+    r"\b(?:not (?:necessarily|always)|may not|might not|"
+    r"not (?:sure|clear|known|certain)(?: whether| if)?)\b[^,;.!?]*", re.I,
+)
+DENIAL_PREFIX_RE = re.compile(r"^(?:no|not|without|free of|doesn't contain|does not contain)\b", re.I)
+COMPONENT_SCOPES = frozenset("lining upper outsole midsole insole sole shell sleeve pocket collar hood".split())
+EVIDENCE_VIEW_CACHE_SIZE = 4
 
 
 @lru_cache(maxsize=4096)
@@ -84,30 +93,27 @@ def component_value(value: str) -> str:
 
 def affirmed_terms(value: str) -> tuple[str, ...]:
     """Only explicit positive wording may prove an excluded value is present."""
+    if not POLARITY_CUE_RE.search(value):
+        return tuple(terms(value))
     value = _negation_text(value)
     return tuple(terms(NEGATION_RE.sub(" ", FREE_RE.sub(" ", value))))
 
 
 def _negation_text(value: str) -> str:
-    value = re.sub(r"\bnot (?:only|just|exclusively)\b", "", value, flags=re.I)
+    value = NOT_ONLY_RE.sub("", value)
     # Uncertain composition is neither an affirmative witness nor an explicit denial.
-    return re.sub(
-        r"\b(?:not (?:necessarily|always)|may not|might not|"
-        r"not (?:sure|clear|known|certain)(?: whether| if)?)\b[^,;.!?]*",
-        "", value, flags=re.I,
-    )
+    return UNCERTAINTY_RE.sub("", value)
 
 
 def denied_terms(value: str) -> tuple[tuple[str, ...], ...]:
     """Preserve local explicit absences separately from missing catalog facts."""
+    if not POLARITY_CUE_RE.search(value):
+        return ()
     value = _negation_text(value)
     denied = [tuple(terms(match.group("value"))) for match in FREE_RE.finditer(value)]
     value = FREE_RE.sub(" ", value)
     for match in NEGATION_RE.finditer(value):
-        wording = re.sub(
-            r"^(?:no|not|without|free of|doesn't contain|does not contain)\b",
-            "", match.group(), flags=re.I,
-        )
+        wording = DENIAL_PREFIX_RE.sub("", match.group())
         if tokens := tuple(terms(wording)):
             denied.append(tokens)
     return tuple(denied)
@@ -219,9 +225,9 @@ class EvidenceLike(Protocol):
 
 def terms(value: object, *, min_length: int = 1) -> list[str]:
     return [
-        token.lower()
+        lowered
         for token in TOKEN_RE.findall(str(value or ""))
-        if len(token) >= min_length and token.lower() not in STOPWORDS
+        if len(token) >= min_length and (lowered := token.lower()) not in STOPWORDS
     ]
 
 
@@ -263,6 +269,10 @@ class ProductFeatures:
     component_fields: Mapping[str, tuple[str, ...]] = dataclass_field(default_factory=dict)
     affirmed_sequences: tuple[tuple[str, ...], ...] = ()
     denied_sequences: tuple[tuple[str, ...], ...] = ()
+    # Catalog-derived views only; replacements start with a fresh bounded memo.
+    _evidence_views: dict[tuple[str | None, bool], ProductFeatures] | None = dataclass_field(
+        default_factory=dict, init=False, compare=False, repr=False,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -306,6 +316,12 @@ class CompiledQuery:
 
 
 def evidence_product(product: ProductFeatures, evidence: CompiledEvidence) -> ProductFeatures:
+    scope = evidence.scope
+    cache = product._evidence_views
+    cacheable = scope is None or (scope in COMPONENT_SCOPES and scope in product.component_fields)
+    key = (scope, bool(evidence.literal_absence))
+    if cache is not None and cacheable and (cached := cache.get(key)) is not None:
+        return cached
     if evidence.scope:
         values = product.component_fields.get(evidence.scope, ("",) * len(FIELD_ORDER))
         sequences = tuple(tuple(terms(value)) if evidence.literal_absence else affirmed_terms(value)
@@ -320,20 +336,37 @@ def evidence_product(product: ProductFeatures, evidence: CompiledEvidence) -> Pr
     for name, sequence in zip(FIELD_ORDER, sequences):
         for token in sequence:
             weights[token] = max(weights.get(token, 0.0), FIELD_WEIGHTS[name])
-    return replace(product, token_weights=MappingProxyType(weights),
+    view = replace(product, token_weights=MappingProxyType(weights),
                    normalized_text=FIELD_SEPARATOR.join(" ".join(sequence) for sequence in sequences),
-                   field_sequences=sequences,
-                   affirmed_sequences=sequences,
-                   denied_sequences=denied,
-                   feature_tokens=frozenset(sequences[FIELD_ORDER.index("features")]))
+                   field_sequences=sequences, affirmed_sequences=sequences,
+                   denied_sequences=denied, feature_tokens=frozenset(sequences[FIELD_ORDER.index("features")]))
+    # Derived views cannot retain chains of further views.
+    object.__setattr__(view, "_evidence_views", None)
+    if cache is not None and cacheable:
+        if len(cache) >= EVIDENCE_VIEW_CACHE_SIZE:
+            cache.pop(next(iter(cache)))
+        cache[key] = view
+    return view
 
 
 def _sequence_match(tokens: tuple[str, ...], sequences: tuple[tuple[str, ...], ...]) -> bool:
-    return bool(tokens) and any(
-        sequence[start:start + len(tokens)] == tokens
-        for sequence in sequences
-        for start in range(len(sequence) - len(tokens) + 1)
-    )
+    if not tokens:
+        return False
+    width = len(tokens)
+    first = tokens[0]
+    if width == 1:
+        return any(first in sequence for sequence in sequences)
+    for sequence in sequences:
+        start, stop = 0, len(sequence) - width + 1
+        while start < stop:
+            try:
+                start = sequence.index(first, start, stop)
+            except ValueError:
+                break
+            if sequence[start:start + width] == tokens:
+                return True
+            start += 1
+    return False
 
 
 def evidence_contradiction(product: ProductFeatures, evidence: CompiledEvidence) -> bool:

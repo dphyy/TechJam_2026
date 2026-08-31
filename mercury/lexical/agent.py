@@ -136,6 +136,7 @@ class Agent:
                 state.long_term_profile.clear()
             state.long_term_profile = None
             state.user_profile = {}
+            state.forget_provenance()
             self._responses.pop(session_id, None)
             self._diagnostics.pop(session_id, None)
             self._sources.pop(session_id, None)
@@ -252,11 +253,11 @@ class Agent:
             and result.candidates[0].get("_category_leaf_match")
             == result.candidates[1].get("_category_leaf_match")
         )
-        ranked = (
-            []
-            if unresolved_siblings
-            else result.recommendations[:recommendation_limit]
-        )
+        tentative = (unresolved_siblings and self.config.tentative_on_ambiguity
+                     and result.candidates[0].get("_semantic_violation") is False
+                     and bool(result.recommendations))
+        ranked = (result.recommendations[:1] if tentative else [] if unresolved_siblings
+                  else result.recommendations[:recommendation_limit])
         response = {
             "message": question_plan.message,
             "ask_attribute": question_plan.attribute,
@@ -279,12 +280,12 @@ class Agent:
             before=original_state.evidence, state=state, previous=self._diagnostics.get(session_id, {}),
             sources=sources, turn=turn, top_k=top_k, result=result, response=response,
             identity=self._identity, config=self.config, search=self.search,
-            latency_seconds=time.perf_counter() - started, deferred=unresolved_siblings,
+            latency_seconds=time.perf_counter() - started, deferred=unresolved_siblings and not tentative,
         )
         diagnostics["state_committed"] = True
         diagnostics["output_width"].update(
-            policy_limit=recommendation_limit,
-            reason="ambiguity_deferred" if unresolved_siblings else
+            policy_limit=1 if tentative else recommendation_limit,
+            reason="tentative_ambiguity" if tentative else "ambiguity_deferred" if unresolved_siblings else
             "candidate_shortfall" if len(response["recommendations"]) < recommendation_limit else
             "full_width" if self.config.full_width else
             "adaptive_policy" if self.config.recommendation_policy.adaptive else "fixed_width",

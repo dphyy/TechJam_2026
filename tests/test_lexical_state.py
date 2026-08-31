@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from mercury.lexical.constraint_index import ConstraintIndex, open_catalog_index
 from mercury.lexical.dialogue import Evidence, PreferenceOperation, SessionState
+from mercury.lexical.diagnostics import evidence_receipt
 from mercury.lexical.memory import LongTermUserProfile
 from mercury.lexical.preprocessing import build_catalog_index
 from mercury.lexical.product_features import ProductFeatureStore
@@ -18,6 +19,100 @@ from mercury.lexical.retrieval import CatalogSearch, _hard_constraint_and_expres
 
 
 class ActiveEvidenceTest(unittest.TestCase):
+    def test_sentence_scoped_neutrality_preserves_material_and_records_exclusion(self):
+        for message in ("I have no preference for color. No leather, please.",
+                        "No leather, please. I have no preference for color."):
+            with self.subTest(message=message):
+                state = SessionState({})
+                state.observe("A key requirement is: black; leather; adjustable strap.", 1)
+                correction = "Correction: make that blue and canvas, but keep the adjustable strap."
+                state.observe(correction, 2)
+                state.observe(message, 3)
+                self.assertEqual({(item.text, item.source, item.turn) for item in state.evidence},
+                                 {("adjustable strap", "hard_constraint", 1), ("canvas", "override", 2),
+                                  ("leather", "exclusion", 3)})
+                self.assertEqual(state.no_preference_attributes, {"color"})
+                remainder = next(item for item in state.evidence if item.text == "canvas")
+                self.assertEqual(remainder.raw_chunk, "blue and canvas")
+                self.assertEqual(remainder.derivation, "facet_removed")
+                self.assertEqual(state.messages[-1], message.rstrip("."))
+
+    def test_sentence_scoped_additional_neutrality_does_not_withdraw_prior_color(self):
+        state = SessionState({})
+        state.observe("A key requirement is: blue and canvas; adjustable strap.", 1)
+        state.observe("I have no additional preference for color. No leather, please.", 2)
+        self.assertEqual({(item.text, item.source) for item in state.evidence},
+                         {("blue and canvas", "hard_constraint"), ("adjustable strap", "hard_constraint"),
+                          ("leather", "exclusion")})
+        self.assertEqual(state.no_preference_attributes, {"color"})
+
+    def test_sentence_polarity_controls_inside_literal_quotes_remain_literal(self):
+        state = SessionState({})
+        phrase = 'a graphic reading "color. No leather, please"'
+        state.observe(f"A key requirement is: {phrase}.", 1)
+        self.assertEqual([item.text for item in state.evidence], [phrase])
+        self.assertEqual(state.evidence[0].source, "hard_constraint")
+
+    def test_kept_color_option_broadens_only_color_and_preserves_other_requirements(self):
+        state = SessionState({})
+        state.observe("A key requirement is: black; leather; adjustable strap.", 1)
+        correction = "Correction: blue canvas, but keep black as an option."
+        state.observe(correction, 2)
+        self.assertEqual({item.text for item in state.evidence}, {"blue or black", "canvas", "adjustable strap"})
+        derived = [item for item in state.evidence if item.turn == 2]
+        self.assertEqual(len(derived), 2)
+        self.assertTrue(all(item.raw_chunk == correction and item.derivation for item in derived))
+        self.assertEqual(state.messages[-1], correction.rstrip("."))
+
+    def test_kept_option_inherits_the_unambiguous_component_owner(self):
+        state = SessionState({})
+        state.observe("A key requirement is: lining: black cotton; upper: brown leather.", 1)
+        state.observe("Correction: lining: blue silk, but keep black as an option.", 2)
+        self.assertEqual({item.text for item in state.evidence},
+                         {"lining: blue or black", "lining: silk", "upper: brown leather"})
+
+    def test_alternative_replacement_does_not_keep_an_old_mandatory_single_value(self):
+        state = SessionState({})
+        state.observe("A key requirement is: black; cotton.", 1)
+        state.observe("Actually, what I need is: blue or black.", 2)
+        self.assertEqual({item.text for item in state.evidence}, {"blue or black", "cotton"})
+
+    def test_excluding_material_preserves_an_unrelated_color_in_the_same_chunk(self):
+        state = SessionState({})
+        opening = "A key requirement is: black leather; adjustable strap."
+        state.observe(opening, 1)
+        state.observe("No leather.", 2)
+        self.assertEqual({(item.text, item.source, item.turn) for item in state.evidence},
+                         {("black", "hard_constraint", 1), ("adjustable strap", "hard_constraint", 1),
+                          ("leather", "exclusion", 2)})
+        self.assertEqual(state.messages[0], opening.rstrip("."))
+
+    def test_excluding_scoped_material_preserves_color_and_other_owner(self):
+        state = SessionState({})
+        state.observe("A key requirement is: lining: black cotton; upper: leather.", 1)
+        state.observe("No cotton lining.", 2)
+        self.assertEqual({item.text for item in state.evidence},
+                         {"lining: black", "upper: leather", "cotton lining"})
+
+    def test_explicit_change_wording_is_equivalent_to_correction(self):
+        for wording in ("Please change that to", "Change it to", "Change to", "Correction: change that to"):
+            with self.subTest(wording=wording):
+                state = SessionState({})
+                state.observe("A key requirement is: navy; wool; side vents.", 1)
+                state.observe(f"{wording} green and linen, but keep side vents.", 2)
+                self.assertEqual({item.text for item in state.evidence}, {"green and linen", "side vents"})
+                self.assertEqual(next(item for item in state.evidence if item.turn == 2).source, "override")
+
+    def test_unasserted_change_wording_does_not_replace_or_add_preferences(self):
+        for message in ('"Please change that to blue canvas."', "Do not change it to blue canvas.",
+                        "If I change that to blue canvas, I might regret it."):
+            with self.subTest(message=message):
+                state = SessionState({})
+                state.observe("A key requirement is: black; leather.", 1)
+                before = list(state.evidence)
+                state.observe(message, 2)
+                self.assertEqual(state.evidence, before)
+
     def test_multifacet_correction_retires_only_removed_secondary_profile_values(self):
         profile = LongTermUserProfile("authored")
         profile.seed(["black", "leather", "casual"])
@@ -360,6 +455,118 @@ class EvidenceRankingTest(unittest.TestCase):
 
     def product(self, key, **fields):
         return self.store.add(key, fields)
+
+    def test_neutral_then_exclusion_response_preserves_material_and_original_source(self):
+        from mercury.lexical.agent import Agent
+        from mercury.lexical.config import FULL_WIDTH_CONFIG
+
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = Path(directory) / "catalog.jsonl"
+            catalog.write_text("\n".join(json.dumps({"parent_asin": key, "categories": ["bags"],
+                                                      "features": [features, "adjustable strap"]})
+                                         for key, features in (("canvas", "blue canvas"),
+                                                               ("leather", "blue leather"))) + "\n")
+            agent = Agent(catalog, config=FULL_WIDTH_CONFIG)
+            self.addCleanup(agent.close)
+            agent.reset("authored", {})
+            agent.respond("authored", "I'm looking for bags. A key requirement is: black; leather; adjustable strap.", 1, 10)
+            correction = "Correction: make that blue and canvas, but keep the adjustable strap."
+            agent.respond("authored", correction, 2, 10)
+            message = "I have no preference for color. No leather, please."
+            state = agent._sessions["authored"]
+            before = list(state.evidence)
+            with patch.object(agent.search, "search_with_context", side_effect=RuntimeError("temporary failure")):
+                with self.assertRaises(RuntimeError):
+                    agent.respond("authored", message, 3, 10)
+            self.assertEqual(state.evidence, before)
+            self.assertEqual(state.last_turn, 2)
+            response = agent.respond("authored", message, 3, 10)
+            self.assertEqual(response["recommendations"][0]["parent_asin"], "canvas")
+            self.assertEqual(len(response["recommendations"]), 2)
+            receipt = agent.last_diagnostics
+            self.assertEqual({(item["value"], item["source_turn"]) for item in receipt["preferences"]},
+                             {("bags", 1), ("adjustable strap", 1), ("canvas", 2), ("leather", 3)})
+            derived = next(item for item in receipt["preferences"] if item["value"] == "canvas")
+            self.assertEqual(derived["raw_chunk"], "blue and canvas")
+            self.assertTrue(derived["raw_chunk_available"])
+            self.assertIn(correction, json.dumps(receipt["evidence_sources"]))
+            self.assertIn(message, json.dumps(receipt["evidence_sources"]))
+            self.assertEqual(agent.respond("authored", message, 3, 10), response)
+            self.assertEqual(agent.last_diagnostics["preferences"], receipt["preferences"])
+
+    def test_kept_color_option_still_requires_the_new_material(self):
+        state = SessionState({})
+        state.observe("A key requirement is: black; leather; adjustable strap.", 1)
+        state.observe("Correction: blue canvas, but keep black as an option.", 2)
+        expected = {"blue_canvas": 3, "black_canvas": 3, "blue_leather": 2, "black_leather": 2}
+        for key, color, material in (("blue_canvas", "blue", "canvas"), ("black_canvas", "black", "canvas"),
+                                     ("blue_leather", "blue", "leather"), ("black_leather", "black", "leather")):
+            product = self.product(key, features=f"{color} {material}; adjustable strap")
+            self.assertEqual(CatalogSearch._hard_constraint_exactness(product, state.evidence), (expected[key], 3))
+
+    def test_derived_option_receipts_are_detached_and_stay_purged_after_forget(self):
+        from mercury.lexical.agent import Agent
+        from mercury.lexical.config import FULL_WIDTH_CONFIG
+
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = Path(directory) / "catalog.jsonl"
+            catalog.write_text("\n".join(json.dumps({"parent_asin": color, "categories": ["bags"],
+                                                      "features": [f"{color} canvas", "adjustable strap"]})
+                                         for color in ("black", "blue")) + "\n")
+            agent = Agent(catalog, config=FULL_WIDTH_CONFIG, share_profile_memory=True)
+            self.addCleanup(agent.close)
+            agent.reset("first", {"profile_id": "shared", "preference_tags": ["black", "leather"]})
+            agent.reset("second", {"profile_id": "shared"})
+            agent.respond("first", "I'm looking for bags. A key requirement is: black; leather; adjustable strap.", 1, 10)
+            correction = "Correction: blue canvas, but keep black as an option."
+            response = agent.respond("first", correction, 2, 10)
+            original = agent.last_diagnostics
+            derived = [row for row in original["preferences"] if row["derived"]]
+            self.assertEqual(len(derived), 2)
+            self.assertTrue(all(row["raw_chunk"] == correction and row["source_turn"] == 2 for row in derived))
+            self.assertTrue(all(row["raw_chunk_available"] and row["raw_chunk_complete"] for row in derived))
+            self.assertEqual({row["parent_asin"] for row in response["recommendations"]}, {"black", "blue"})
+            self.assertEqual(agent.respond("first", correction, 2, 10), response)
+            self.assertEqual(agent.last_diagnostics["preferences"], original["preferences"])
+            original["preferences"][0]["raw_chunk"] = "mutated"
+            self.assertNotEqual(agent.last_diagnostics["preferences"], original["preferences"])
+            state = agent._sessions["first"]
+            questions, last_turn = list(state.asked_attributes), state.last_turn
+            agent.forget_profile("shared")
+            self.assertEqual(state.asked_attributes, questions)
+            self.assertEqual(state.last_turn, last_turn)
+            self.assertIsNone(agent._sessions["second"].long_term_profile)
+            agent.respond("first", "I need side vents.", 3, 10)
+            receipt = agent.last_diagnostics
+            derived = [row for row in receipt["preferences"] if row["derived"]]
+            self.assertTrue(derived)
+            self.assertTrue(all(row["raw_chunk"] is None and not row["raw_chunk_available"] for row in derived))
+            self.assertEqual([row["source_turn"] for row in receipt["evidence_sources"]], [3])
+            self.assertNotIn(correction, json.dumps(receipt))
+            agent.respond("first", "No black.", 4, 10)
+            current = next(row for row in agent.last_diagnostics["preferences"] if row["value"] == "blue")
+            self.assertTrue(current["derived"])
+            self.assertIsNone(current["raw_chunk"])
+            self.assertFalse(current["raw_chunk_available"])
+
+    def test_derived_source_is_bounded_and_its_identity_binds_the_full_chunk(self):
+        raw_chunk = "x" * 8001
+        item = Evidence("blue", 3.8, "hard_constraint", 1, "color", PreferenceOperation.APPEND,
+                        raw_chunk, "facet_projection")
+        first = evidence_receipt([], [item], {}, 1)["active"][0]
+        repeated = evidence_receipt([], [item], {}, 1)["active"][0]
+        changed = Evidence("blue", 3.8, "hard_constraint", 1, "color", PreferenceOperation.APPEND,
+                           raw_chunk[:-1] + "y", "facet_projection")
+        self.assertEqual(first["evidence_id"], repeated["evidence_id"])
+        self.assertNotEqual(first["evidence_id"], evidence_receipt([], [changed], {}, 1)["active"][0]["evidence_id"])
+        self.assertEqual(len(first["raw_chunk"]), 8000)
+        self.assertFalse(first["raw_chunk_complete"])
+
+    def test_legacy_six_argument_evidence_remains_usable(self):
+        item = Evidence("blue", 3.8, "hard_constraint", 1, "color", PreferenceOperation.APPEND)
+        record = evidence_receipt([], [item], {}, 1)["active"][0]
+        self.assertFalse(record["derived"])
+        self.assertEqual(record["raw_chunk"], "blue")
 
     def test_multifacet_profile_retirement_commits_only_after_a_valid_response(self):
         from copy import deepcopy
