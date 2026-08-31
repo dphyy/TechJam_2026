@@ -384,9 +384,9 @@ datasets out of source control.
 <table>
   <tr>
     <td align="center">
-      <a href="https://github.com/SaaiAravindhRaja">
-        <img src="https://github.com/SaaiAravindhRaja.png" width="80" height="80" alt="Saai Aravindh Raja" /><br />
-        <sub><b>Saai</b></sub>
+      <a href="https://github.com/BrandonChongWenJun">
+        <img src="https://github.com/BrandonChongWenJun.png" width="80" height="80" alt="Brandon" /><br />
+        <sub><b>Brandon</b></sub>
       </a>
     </td>
     <td align="center">
@@ -396,21 +396,21 @@ datasets out of source control.
       </a>
     </td>
     <td align="center">
-      <a href="https://github.com/BrandonChongWenJun">
-        <img src="https://github.com/BrandonChongWenJun.png" width="80" height="80" alt="Brandon" /><br />
-        <sub><b>Brandon</b></sub>
+      <a href="https://github.com/kingoldwang">
+        <img src="https://github.com/kingoldwang.png" width="80" height="80" alt="Kingold" /><br />
+        <sub><b>Kingold</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/SaaiAravindhRaja">
+        <img src="https://github.com/SaaiAravindhRaja.png" width="80" height="80" alt="Saai Aravindh Raja" /><br />
+        <sub><b>Saai</b></sub>
       </a>
     </td>
     <td align="center">
       <a href="https://github.com/Zhikai-Koh">
         <img src="https://github.com/Zhikai-Koh.png" width="80" height="80" alt="Zhi Kai" /><br />
         <sub><b>Zhi Kai</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/kingoldwang">
-        <img src="https://github.com/kingoldwang.png" width="80" height="80" alt="Kingold" /><br />
-        <sub><b>Kingold</b></sub>
       </a>
     </td>
   </tr>
