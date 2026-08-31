@@ -10,6 +10,7 @@ from collections import Counter
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from unittest.mock import patch
 
 from evaluator.local_evaluator import catalog_index, evaluate, load_jsonl
 from experiments.run import ObservedAgent, peak_rss_bytes, source_hashes
@@ -63,7 +64,8 @@ class OpenQuestionPlanner(AdaptiveQuestionPlanner):
 def evidence_tier(product: dict, preserve_phrase_order: bool) -> tuple:
     exact = int(product.get("_hard_constraint_exact_count") or 0)
     count = int(product.get("_hard_constraint_count") or 0)
-    tier = (bool(product.get("_exact_constraint_index_match")),
+    tier = (not bool(product.get("_semantic_violation")),
+            bool(product.get("_exact_constraint_index_match")),
             count > 0 and exact == count, exact, bool(product.get("_category_leaf_match")))
     if preserve_phrase_order:
         tier += (bool(product.get("_constraint_sequence_match")),
@@ -171,6 +173,12 @@ def _write(path: Path, value: object) -> None:
         handle.write("\n")
 
 
+def _deny_network(*args, **kwargs):
+    raise RuntimeError("Network connection disabled for this local experiment")
+
+
+@patch.object(socket, "create_connection", _deny_network)
+@patch.object(socket.socket, "connect", _deny_network)
 def run(catalog: Path, dataset: Path, output: Path, config: ExperimentConfig,
         artifact_dir: Path | None = None) -> dict:
     evaluator = Path("evaluator/local_evaluator.py")
@@ -232,11 +240,6 @@ def main() -> None:
     parser.add_argument("--artifacts", type=Path)
     args = parser.parse_args()
 
-    def deny_network(*args, **kwargs):
-        raise RuntimeError("Network connection disabled for this local experiment")
-
-    socket.create_connection = deny_network
-    socket.socket.connect = deny_network
     config = ExperimentConfig(**json.loads(args.config.read_text()))
     result = run(args.catalog, args.dataset, args.output, config, args.artifacts)
     print({key: result[key] for key in ("recommended_technical_score", "hit_rate_at_10", "mrr", "mttc")})

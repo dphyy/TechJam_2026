@@ -62,6 +62,15 @@ class ExperimentTest(unittest.TestCase):
         self.assertIs(search.search_with_context(self.state), self.result)
         self.assertEqual(search.last_diagnostics["fallbacks"], ["TimeoutError"])
 
+    def test_semantic_ranking_cannot_promote_an_explicitly_excluded_product(self):
+        self.rows[1]["_semantic_violation"] = True
+        ranker = SimpleNamespace(prompt_tokens=0,
+                                 score=lambda *args, **kwargs: {"a": 0, "b": 100, "c": 1})
+        search = SearchExperiment(self.inner, ExperimentConfig(
+            ranking_policy="semantic_constraints"), ranker)
+        result = search.search_with_context(self.state)
+        self.assertEqual([item[0] for item in result.recommendations], ["a", "c", "b"])
+
     def test_bounded_prefix_keeps_tail_and_all_members(self):
         seen = []
 
