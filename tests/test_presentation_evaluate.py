@@ -31,10 +31,14 @@ def candidate(identifier: str, rank: int, *, ambiguous: bool = False, violation:
 
 
 class FixtureSearch:
-    def __init__(self, rows: list[dict]) -> None:
+    def __init__(self, rows: list[dict], catalog_search) -> None:
         self.rows = rows
+        self.catalog_search = catalog_search
         self.calls = 0
         self.closed = False
+
+    def __getattr__(self, name: str):
+        return getattr(self.catalog_search, name)
 
     def search_with_context(self, state, limit: int = 10) -> SearchResult:
         self.calls += 1
@@ -70,7 +74,7 @@ class PresentationPolicyTest(unittest.TestCase):
             recommendation_policy=RecommendationPolicy(adaptive=False))
         inner = Agent(self.catalog, config=config, max_sessions=max_sessions)
         inner.search.close()
-        inner.search = FixtureSearch(rows)
+        inner.search = FixtureSearch(rows, inner.search)
         inner.question_planner = FixturePlanner()
         result = PresentationAgent(self.catalog, PRESETS[policy], inner=inner)
         self.addCleanup(result.close)
