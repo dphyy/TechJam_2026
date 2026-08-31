@@ -10,106 +10,202 @@
 </p>
 
 <p align="center">
-  <a href="#setup-and-installation"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&amp;logo=python&amp;logoColor=white" alt="Python 3.10 or later" /></a>
-  <a href="#pipeline-behavior"><img src="https://img.shields.io/badge/SQLite-FTS5-003B57?style=for-the-badge&amp;logo=sqlite&amp;logoColor=white" alt="SQLite FTS5" /></a>
-  <a href="#project-overview"><img src="https://img.shields.io/badge/Runtime-Offline-1F7A5C?style=for-the-badge" alt="Offline runtime" /></a>
+  <a href="#getting-started"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&amp;logo=python&amp;logoColor=white" alt="Python 3.10 or later" /></a>
+  <a href="#technology-stack"><img src="https://img.shields.io/badge/SQLite-FTS5-003B57?style=for-the-badge&amp;logo=sqlite&amp;logoColor=white" alt="SQLite FTS5" /></a>
+  <a href="#overview"><img src="https://img.shields.io/badge/Runtime-Offline-1F7A5C?style=for-the-badge" alt="Offline runtime" /></a>
 </p>
 
-[Overview](#project-overview) · [Setup](#setup-and-installation) · [Results](#reproducing-the-results) · [Reflection](#limitations-and-future-improvements) · [Team](#team-member-contributions)
+<p align="center">
+  <a href="#overview">Overview</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#agent-api">API</a> ·
+  <a href="#evaluation">Results</a> ·
+  <a href="#development">Development</a>
+</p>
 
 ---
 
-## Project overview
+## Overview
 
-Mercury searches a local product catalog through a ten-turn shopping conversation.
-The public pipeline is **SQLite FTS5 lexical retrieval → constraint-aware ranking
-→ adaptive shortlist → guarded paging**. It remembers explicit corrections and
-exclusions, asks clarifying questions, and returns real catalog IDs with evidence
-receipts. No model, embedding index, hosted API, or paid inference is required.
+Mercury is a conversational search engine for a local catalog of 50,000 products.
+It turns changing shopping requirements into an explicit search state, retrieves
+and ranks matching products, and asks focused questions when more information
+would help.
 
-`agent.Agent`, `starter.agent.Agent`, and `mercury.lexical.Agent` are the same class.
-The default is defined in `mercury/lexical/config.py`, not `configs/selected.json`.
-The latter belongs to the former neural pipeline, retained for research only.
+A shopper can ask for a black leather bag, switch to blue canvas, then remove the
+color preference without losing the requirement for an adjustable strap. When a
+shortlist is rejected, Mercury can explore further candidates while preserving
+the active requirements and ranking safeguards.
 
-## Setup and installation
+The default pipeline runs entirely on the local machine. It requires no model
+weights, embedding download, API key, hosted inference service, or third-party
+Python package. This repository provides the search backend, its Python API,
+evaluation tools, and a browser-viewable conversation replay.
 
-Use Python 3.10+ with SQLite FTS5. The current checks use CPython 3.13.5 on macOS;
-other hosts still need verification. The default runtime has no required Python
-packages. Clone or download this repository, open a terminal in its root directory,
-and create an environment:
+## Features
+
+| Capability | Behavior |
+|---|---|
+| **Changing preferences** | Track explicit requirements, corrections, exclusions, alternatives, and no-preference replies across turns. |
+| **Multiple retrieval routes** | Combine broad, phrase, category, and exact-constraint searches over a local full-text index. |
+| **Constraint-aware ranking** | Use product-field evidence and contradiction guards; missing metadata stays unknown. |
+| **Focused clarification** | Select useful facets from the candidate pool and respect questions the shopper has already declined. |
+| **Guarded exploration** | Prefer unseen candidates when the search state is stable; reset exposure when requirements change. |
+| **Inspectable decisions** | Expose evidence, ranking-stage receipts, paging decisions, and effective runtime capabilities. |
+| **Reliable session handling** | Cache exact retries, roll back failed turns, bound session memory, and support explicit cleanup. |
+
+## Technology stack
+
+| Layer | Implementation |
+|---|---|
+| Runtime | Python 3.10+ and the standard library |
+| Search index | SQLite FTS5 |
+| Retrieval and ranking | Weighted lexical retrieval, reciprocal-rank fusion, structured constraints, and deterministic ranking policies |
+| Conversation state | Explicit evidence records, session-local history, and optional profile memory |
+| Demonstration | Static HTML replay, JSON evidence, and a text transcript generated from real agent calls |
+| Verification | Standard-library `unittest`, optional Ruff linting, and the unchanged local evaluator |
+
+## Getting started
+
+### Prerequisites
+
+- Python **3.10 or later**, with SQLite **FTS5** enabled.
+- The supplied participant catalog archive and its published checksum.
+- A shell with `gzip` for the extraction command below.
+
+The recorded release measurement used Python 3.13.5 on macOS. Other deployment
+hosts should be checked for SQLite support and resource limits.
+
+### 1. Set up the environment
 
 ```bash
+git clone https://github.com/dphyy/TechJam_2026.git
+cd TechJam_2026
+
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Obtain the organizer's catalog using [the data instructions](data/README.md),
-verify the organizer's archive checksum, and decompress it to `data/catalog.jsonl`.
-The 50,000-row catalog used here has SHA-256
-`da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67`.
-The catalog is not bundled in source control. After placing the verified archive
-at `data/catalog.jsonl.gz`, decompress it and check the resulting file:
+The runtime requirements file intentionally contains no third-party dependencies.
+Check that the interpreter supports FTS5:
+
+```bash
+python -c "import sqlite3; c = sqlite3.connect(':memory:'); c.execute('CREATE VIRTUAL TABLE probe USING fts5(text)'); c.close()"
+```
+
+### 2. Prepare the catalog
+
+Obtain `catalog.jsonl.gz` from the organizer's participant release and place it in
+`data/`. Verify the archive against the release checksum before extracting it:
 
 ```bash
 gzip -dk data/catalog.jsonl.gz
-shasum -a 256 data/catalog.jsonl
+shasum -a 256 data/catalog.jsonl data/public_set.jsonl
 ```
 
-The checksum must match the value above. The public development sessions are
-already included at `data/public_set.jsonl`. See [detailed setup](docs/SETUP.md)
-for platform checks and optional research dependencies.
+On Linux, `sha256sum` can be used in place of `shasum -a 256`. The catalog is not
+stored in this repository. The 200 public development sessions are included.
 
-### Try the Agent API
+<details>
+<summary><strong>Expected data checksums</strong></summary>
+
+```text
+data/catalog.jsonl — 50,000 products
+da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67
+
+data/public_set.jsonl — 200 development sessions
+857259f7a438e6188ac63e18995b6ff4489bfcfc4a716a798b9a2aa0ee8f7579
+```
+
+The public sessions cover 80 buying, 80 browsing, 30 intent-override, and 10
+boundary scenarios. These are already-used development data, not an untouched
+holdout. Keep catalog and evaluator inputs unchanged when reproducing results.
+
+</details>
+
+### 3. Run a conversation
+
+Run this Python example from the repository root after activating the environment:
 
 ```python
 from agent import Agent
 
+messages = [
+    "I'm looking for bags. A key requirement is: black; leather; adjustable strap.",
+    "Correction: make that blue and canvas, but keep the adjustable strap.",
+    "I have no preference for color. No leather, please.",
+    "Those options aren't right.",
+]
+
 agent = Agent("data/catalog.jsonl")
 try:
-    agent.reset("shopper-1", {})
-    print(agent.respond("shopper-1", "I'm looking for bags. A key requirement is: canvas.", 1, 10))
-    print(agent.respond("shopper-1", "Those options aren't right.", 2, 10))
-    print(agent.respond("shopper-1", "Correction: make that leather.", 3, 10))
+    agent.reset("shopping-session", {})
+    for turn, message in enumerate(messages, start=1):
+        response = agent.respond("shopping-session", message, turn, top_k=10)
+        print(response["message"])
+        print(response["recommendations"])
 finally:
     agent.close()
 ```
 
-Call `reset` first. Turn numbers must advance from 1 through 10; an identical
-retry of the latest request returns the cached response without advancing paging.
-The official evaluator requests `top_k=10`; the implementation also accepts
-1–10 for local callers and may return a shorter slate. State commits only after
-search, planning, selection, and response validation succeed.
+## Agent API
 
-## Pipeline behavior
+`agent.Agent`, `starter.agent.Agent`, and `mercury.lexical.Agent` export the same
+implementation.
 
-1. Parse messages into source-aware category, preference, correction, exclusion,
-   and no-preference evidence. Rejection of a displayed slate is not a product
-   preference; separately stated requirements in the same message are retained.
-2. Retrieve through broad, phrase, category, and exact-constraint lexical routes.
-   Exclude known incompatible taxonomy before ranking. Missing taxonomy remains
-   unknown. Explicit replacement-strap titles do not satisfy a whole-bag request.
-3. Rank with contradiction guards, exact constraint matches, category specificity,
-   catalog field evidence, and bounded quality/profile tiebreaks. Unknown metadata
-   is not proof that a requirement is met. Ranking scores are not probabilities.
-4. Choose a useful clarification and adaptive output width. Do not reopen a
-   declined `other` question; stop asking questions on turn 10.
-5. Page within the ranked context of at most 100 candidates when active semantics
-   and the top-ten candidate membership are unchanged. Prefer unseen candidates,
-   preserve the current shortlist width and known-violation quota, and reuse
-   compatible seen candidates when that tier is exhausted. A semantic change or
-   explicit correction resets exposure and replays the current best matches.
+| API | Purpose |
+|---|---|
+| `Agent(catalog_path)` | Load the catalog and initialize search. |
+| `reset(session_id, user_profile)` | Start or reset an isolated shopping session. |
+| `respond(session_id, user_message, turn, top_k)` | Return a message, clarification attribute, ranked recommendations, and token usage. |
+| `last_diagnostics` | Read a detached copy of the latest evidence and execution receipt. |
+| `export_profile(profile_id)` | Export a stored profile when one exists. |
+| `forget_profile(profile_id)` | Remove stored profile data and associated cached provenance. |
+| `close()` | Release resources and clear session, profile, response, and diagnostic state. |
 
-Paging does not guarantee zero repetition. Resets, changed rankings, and an
-exhausted compatible pool can repeat products. It also does not turn incomplete
-or contradictory catalog metadata into verified product facts. See [design and
-limitations](docs/DESIGN.md).
+Call `reset` before `respond`. Turn numbers advance from **1 to 10**, and
+`top_k` accepts **1–10**. An exact retry of the latest request returns its cached
+response without advancing the conversation or paging.
 
-## Reproducing the results
+The response has four top-level fields:
 
-After completing setup, run the unchanged official evaluator through the
-instrumented public-agent runner. This is the command used for the reported
-pipeline, with site-packages disabled:
+| Field | Content |
+|---|---|
+| `message` | A string containing the agent's reply. |
+| `ask_attribute` | A supported clarification attribute, or `null`. |
+| `recommendations` | Ordered, unique catalog IDs as `parent_asin`, each with a finite numeric `score`. |
+| `usage` | Non-negative `prompt_tokens` and `completion_tokens`; both are zero for the default runtime. |
+
+The agent may return fewer results than requested. Ranking scores are internal
+ordering values, not probabilities. Conversation and paging state commit only
+after the complete turn succeeds.
+
+## Evaluation
+
+The checked-in release measurement uses the unchanged evaluator and all 200
+public development sessions.
+
+| Metric | Recorded result |
+|---|---:|
+| **Technical score** | **0.967414** |
+| **Targets recovered** | **200 / 200** |
+| **Hit rate** | **100%** |
+| Mean reciprocal rank | 0.965048 |
+| Mean turns to completion | 2.105 |
+| Median / p95 turn latency | 111 ms / 397 ms |
+| Cold start | 9.96 s |
+| Model tokens | 0 |
+| Agent errors / fallback turns | 0 / 0 |
+
+These measurements were recorded on **31 August 2026**. Exact source,
+configuration, catalog, and dataset hashes are retained in
+[`docs/current-results.json`](docs/current-results.json). Latencies depend on the
+machine and workload. The default has no hosted-model inference charge; local
+compute costs are separate.
+
+Reproduce the public score with site-packages disabled:
 
 ```bash
 python -S -m experiments.submission_evaluate \
@@ -118,116 +214,144 @@ python -S -m experiments.submission_evaluate \
   --output output/public-reproduction
 ```
 
-Use a new output directory for each run. The runner creates `registration.json`,
-`report.json`, and `traces.json`, recording source/configuration/data hashes,
-legality checks, timings, and individual session outcomes. Compare the aggregate
-fields in `report.json` with these results from the verified source:
-
-| Public development metric | Result |
-|---|---:|
-| Targets recovered | **200 / 200** |
-| TechnicalScore | **0.967414** |
-| Mean reciprocal rank (MRR) | 0.965048 |
-| Mean turns to completion (MTTC) | 2.105 |
-| Model tokens | 0 |
-| Agent errors / fallback turns | 0 / 0 |
-
-These are consumed development results, not private-test predictions. Runtime
-timings vary by machine. Exact score reproduction requires the same source,
-configuration, catalog, and dataset; the recorded hashes are in
-[current-results.json](docs/current-results.json).
+Use a **new output directory** for every run. The runner writes
+`registration.json`, `report.json`, and `traces.json`, including input/source
+hashes, aggregate scores, legality checks, timings, and individual outcomes.
 
 For an uninstrumented run through the official CLI:
 
 ```bash
-python -m evaluator.local_evaluator --catalog data/catalog.jsonl \
-  --dataset data/public_set.jsonl --output output/public-results.json
+python -m evaluator.local_evaluator \
+  --catalog data/catalog.jsonl \
+  --dataset data/public_set.jsonl \
+  --output output/public-results.json
 ```
 
-### Replay the conversation
+Public scores are development evidence. They do not establish private-test
+performance, competition placement, or real-shopper satisfaction.
+
+## Demo
+
+Generate a replay from actual calls to the public agent:
 
 ```bash
 python -m demo.submission --output output/current-demo
-# Equivalent public-agent showcase:
-python -m demo.showcase --output output/current-showcase
 ```
 
-Use a new output directory for each recorded run. The demo writes `index.html`,
-`transcript.txt`, and sanitized `evidence.json`, showing real corrections and
-paging. Aggregate scores can be attached only with a matching source-bound report
-and its SHA-256; arbitrary or historical result JSON is not accepted. These
-commands do not upload, publish, or submit anything.
+Open `output/current-demo/index.html` in a browser. The same directory contains
+a readable `transcript.txt` and sanitized `evidence.json`. The five-turn replay
+shows corrections, preference removal, and exploration after rejected results.
+`python -m demo.showcase --output output/current-showcase` is an equivalent CLI.
 
-Current verification and score status live in [the report](REPORT.md),
-[verification notes](docs/PIPELINE_VERIFICATION.md), and
-[current-results.json](docs/current-results.json). Earlier high scores do **not**
-automatically apply to changed code. Public and previously opened synthetic sets
-are consumed development evidence. Robustness-v1's final set was already consumed;
-this repair does not retune against or reopen it. Follow [dataset status](docs/DATASET_STATUS.md).
+A verified aggregate score can be attached using `--evaluation-report` and
+`--evaluation-sha256`. The demo accepts only a matching source-bound report;
+historical or arbitrary scores cannot be attached to a changed implementation.
+Generating the demo does not upload or publish anything.
 
-## Checks and repository map
+## Development
+
+Run the current runtime and integration regressions without site-packages:
 
 ```bash
-# Dependency-free runtime/integration regressions, including paging:
 python -S -m unittest tests.test_lexical_paging tests.test_lexical_state \
-  tests.test_guarded_paging_evaluate tests.test_submission_demo tests.test_submission_evaluate
+  tests.test_guarded_paging_evaluate tests.test_submission_demo \
+  tests.test_submission_evaluate
+```
 
-# Optional lint tool:
+Install the optional lint tool:
+
+```bash
 python -m pip install -r requirements-dev.txt
 python -m ruff check .
+```
 
-# Full historical + current suite in the optional research environment:
+The complete suite includes historical research pipelines and their optional
+dependencies:
+
+```bash
 python -m pip install -r requirements-research.txt
 python -m unittest discover -s tests -q
 ```
 
+The research dependency pins describe a previously tested environment; they are
+not a guarantee that every Python/platform combination can install the same
+optional packages. No research dependency is needed to use the default agent.
+
+### Project structure
+
 | Location | Role |
 |---|---|
-| `agent.py`, `starter/agent.py` | Public submission entry points |
-| `mercury/lexical/` | Current parser, retrieval, ranking, planner, paging, diagnostics |
-| `demo/submission.py`, `demo/showcase.py` | Current public-agent recording and CLI alias |
-| `experiments/submission_evaluate.py` | Current source-bound evaluation |
-| `experiments/guarded_paging_evaluate.py` | Explicit paging-on/off ablation using the shared selector |
-| `evaluator/`, `data/public_set.jsonl` | Unchanged organizer scoring and public development data |
-| `mercury/agent.py`, `mercury/fusion/`, `configs/`, other experiments | Historical or optional research; not the public default |
-| `docs/history/`, [research index](docs/RESEARCH_INDEX.md) | Historical comparison evidence and redirects from superseded guides |
+| `agent.py`, `starter/agent.py` | Public entry points |
+| `mercury/lexical/` | Current state parser, retrieval, ranking, clarification, paging, and diagnostics |
+| `demo/` | Conversation replay and evidence rendering |
+| `experiments/submission_evaluate.py` | Source-bound public evaluation |
+| `experiments/guarded_paging_evaluate.py` | Explicit paging-on/off comparison |
+| `evaluator/`, `baselines/` | Local scoring harness and baseline |
+| `data/` | Public sessions and authored fixtures; catalog supplied separately |
+| `tests/` | Runtime, integration, failure-path, and research regressions |
+| `assets/` | Application branding |
+| `configs/`, other `mercury/` modules | Optional or historical research implementations |
+| `docs/` | Machine-readable results and the protocol/status files needed by evaluation tooling |
 
-Current-facing guides retain only the newest result. Older scores are kept only
-in explicitly labeled improvement, regression and experiment records; the
-[documentation audit](docs/DOCUMENTATION_STATUS.md) lists those exceptions.
+### Configuration and research tools
 
-## Limitations and future improvements
+The public default is defined by
+[`DEFAULT_AGENT_CONFIG`](mercury/lexical/config.py): lexical retrieval, adaptive
+shortlists, tentative ambiguity handling, and guarded paging.
 
-Our main lesson is that recovering an exact product in a simulator and helping
-a real shopper are related but different goals. Explicit state and guarded
-paging make the behavior inspectable, but a high development score does not prove
-that every recommendation is relevant or that shoppers save time.
+`configs/selected.json` belongs to the **former neural pipeline**. Editing it
+does not change the public agent. Optional models and historical experiments
+require their matching source revision, assets, and recorded environment;
+they are not part of the default execution path.
 
-This is an English rule-based research backend, not general language understanding
-or a production commerce service. Catalog errors, unseen taxonomy synonyms,
-complex negation, and ranking ambiguity remain limitations. Missing metadata is
-not proof of compliance, and paging can repeat products after resets or pool
-exhaustion. Concurrent use of a single agent requires external serialization.
+The retained Markdown protocols are evaluator inputs or references emitted by
+experiment tooling. They are kept to preserve reproducibility, alongside
+[`docs/DATASET_STATUS.md`](docs/DATASET_STATUS.md). Historical reports remain in
+Git history rather than as duplicate setup guides.
 
-Given more time, we would prioritize:
+## Operational limits
 
-- **Independent evaluation:** reserve genuinely new test sets and run real-user
-  studies measuring relevance, satisfaction, and time saved, without retuning
-  against consumed holdouts.
-- **Better intent and catalog understanding:** expand taxonomy/synonym coverage
-  and correction/negation handling, with authored regressions and explicit
-  treatment of missing or contradictory product information.
-- **Deployment readiness:** verify organizer-host resource limits, profile
-  startup and memory costs, and add safe concurrent session handling before
-  exposing the backend as a service.
+- **Language and catalog:** English rule-based interpretation can miss unfamiliar
+  taxonomy, complex negation, or implicit requirements. Incomplete catalog
+  metadata cannot establish that a product satisfies a constraint.
+- **Paging:** Exposure can reset after a correction or changed ranking; an
+  exhausted compatible pool can repeat products. Paging does not guarantee
+  permanently unique recommendations or repair the catalog.
+- **Concurrency:** Calls to one agent instance require external serialization.
+  This repository does not expose a production HTTP service.
+- **State and privacy:** Session state is held locally in memory and bounded to
+  256 sessions by default. Cross-session profile memory is opt-in. Use
+  `forget_profile` and `close` for explicit cleanup.
+- **Evaluation:** Previously evaluated data remain development evidence, even if
+  an old filename says “sealed” or “unseen.” New generalization claims need
+  independent evaluation.
+- **Deployment:** Verify target-host CPU, memory, startup, and per-turn limits
+  before deployment. Installing optional dependencies may need network access;
+  running the default search pipeline does not.
 
-Public video, repository visibility, and competition submission remain separate
-[release gates](docs/RELEASE_CHECKLIST.md). Dataset provenance and use constraints
-are documented in [data attribution](DATA_ATTRIBUTION.md).
+Next priorities are broader language and taxonomy coverage, independent shopper
+studies, and deployment-host validation.
 
-## Team member contributions
+## Data attribution and use
 
-| Team member | Contribution role |
+The competition data are derived from **Amazon Reviews 2023**, published by
+McAuley Lab at UCSD. The original data project is
+[amazon-reviews-2023.github.io](https://amazon-reviews-2023.github.io/).
+
+The selected category is `Clothing_Shoes_and_Jewelry`; products are joined by
+`parent_asin`. The participant data contain text and structured product
+metadata, not source images, videos, account credentials, private organizer
+labels, or private holdout sessions.
+
+Follow the source dataset's applicable terms and use the data only for the
+competition, research, or other permitted purposes. The competition organizer
+does not claim ownership of the underlying review or product content. Keep
+catalog archives, raw evaluation traces, model assets, secrets, and private
+datasets out of source control.
+
+## Team
+
+| Team member | Contribution |
 |---|---|
 | **Brandon** | AI Ranking Optimisation Engineer |
 | **Danvern** | AI Integration & Optimisation Engineer |
