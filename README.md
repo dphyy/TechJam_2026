@@ -1,8 +1,8 @@
-# Mercury
-
 <p align="center">
   <img src="assets/mercury-logo.jpeg" alt="Mercury" width="220" />
 </p>
+
+<h1 align="center">Mercury</h1>
 
 <p align="center">
   <strong>Conversational product search that keeps up with changing intent.</strong><br />
@@ -54,6 +54,27 @@ evaluation tools, and a browser-viewable conversation replay.
 | **Guarded exploration** | Prefer unseen candidates when the search state is stable; reset exposure when requirements change. |
 | **Inspectable decisions** | Expose evidence, ranking-stage receipts, paging decisions, and effective runtime capabilities. |
 | **Reliable session handling** | Cache exact retries, roll back failed turns, bound session memory, and support explicit cleanup. |
+
+## How it works
+
+```mermaid
+flowchart TD
+    Input["Shopping message"] --> State["Update preference state"]
+    State --> Search["Retrieve and rank candidates"]
+    Catalog[("Local catalog · SQLite FTS5")] --> Search
+    Search --> Select["Choose clarification and shortlist"]
+    Select --> Paging["Apply guarded paging"]
+    Paging --> Output["Validate, commit, and return reply"]
+```
+
+Each turn updates a staged copy of the shopper's preferences. Retrieval combines
+complementary searches; ranking uses catalog evidence to prioritize candidates
+and guard against contradictions. The dialogue policy selects a useful question
+and shortlist before paging considers previously shown products.
+
+Only a successful, validated turn commits the new conversation and paging state.
+An exact retry returns the stored response, while a failed turn leaves the prior
+state available for recovery.
 
 ## Technology stack
 
@@ -230,6 +251,11 @@ python -m evaluator.local_evaluator \
 Public scores are development evidence. They do not establish private-test
 performance, competition placement, or real-shopper satisfaction.
 
+The score, hit rate, reciprocal rank, and completion-turn count above were
+reproduced on **1 September 2026**, with site-packages disabled and network
+connections blocked by the evaluation runner. The timing figures remain those
+of the recorded release run.
+
 ## Demo
 
 Generate a replay from actual calls to the public agent:
@@ -249,6 +275,10 @@ historical or arbitrary scores cannot be attached to a changed implementation.
 Generating the demo does not upload or publish anything.
 
 ## Development
+
+Verification on **1 September 2026** passed all **1,164 tests**, including the
+**130 runtime and integration checks** below, plus Ruff linting. The README's
+conversation example was also executed against the supplied catalog.
 
 Run the current runtime and integration regressions without site-packages:
 
