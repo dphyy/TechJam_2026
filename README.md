@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/mercury-logo.jpeg" alt="Mercury" width="220" />
+  <img src="assets/mercury-logo.jpeg" alt="Mercury" width="320" />
 </p>
 
 <h1 align="center">Mercury</h1>
@@ -381,10 +381,37 @@ datasets out of source control.
 
 ## Team
 
-| Team member | Contribution |
-|---|---|
-| **Brandon** | AI Ranking Optimisation Engineer |
-| **Danvern** | AI Integration & Optimisation Engineer |
-| **Kingold** | AI Feature Development Engineer |
-| **Saai** | AI Pipeline Design Engineer |
-| **Zhi Kai** | AI Experimentation & Evaluation Engineer |
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/SaaiAravindhRaja">
+        <img src="https://github.com/SaaiAravindhRaja.png" width="80" height="80" alt="Saai Aravindh Raja" /><br />
+        <sub><b>Saai Aravindh Raja</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/dphyy">
+        <img src="https://github.com/dphyy.png" width="80" height="80" alt="Danvern" /><br />
+        <sub><b>Danvern</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/BrandonChongWenJun">
+        <img src="https://github.com/BrandonChongWenJun.png" width="80" height="80" alt="Brandon" /><br />
+        <sub><b>Brandon</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/Zhikai-Koh">
+        <img src="https://github.com/Zhikai-Koh.png" width="80" height="80" alt="Zhi Kai" /><br />
+        <sub><b>Zhi Kai</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/kingoldwang">
+        <img src="https://github.com/kingoldwang.png" width="80" height="80" alt="Kingold" /><br />
+        <sub><b>Kingold</b></sub>
+      </a>
+    </td>
+  </tr>
+</table>
