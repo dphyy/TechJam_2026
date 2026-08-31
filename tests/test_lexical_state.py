@@ -16,6 +16,40 @@ from mercury.lexical.retrieval import CatalogSearch, _hard_constraint_and_expres
 
 
 class ActiveEvidenceTest(unittest.TestCase):
+    def test_no_additional_preference_preserves_existing_requirements(self):
+        for wording in ("I have no additional preference for feature.",
+                        "I don't have an additional material preference.",
+                        "No additional preference for lining material."):
+            with self.subTest(wording=wording):
+                state = SessionState({})
+                state.record_question("feature")
+                state.observe("Key requirement is: rounded hem; cotton; lining: silk.", 1)
+                before = list(state.evidence)
+                state.observe(wording, 2)
+                self.assertEqual(state.evidence, before)
+
+    def test_omitting_additional_still_retracts_the_named_preference(self):
+        state = SessionState({})
+        state.observe("Key requirement is: rounded hem; cotton.", 1)
+        state.observe("I have no preference for material.", 2)
+        self.assertEqual([item.text for item in state.evidence], ["rounded hem"])
+
+    def test_neutral_answer_preserves_the_requested_question_attribute(self):
+        for attribute in ("other", "feature", "style", "material"):
+            with self.subTest(attribute=attribute):
+                state = SessionState({})
+                state.record_question(attribute)
+                state.observe("I have no preference.", 1)
+                self.assertEqual(state.no_preference_attributes, {attribute})
+
+    def test_explicit_neutral_attribute_overrides_the_last_question(self):
+        for attribute in ("other", "feature"):
+            with self.subTest(attribute=attribute):
+                state = SessionState({})
+                state.record_question("material")
+                state.observe(f"I have no preference for {attribute}.", 1)
+                self.assertEqual(state.no_preference_attributes, {attribute})
+
     def test_absence_word_in_category_does_not_destroy_category(self):
         state = SessionState({})
         state.observe("I'm looking for no show socks. I prefer cotton.", 1)

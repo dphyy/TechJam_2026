@@ -225,10 +225,16 @@ class SessionState:
                 continue
             if not explicit_requirement and (UNCERTAIN_RE.match(clause) or reported.search(clause)):
                 continue
-            if NO_PREFERENCE_RE.search(quote.sub("", clause)):
-                attribute = _infer_attribute(clause, self._answer_attribute())
+            if neutral := NO_PREFERENCE_RE.search(quote.sub("", clause)):
+                attribute = _infer_attribute(clause)
+                if attribute == "other":
+                    named = re.search(r"\bpreference\s+(?:for|about)\s+(other|features?)\b", clause, re.I)
+                    attribute = (named.group(1).casefold().removesuffix("s") if named
+                                 else self._answer_attribute() or "other")
                 owner = component_scope(clause)
-                self._retire(attribute, owner)
+                # Declining another requirement does not withdraw an existing one.
+                if not re.search(r"\badditional\b", neutral.group(0), re.I):
+                    self._retire(attribute, owner)
                 if owner is None:
                     self.no_preference_attributes.add(attribute)
                 continue
