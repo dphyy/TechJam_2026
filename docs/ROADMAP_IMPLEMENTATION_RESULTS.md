@@ -29,7 +29,9 @@ The preparation command selected targets before any agent inference, excluded al
 200 public targets, and created 80 development plus 40 sealed-final sessions. The
 development hash is
 `3cba45ace6494f28e1fdc707f57a335b9f028314b9a3f773f666cb50992a7fae`.
-The final split remains unopened by evaluation.
+The final split was unopened during this roadmap experiment. It was subsequently
+consumed by the [pipeline refinement evaluation](PIPELINE_REFINEMENT_RESULTS.md);
+it is no longer an untouched holdout. See [current status semantics](DATASET_STATUS.md).
 
 One primary ablation at a time was run on the 80-session development split:
 
@@ -44,7 +46,8 @@ One primary ablation at a time was run on the 80-session development split:
 The source remained unchanged during the suite and every arm recorded zero
 fallback turns. These are synthetic unseen-target development results, not
 organizer-private evidence. Since no arm cleared the registered `+0.01` gate, the
-sealed final split was not consumed.
+sealed final split was not consumed by this experiment. This is a historical
+statement, not the split's current status.
 
 ## Calibration Evidence
 

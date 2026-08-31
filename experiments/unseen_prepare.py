@@ -194,7 +194,14 @@ def prepare(catalog: Path, excluded_dataset: Path, output: Path, development_cou
         "schema": "mercury-unseen-evidence-v1",
         "created_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "method": "Target selection and simulator rows were frozen before any agent inference.",
-        "interpretation": "Synthetic unseen-target engineering evidence; not organizer-private evidence.",
+        "interpretation": (
+            "Synthetic targets excluded from the supplied dataset at preparation; "
+            "not a current holdout status or organizer-private evidence."
+        ),
+        "status_semantics": (
+            "Preparation snapshot only. final-sealed.jsonl is a historical filename, "
+            "not a live seal. Use experiments.dataset_status to audit recorded exposure."
+        ),
         "seed": seed,
         "development_count": development_count,
         "final_count": final_count,

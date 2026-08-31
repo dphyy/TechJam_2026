@@ -2,12 +2,18 @@
 
 Registered 28 August 2026 before running any roadmap candidate on these rows.
 
+**Status correction, 31 August 2026:** the 40-session final split was subsequently
+evaluated on 29 August in `runs/refined-paging-final-sealed/report.json` and
+`runs/refined-paging-final-control/report.json`. It is consumed development
+evidence now. `final-sealed.jsonl` remains its original filename for reproducibility;
+the name does not imply a current seal. See [dataset status semantics](DATASET_STATUS.md).
+
 ## Purpose
 
 The released 200-session public set is consumed development evidence. Roadmap
 promotion therefore requires catalog targets that were not present in that set.
 This protocol creates deterministic evaluator-compatible sessions before agent
-inference and keeps a final split sealed.
+inference and initially kept a final split sealed.
 
 This is synthetic unseen-target engineering evidence, not organizer-private or
 real-user evidence. The official evaluator still derives intent cards and dialogue
@@ -48,8 +54,10 @@ committed so another team member can reproduce them exactly.
    after correctness, latency, and development gates.
 3. Record source, config, model, input hashes, latency, memory, tokens, fallbacks,
    and per-scenario results for every run.
-4. A failed or interrupted final run consumes the final split for that source and
-   configuration; do not repair and relabel it as unseen.
+4. A failed or interrupted final run consumes the registered attempt. A later
+   source, configuration, filename, or output directory does not restore an
+   untouched holdout; do not repair and relabel it as unseen. The originally
+   registered frozen comparison may include its matched control.
 5. Do not use the public set to tune new roadmap thresholds. It may be replayed
    later only as labeled descriptive compatibility evidence.
 
@@ -71,4 +79,6 @@ the offline report, never passed to the Agent.
 
 The first development-only ablation is recorded in
 [the roadmap implementation results](ROADMAP_IMPLEMENTATION_RESULTS.md). No arm
-passed promotion, so the sealed final split remains unconsumed.
+passed promotion in that experiment, so it did not open the final split at that
+time. The later [pipeline refinement evaluation](PIPELINE_REFINEMENT_RESULTS.md)
+consumed it. Historical preparation metadata must not override those run receipts.
