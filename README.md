@@ -1,8 +1,19 @@
 # Mercury
 
-**Conversational product search that remembers changing intent and explores beyond the first shortlist.**
+<p align="center">
+  <img src="assets/mercury-logo.jpeg" alt="Mercury" width="760" />
+</p>
 
-`Python` · `SQLite FTS5` · `Offline` · `Lexical search + guarded paging`
+<p align="center">
+  <strong>Conversational product search that keeps up with changing intent.</strong><br />
+  Search a local catalog, refine your preferences, and explore the next relevant shortlist.
+</p>
+
+<p align="center">
+  <a href="#setup-and-installation"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&amp;logo=python&amp;logoColor=white" alt="Python 3.10 or later" /></a>
+  <a href="#pipeline-behavior"><img src="https://img.shields.io/badge/SQLite-FTS5-003B57?style=for-the-badge&amp;logo=sqlite&amp;logoColor=white" alt="SQLite FTS5" /></a>
+  <a href="#project-overview"><img src="https://img.shields.io/badge/Runtime-Offline-1F7A5C?style=for-the-badge" alt="Offline runtime" /></a>
+</p>
 
 [Overview](#project-overview) · [Setup](#setup-and-installation) · [Results](#reproducing-the-results) · [Reflection](#limitations-and-future-improvements) · [Team](#team-member-contributions)
 
